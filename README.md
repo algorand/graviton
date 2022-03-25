@@ -1,3 +1,5 @@
+<!-- markdownlint-disable no-inline-html -->
+
 # TEAL Blackbox Toolkit: Program Reporting and Testing via Dry Runs
 
 **NOTE: to get math formulas to render here using Chrome, add the [xhub extension](https://chrome.google.com/webstore/detail/xhub/anidddebgkllnnnnjfkmjcaallemhjee/related) and reload**
@@ -53,6 +55,7 @@ Even better, before making fine-grained assertions you'd like to get a sense of 
 * create invariants for the entire run-sequence and assert that the invariants hold (see "**Advanced: Asserting Invariants on a Dry Run Sequence**" section below)
 
 > Becoming a TEAL Blackbox Toolkit Ninja involves 10 steps as described below
+
 ### Dry Run Environment Setup
 
 **STEP 1**. Start with a running local node and make note of Algod's port number (for our [standard sandbox](https://github.com/algorand/sandbox) this is `4001`)
@@ -139,6 +142,7 @@ assert expected == actual, dryrun_result.report(args, f"expected {expected} but 
 ```
 
 If we run the test we'll get the following printout (this is for pytest, but other testing frameworks should be similar):
+
 ```sh
 E               AssertionError: ===============
 E               <<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>>>
@@ -203,7 +207,7 @@ executions, and conjecture some program invariants. To aid in the investigation 
 * columns represent _assertable properties_ of dry-runs, and
 * rows represents dry-run executions for specific inputs
 
-**STEP 6**. Back to our $`x^2`$ example, here's how to generate a report with 1 row for each of the inputs `0, 1, ... , 15`: 
+**STEP 6**. Back to our $`x^2`$ example, here's how to generate a report with 1 row for each of the inputs `0, 1, ... , 15`:
 
 ```python
 algod = get_algod()
@@ -218,7 +222,7 @@ At this point, you'll be able to look at your [dry run sequence results](https:/
 
 <img width="465" alt="image" src="https://user-images.githubusercontent.com/291133/158812699-318169e2-487c-4dac-b97b-a9db8148b638.png">
 
-Perusing the above, it looks right: 
+Perusing the above, it looks right:
 
 * column `D` **Arg 00** has the input $`x`$ (it's the argument at index 0)
 * column `A` contains the **Run** number
@@ -237,7 +241,7 @@ Perusing the above, it looks right:
 ### Advanced: Asserting Invariants on a Dry Run Sequence
 
 The final and most advanced topic of this Howto is to turn _program invariant conjectures_ into
-**sequence assertions**. That is, let's take the information we gleaned in our EDRA CSV report, 
+**sequence assertions**. That is, let's take the information we gleaned in our EDRA CSV report,
 and create an integration test out of it. There are two ways to achieve this goal:
 
 * Procedural sequence assertions
@@ -245,7 +249,7 @@ and create an integration test out of it. There are two ways to achieve this goa
 
 #### Procedural Blackbox Dry Run Sequence Assertions
 
-**STEP 8**. The procedural approach takes the _program invariant conjectures_ and simply asserts them 
+**STEP 8**. The procedural approach takes the _program invariant conjectures_ and simply asserts them
 inside of a for loop that iterates over the inputs and dry runs. One can call each dry run
 execution independently, or use `DryRunExecutor`'s convenience methods `dryrun_app_on_sequence()` and
 `dryrun_logicsig_on_sequence()`. For example, let's assert that the above invariants hold for all
@@ -266,7 +270,7 @@ for i, dryrun_result in enumerate(dryrun_results):
 
 #### Declarative Blackbox Dry Run Sequence Assertions
 
-**STEP 9**. The TEAL Blackbox Toolkit also allows for declarative style test writing. 
+**STEP 9**. The TEAL Blackbox Toolkit also allows for declarative style test writing.
 Let's look at some sample assertions for our `lsig_square` TEAL program:
 
 ```python
@@ -357,11 +361,16 @@ DRProp.stackTop: {
 >Note that this case illustrates why `args` should be tuples intead of lists. In order to specify a map from args to expected, we need to make `args` a key
 >in a dictionary: Python dictionary keys must be hashable and lists are **not hashable** while tuples _are_ hashable.
 
+<!-- markdownlint-disable ol-prefix -->
+
 4. _2-variable functions_ -these are useful when your assertion is more subtle than out-and-out equality. For example, suppose you want to assert that the `cost` of each run is _between_ $`2n \pm 5`$ where $`n`$ is the first arg of the input. Then you could declare `DRProp.cost: lambda args, actual: 2*args[0] - 5 <= actual <= 2*args[0] + 5`
 
 #### **EXERCISE A**
+
 Convert each of the lambda expressions used above to dictionaries that assert the same thing.
+
 #### **EXERCISE B**
+
 Use 2-variable functions in order to _ignore_ the
 weird $`x=0`$ cases above.
 
@@ -396,4 +405,3 @@ A few items to take note of:
 * you can see the final values of scratch slots **s@000** and **s@001** which are respectively $`n`$ and `fibonacci(n)`
 
 You can see how [sequence assertions can be made](https://github.com/algorand/py-algorand-sdk/blob/77addfc236e78e41e2fd761fd59b506d8d344346/x/blackbox/blackbox_test.py#L324) on this function.
-
