@@ -17,7 +17,12 @@ from tests.clients import get_algod
 
 
 def test_algod():
-    assert get_algod().status(), "somehow got nothing out of Algod's status"
+    algod = get_algod()
+    url = algod.algod_address
+    print(f"algod.url: {url}")
+    status = algod.status()
+    print(f"algod.status(): {status}")
+    assert status, "somehow got nothing out of Algod's status"
 
 
 # def fac_with_overflow(n):

@@ -19,7 +19,7 @@ blackbox-smoke-test:
 	pwd
 
 integration-test:
-	pytest tests/integration_test.py
+	pytest -sv tests/integration_test.py
 
 blackbox: blackbox-smoke-test integration-test
 
