@@ -3,6 +3,9 @@
 # Integration tests
 .sandbox
 
+# Comma Seperated Value reports
+*.csv
+
 # Emacs detritus
 *~
 

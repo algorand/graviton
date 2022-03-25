@@ -14,9 +14,10 @@ pip:
 
 
 build-and-test:
-	pytest tests/blackbox_test.py
+	pytest tests/unit_test.py
 
 blackbox:
 	echo "hello blackbox!"
 	ls
 	./sandbox test
+	pytest tests/integration_test.py
