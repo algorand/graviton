@@ -14,7 +14,8 @@ blackbox-smoke-test:
 	pwd
 	ls
 	ls sandbox
-	cd sandbox && script -e -c "./sandbox test"
+	script -e -c "bash -x ./sandbox/sandbox test"
+	cd sandbox && docker-compose ps
 	pwd
 
 integration-test:
