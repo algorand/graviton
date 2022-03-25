@@ -8,12 +8,15 @@ env-down:
 
 # Build
 
-pip:
+pip-publish:
 	pip install -r requirements.txt
 	pip install -e .
 
+pip-test:
+	pip install -r requirements.txt
+	pip install .
 
-build-and-test:
+unit-test:
 	pytest tests/unit_test.py
 
 blackbox:
