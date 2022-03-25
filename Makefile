@@ -1,13 +1,3 @@
-# Github Actions
-
-env-up:
-	bash -x .sandbox/sandbox up dev
-
-env-down:
-	.sandbox/sandbox down dev
-
-# Build
-
 pip-publish:
 	pip install -r requirements.txt
 	pip install -e .
@@ -25,3 +15,5 @@ blackbox:
 	ls
 	./sandbox test
 	pytest tests/integration_test.py
+
+.PHONY: pip-publish pip-test unit-test blackbox
