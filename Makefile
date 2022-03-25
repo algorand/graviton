@@ -18,6 +18,7 @@ build-and-test:
 
 blackbox:
 	echo "hello blackbox!"
+	pwd
 	ls
 	./sandbox test
 	pytest tests/integration_test.py
