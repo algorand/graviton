@@ -9,11 +9,17 @@ pip-test:
 unit-test:
 	pytest tests/unit_test.py
 
-blackbox:
+blackbox-smoke-test:
 	echo "hello blackbox!"
 	pwd
 	ls
-	./sandbox test
+	ls sandbox
+	cd sandbox && bash -x ./sandbox test
+	pwd
+
+integration-test:
 	pytest tests/integration_test.py
+
+blackbox: blackbox-smoke-test integration-test
 
 .PHONY: pip-publish pip-test unit-test blackbox
