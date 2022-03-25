@@ -1,3 +1,13 @@
+##### graviton specific ignores #####
+
+# Integration tests
+.sandbox
+
+# Emacs detritus
+*~
+
+##### github recommends for Python #####
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
