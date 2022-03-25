@@ -14,7 +14,7 @@ blackbox-smoke-test:
 	pwd
 	ls
 	ls sandbox
-	cd sandbox && bash -x ./sandbox test
+	cd sandbox && script -e -c "./sandbox test"
 	pwd
 
 integration-test:
