@@ -18,3 +18,5 @@ build-and-test:
 
 blackbox:
 	echo "hello blackbox!"
+	ls
+	./sandbox test
