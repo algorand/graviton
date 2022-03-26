@@ -105,13 +105,21 @@ When executing a dry run using  `DryRunExecutor` you'll get back `DryRunInspecto
 from blackbox.blackbox import DryRunExecutor
 from tests.clients import get_algod
 
-algod = get_algod()
-x = 9
-args = (x,)
-dryrun_result = DryRunExecutor.dryrun_logicsig(algod, teal, args)
-assert dryrun_result.status() == "PASS"
-assert dryrun_result.stack_top() == x ** 2
-```
+  algod = get_algod()
+  x = 9
+  args = (x,)
+  inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
+  assert inspector.status() == "PASS"
+  assert inspector.stack_top() == x**2
+
+  print(inspector.stack_top())
+  print(inspector.last_log())
+  print(inspector.cost())
+  print(inspector.status())
+  print(inspector.final_scratch())
+  print(inspector.error())
+  print(inspector.max_stack_height())
+  ```
 
 Some available _assertable properties_ are:
 
@@ -123,7 +131,7 @@ Some available _assertable properties_ are:
 * `error()`
 * `max_stack_height()`
 
-See the [DryRunInspector class comment](https://github.com/algorand/py-algorand-sdk/blob/b2a3366b7bc976e0610429c186b7968a7f1bbc76/algosdk/testing/teal_blackbox.py#L371) for more assertable properties and details.
+See the [DryRunInspector class comment](./blackbox/blackbox.py#L373) for more assertable properties and details.
 
 ### Printing out the TEAL Stack Trace for a Failing Assertion
 
@@ -131,67 +139,75 @@ See the [DryRunInspector class comment](https://github.com/algorand/py-algorand-
 a handy report in the case of a failing assertion. Let's intentionally break the test case above by claiming that $`x^2 = x^3`$ for $`x=2`$ and print out this _report_ when our silly assertion fails:
 
 ```python
+from blackbox.blackbox import DryRunExecutor
+from tests.clients import get_algod
+
 algod = get_algod()
 x = 2
 args = (x,)
-dryrun_result = DryRunExecutor.dryrun_logicsig(algod, teal, args)
+inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
 
 # This one's ok
-expected, actual =  "PASS", dryrun_result.status()
-assert expected == actual, dryrun_result.report(args, f"expected {expected} but got {actual}")
+expected, actual = "PASS", inspector.status()
+assert expected == actual, inspector.report(
+    args, f"expected {expected} but got {actual}"
+)
 
 # This one's absurd! x^3 != x^2
-expected, actual = x ** 3, dryrun_result.stack_stop()
-assert expected == actual, dryrun_result.report(args, f"expected {expected} but got {actual}")
+expected, actual = x**3, inspector.stack_top()
+assert expected == actual, inspector.report(
+    args, f"expected {expected} but got {actual}"
+)
 ```
 
 If we run the test we'll get the following printout (this is for pytest, but other testing frameworks should be similar):
 
 ```sh
-E               AssertionError: ===============
-E               <<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>>>
-E               ===============
-E               App Trace:
-E                  step |   PC# |   L# | Teal              | Scratch   | Stack
-E               --------+-------+------+-------------------+-----------+----------------------
-E                     1 |     1 |    1 | #pragma version 6 |           | []
-E                     2 |     2 |    2 | arg_0             |           | [0x0000000000000002]
-E                     3 |     3 |    3 | btoi              |           | [2]
-E                     4 |     7 |    6 | label1:           |           | [2]
-E                     5 |     9 |    7 | store 0           | 0->2      | []
-E                     6 |    11 |    8 | load 0            |           | [2]
-E                     7 |    13 |    9 | pushint 2         |           | [2, 2]
-E                     8 |    14 |   10 | exp               |           | [4]
-E                     9 |     6 |    4 | callsub label1    |           | [4]
-E                    10 |    15 |   11 | retsub            |           | [4]
-E               ===============
-E               MODE: Mode.Signature
-E               TOTAL COST: None
-E               ===============
-E               FINAL MESSAGE: PASS
-E               ===============
-E               Messages: ['PASS']
-E               Logs: []
-E               ===============
-E               -----BlackBoxResult(steps_executed=10)-----
-E               TOTAL STEPS: 10
-E               FINAL STACK: [4]
-E               FINAL STACK TOP: 4
-E               MAX STACK HEIGHT: 2
-E               FINAL SCRATCH: {0: 2}
-E               SLOTS USED: [0]
-E               FINAL AS ROW: {'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2}
-E               ===============
-E               Global Delta:
-E               []
-E               ===============
-E               Local Delta:
-E               []
-E               ===============
-E               TXN AS ROW: {' Run': 0, ' cost': None, ' final_log': None, ' final_message': 'PASS', ' Status': 'PASS', 'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2, 'Arg_00': 2}
-E               ===============
-E               <<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>>>
-E               ===============
+E       AssertionError: ===============
+E             <<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>
+E             ===============
+E             App Trace:
+E                step |   PC# |   L# | Teal              | Scratch   | Stack
+E         --------+-------+------+-------------------+-----------+----------------------
+E               1 |     1 |    1 | #pragma version 6 |           | []
+E               2 |     2 |    2 | arg_0             |           | [0x0000000000000002]
+E               3 |     3 |    3 | btoi              |           | [2]
+E               4 |     7 |    6 | label1:           |           | [2]
+E               5 |     9 |    7 | store 0           | 0->2      | []
+E               6 |    11 |    8 | load 0            |           | [2]
+E               7 |    13 |    9 | pushint 2         |           | [2, 2]
+E               8 |    14 |   10 | exp               |           | [4]
+E               9 |     6 |    4 | callsub label1    |           | [4]
+E              10 |    15 |   11 | retsub            |           | [4]
+E             ===============
+E             MODE: ExecutionMode.Signature
+E             TOTAL COST: None
+E             ===============
+E             FINAL MESSAGE: PASS
+E             ===============
+E             Messages: ['PASS']
+E             Logs: []
+E             ===============
+E             -----BlackBoxResult(steps_executed=10)-----
+E             TOTAL STEPS: 10
+E             FINAL STACK: [4]
+E             FINAL STACK TOP: 4
+E             MAX STACK HEIGHT: 2
+E             FINAL SCRATCH: {0: 2}
+E             SLOTS USED: [0]
+E             FINAL AS ROW: {'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2}
+E             ===============
+E             Global Delta:
+E             []
+E             ===============
+E             Local Delta:
+E             []
+E             ===============
+E             TXN AS ROW: {' Run': 0, ' cost': None, ' last_log': '`None', ' final_message': 'PASS', ' Status': 'PASS', 'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2, 'Arg_00': 2}
+E             ===============
+E             <<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>
+E             ===============
+E             
 E       assert 8 == 4
 ```
 
@@ -201,12 +217,11 @@ In particular, we can:
   * 2 was assigned to **scratch slot #0** at step 5
   * the stack ended up with **4** on top
   * the run **PASS**'ed
-* Read the message parameter that was provided and which explains in English what went wrong: `<<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>>>`
+* Read the message parameter that was provided and which explains in English what went wrong: `expected 8 but got 4`
 
 ### EDRA: Exploratory Dry Run Analysis
 
-Let's expand our investigation from a single dry-run to multiple runs or a **run sequence**. In other words, given a sequence of inputs, observe _assertable properties_ for the corresponding
-executions, and conjecture some program invariants. To aid in the investigation we'll generate a report in CSV format (Comma Separated Values) where:
+Let's expand our investigation from a single dry-run to multiple runs or a **run sequence**. We'll observe how _assertable properties_ depend on inputs and conjecture some program invariants. To aid in the investigation we'll generate a report in CSV format (Comma Separated Values) where:
 
 * columns represent _assertable properties_ of dry-runs, and
 * rows represents dry-run executions for specific inputs
@@ -214,10 +229,13 @@ executions, and conjecture some program invariants. To aid in the investigation 
 **STEP 6**. Back to our $`x^2`$ example, here's how to generate a report with 1 row for each of the inputs `0, 1, ... , 15`:
 
 ```python
+from blackbox.blackbox import DryRunExecutor, DryRunInspector
+from tests.clients import get_algod
+
 algod = get_algod()
 inputs = [(x,) for x in range(16)]
-dryrun_results = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
-csv = DryRunInspector.csv_report(inputs, dryrun_results)
+run_results = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+csv = DryRunInspector.csv_report(inputs, run_results)
 print(csv)
 ```
 

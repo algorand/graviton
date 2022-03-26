@@ -20,14 +20,47 @@ def test_step4():
     algod = get_algod()
     x = 9
     args = (x,)
-    dryrun_result = DryRunExecutor.dryrun_logicsig(algod, teal, args)
-    assert dryrun_result.status() == "PASS"
-    assert dryrun_result.stack_top() == x**2
+    inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
+    assert inspector.status() == "PASS"
+    assert inspector.stack_top() == x**2
 
-    print(dryrun_result.stack_top())
-    print(dryrun_result.last_log())
-    print(dryrun_result.cost())
-    print(dryrun_result.status())
-    print(dryrun_result.final_scratch())
-    print(dryrun_result.error())
-    print(dryrun_result.max_stack_height())
+    print(inspector.stack_top())
+    print(inspector.last_log())
+    print(inspector.cost())
+    print(inspector.status())
+    print(inspector.final_scratch())
+    print(inspector.error())
+    print(inspector.max_stack_height())
+
+
+def test_step5():
+    from blackbox.blackbox import DryRunExecutor
+    from tests.clients import get_algod
+
+    algod = get_algod()
+    x = 2
+    args = (x,)
+    inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
+
+    # This one's ok
+    expected, actual = "PASS", inspector.status()
+    assert expected == actual, inspector.report(
+        args, f"expected {expected} but got {actual}"
+    )
+
+    # This one's absurd! x^3 != x^2
+    expected, actual = x**3, inspector.stack_top()
+    assert expected == actual, inspector.report(
+        args, f"expected {expected} but got {actual}"
+    )
+
+
+def test_step6():
+    from blackbox.blackbox import DryRunExecutor, DryRunInspector
+    from tests.clients import get_algod
+
+    algod = get_algod()
+    inputs = [(x,) for x in range(16)]
+    run_results = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    csv = DryRunInspector.csv_report(inputs, run_results)
+    print(csv)
