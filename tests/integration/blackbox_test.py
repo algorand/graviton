@@ -48,7 +48,7 @@ def fib_cost(args):
     return cost
 
 
-def test_singleton_assertions():
+def test_singleton_invariants():
     algod = get_algod()
     algod_status = algod.status()
     assert algod_status
@@ -179,10 +179,10 @@ APP_SCENARIOS = {
     "app_exp": {
         "inputs": [()],
         # since only a single input, just assert a constant in each case
-        "assertions": {
+        "invariants": {
             DRProp.cost: 11,
             DRProp.lastLog: Encoder.hex(2**10),
-            # dicts have a special meaning as assertions. So in the case of "finalScratch"
+            # dicts have a special meaning as invariants. So in the case of "finalScratch"
             # which is supposed to _ALSO_ output a dict, we need to use a lambda as a work-around
             DRProp.finalScratch: lambda _: {0: 2**10},
             DRProp.stackTop: 2**10,
@@ -195,7 +195,7 @@ APP_SCENARIOS = {
     },
     "app_square_byref": {
         "inputs": [(i,) for i in range(100)],
-        "assertions": {
+        "invariants": {
             DRProp.cost: lambda _, actual: 20 < actual < 22,
             DRProp.lastLog: Encoder.hex(1337),
             # due to dry-run artifact of not reporting 0-valued scratchvars,
@@ -213,7 +213,7 @@ APP_SCENARIOS = {
     },
     "app_square": {
         "inputs": [(i,) for i in range(100)],
-        "assertions": {
+        "invariants": {
             DRProp.cost: 14,
             DRProp.lastLog: {
                 # since execution REJECTS for 0, expect last log for this case to be None
@@ -233,7 +233,7 @@ APP_SCENARIOS = {
     },
     "app_swap": {
         "inputs": [(1, 2), (1, "two"), ("one", 2), ("one", "two")],
-        "assertions": {
+        "invariants": {
             DRProp.cost: 27,
             DRProp.lastLog: Encoder.hex(1337),
             DRProp.finalScratch: lambda args: {
@@ -254,7 +254,7 @@ APP_SCENARIOS = {
     },
     "app_string_mult": {
         "inputs": [("xyzw", i) for i in range(100)],
-        "assertions": {
+        "invariants": {
             DRProp.cost: lambda args: 30 + 15 * args[1],
             DRProp.lastLog: (
                 lambda args: Encoder.hex(args[0] * args[1]) if args[1] else None
@@ -286,7 +286,7 @@ APP_SCENARIOS = {
     },
     "app_oldfac": {
         "inputs": [(i,) for i in range(25)],
-        "assertions": {
+        "invariants": {
             DRProp.cost: lambda args, actual: (
                 actual - 40 <= 17 * args[0] <= actual + 40
             ),
@@ -314,7 +314,7 @@ APP_SCENARIOS = {
     },
     "app_slow_fibonacci": {
         "inputs": [(i,) for i in range(18)],
-        "assertions": {
+        "invariants": {
             DRProp.cost: lambda args: (fib_cost(args) if args[0] < 17 else 70_000),
             DRProp.lastLog: lambda args: (
                 Encoder.hex(fib(args[0])) if 0 < args[0] < 17 else None
@@ -350,7 +350,9 @@ def test_app_with_report(filebase: str):
     mode, scenario = ExecutionMode.Application, APP_SCENARIOS[filebase]
 
     # 0. Validate that the scenarios are well defined:
-    inputs, assertions = Invariant.inputs_and_assertions(scenario, mode)
+    inputs, invariants = Invariant.inputs_and_invariants(
+        scenario, mode, raw_predicates=True
+    )
 
     algod = get_algod()
 
@@ -378,27 +380,27 @@ def test_app_with_report(filebase: str):
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
-    # 4. Sequential assertions (if provided any)
-    for i, type_n_assertion in enumerate(assertions.items()):
-        assert_type, assertion = type_n_assertion
+    # 4. Sequential invariants (if provided any)
+    for i, type_n_invariant in enumerate(invariants.items()):
+        property, invariant = type_n_invariant
 
         assert mode_has_property(
-            mode, assert_type
-        ), f"assert_type {assert_type} is not applicable for {mode}. Please REMOVE or MODIFY"
+            mode, property
+        ), f"assert_type {property} is not applicable for {mode}. Please REMOVE or MODIFY"
 
-        assertion = Invariant(assertion, name=f"{case_name}[{i}]@{mode}-{assert_type}")
+        invariant = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{property}")
         print(
-            f"{i+1}. Semantic assertion for {case_name}-{mode}: {assert_type} <<{assertion}>>"
+            f"{i+1}. Semantic invariant for {case_name}-{mode}: {property} <<{invariant}>>"
         )
-        assertion.dryrun_assert(inputs, dryrun_results, assert_type)
+        invariant.validates(property, inputs, dryrun_results)
 
 
 # NOTE: logic sig dry runs are missing some information when compared with app dry runs.
-# Therefore, certain assertions don't make sense for logic sigs explaining why some of the below are commented out:
+# Therefore, certain invariants don't make sense for logic sigs explaining why some of the below are commented out:
 LOGICSIG_SCENARIOS = {
     "lsig_exp": {
         "inputs": [()],
-        "assertions": {
+        "invariants": {
             # DRA.cost: 11,
             # DRA.lastLog: lightly_encode_output(2 ** 10, logs=True),
             DRProp.finalScratch: lambda _: {},
@@ -412,7 +414,7 @@ LOGICSIG_SCENARIOS = {
     },
     "lsig_square_byref": {
         "inputs": [(i,) for i in range(100)],
-        "assertions": {
+        "invariants": {
             # DRA.cost: lambda _, actual: 20 < actual < 22,
             # DRA.lastLog: lightly_encode_output(1337, logs=True),
             # due to dry-run artifact of not reporting 0-valued scratchvars,
@@ -428,7 +430,7 @@ LOGICSIG_SCENARIOS = {
     },
     "lsig_square": {
         "inputs": [(i,) for i in range(100)],
-        "assertions": {
+        "invariants": {
             # DRA.cost: 14,
             # DRA.lastLog: {(i,): lightly_encode_output(i * i, logs=True) if i else None for i in range(100)},
             DRProp.finalScratch: lambda args: ({0: args[0]} if args[0] else {}),
@@ -442,7 +444,7 @@ LOGICSIG_SCENARIOS = {
     },
     "lsig_swap": {
         "inputs": [(1, 2), (1, "two"), ("one", 2), ("one", "two")],
-        "assertions": {
+        "invariants": {
             # DRA.cost: 27,
             # DRA.lastLog: lightly_encode_output(1337, logs=True),
             DRProp.finalScratch: lambda args: {
@@ -461,7 +463,7 @@ LOGICSIG_SCENARIOS = {
     },
     "lsig_string_mult": {
         "inputs": [("xyzw", i) for i in range(100)],
-        "assertions": {
+        "invariants": {
             # DRA.cost: lambda args: 30 + 15 * args[1],
             # DRA.lastLog: lambda args: lightly_encode_output(args[0] * args[1]) if args[1] else None,
             DRProp.finalScratch: lambda args: (
@@ -487,7 +489,7 @@ LOGICSIG_SCENARIOS = {
     },
     "lsig_oldfac": {
         "inputs": [(i,) for i in range(25)],
-        "assertions": {
+        "invariants": {
             # DRA.cost: lambda args, actual: actual - 40 <= 17 * args[0] <= actual + 40,
             # DRA.lastLog: lambda args, actual: (actual is None) or (int(actual, base=16) == fac_with_overflow(args[0])),
             DRProp.finalScratch: lambda args: (
@@ -507,7 +509,7 @@ LOGICSIG_SCENARIOS = {
     },
     "lsig_slow_fibonacci": {
         "inputs": [(i,) for i in range(18)],
-        "assertions": {
+        "invariants": {
             # DRA.cost: fib_cost,
             # DRA.lastLog: fib_last_log,
             # by returning True for n >= 15, we're declaring that we don't care about the scratchvar's for such cases:
@@ -540,7 +542,9 @@ def test_logicsig_with_report(filebase: str):
     mode, scenario = ExecutionMode.Signature, LOGICSIG_SCENARIOS[filebase]
 
     # 0. Validate that the scenarios are well defined:
-    inputs, assertions = Invariant.inputs_and_assertions(scenario, mode)
+    inputs, invariants = Invariant.inputs_and_invariants(
+        scenario, mode, raw_predicates=True
+    )
 
     algod = get_algod()
 
@@ -568,16 +572,16 @@ def test_logicsig_with_report(filebase: str):
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
-    # 4. Sequential assertions (if provided any)
-    for i, type_n_assertion in enumerate(assertions.items()):
-        assert_type, assertion = type_n_assertion
+    # 4. Sequential invariants (if provided any)
+    for i, type_n_invariant in enumerate(invariants.items()):
+        property, invariant = type_n_invariant
 
         assert mode_has_property(
-            mode, assert_type
-        ), f"assert_type {assert_type} is not applicable for {mode}. Please REMOVE of MODIFY"
+            mode, property
+        ), f"assert_type {property} is not applicable for {mode}. Please REMOVE of MODIFY"
 
-        assertion = Invariant(assertion, name=f"{case_name}[{i}]@{mode}-{assert_type}")
+        invariant = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{property}")
         print(
-            f"{i+1}. Semantic assertion for {case_name}-{mode}: {assert_type} <<{assertion}>>"
+            f"{i+1}. Semantic invariant for {case_name}-{mode}: {property} <<{invariant}>>"
         )
-        assertion.dryrun_assert(inputs, dryrun_results, assert_type)
+        invariant.validates(property, inputs, dryrun_results)

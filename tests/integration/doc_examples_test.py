@@ -147,3 +147,36 @@ def test_step8():
         assert inspector.max_stack_height() == 2
         assert inspector.status() == ("REJECT" if x == 0 else "PASS")
         assert inspector.final_scratch() == ({} if x == 0 else {0: x})
+
+
+def test_step9():
+    from blackbox.blackbox import (
+        DryRunExecutor,
+        DryRunProperty as DRProp,
+        ExecutionMode,
+    )
+    from blackbox.invariant import Invariant
+    from tests.clients import get_algod
+
+    algod = get_algod()
+
+    scenario = {
+        "inputs": [(i,) for i in range(100)],
+        "invariants": {
+            DRProp.stackTop: lambda args: args[0] ** 2,
+            DRProp.maxStackHeight: 2,
+            DRProp.status: lambda i: "REJECT" if i[0] == 0 else "PASS",
+            DRProp.finalScratch: lambda args: ({0: args[0]} if args[0] else {}),
+        },
+    }
+    # Validate the scenario and dig out inputs/invariants:
+    inputs, invariants = Invariant.inputs_and_invariants(
+        scenario, ExecutionMode.Signature
+    )
+
+    # Execute the dry runs and obtain sequence of DryRunInspectors:
+    inspectors = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+
+    # Invariant assertions on sequence:
+    for property, invariant in invariants.items():
+        invariant.validates(property, inputs, inspectors)

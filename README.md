@@ -231,8 +231,8 @@ csv = DryRunInspector.csv_report(inputs, run_results)
 print(csv)
 ```
 
-Note: that each element in the `inputs` array `(x,)` is itself a tuple as `args` given to a dry run execution need to be of type `Sequence` (remember, that these will be passed to a TEAL program which may take one, several, or no inputs at all).
-At this point, you'll be able to look at your [dry run sequence results](./blackbox/blackbox.py#L752) and conduct some analysis. For the $`x^2`$ example, 
+Note that each element in the `inputs` array `(x,)` is itself a tuple as `args` given to a dry run execution need to be of type `Sequence` (remember, that these will be passed to a TEAL program which may take one, several, or no inputs at all).
+At this point, you'll be able to look at your [dry run sequence results](./blackbox/blackbox.py#L752) and conduct some analysis. For the $`x^2`$ example,
 after loading the CSV in Google sheets and reformating a bit it will look like:
 
 <img width="465" alt="image" src="https://user-images.githubusercontent.com/291133/158812699-318169e2-487c-4dac-b97b-a9db8148b638.png">
@@ -246,7 +246,7 @@ Pointing out some interesting results:
 * column `G` shows scratch slot **s@000** which stores the value of $`x`$ (except for the case $`x = 0`$ in which appears empty; in fact, slots always default to the zero value and an **<a name="0val-artifact">artifact</a>** of dry-runs is that they do not report when 0-values get stored into previously empty slots as no state change actually occurs)
 * column `F` **max stack height** is always 2. The final observation makes sense because there is no branching or looping in the program.
 
-**STEP 7**. We can re-cast the observed effects in `Columns E, B, G, F` as **program invariant conjectures** written in Python as follows:
+**STEP 7**. We can re-cast the observed effects in `Columns E, B, G, F` as **invariants** written in Python as follows:
 
 * `inspector.stack_top() == x ** 2`
 * `inspector.max_stack_height() == 2`
@@ -255,16 +255,16 @@ Pointing out some interesting results:
 
 ### Advanced: Asserting Invariants on a Dry Run Sequence
 
-The final and most advanced topic of this Howto is to turn _program invariant conjectures_ into
-**sequence assertions**. That is, let's take the information we gleaned in our EDRA CSV report,
+The final and most advanced topic we'll cover is how
+to assert that invariants hold on a sequence of inputs. Lets take the information we gleaned in our EDRA CSV report,
 and create an integration test out of it. There are two ways to achieve this goal:
 
-* Procedural sequence assertions
-* Declarative sequence assertions
+* Procedural invariant assertions
+* Declarative invariant assertions
 
 #### Procedural Blackbox Dry Run Sequence Assertions
 
-**STEP 8**. The procedural approach takes the _program invariant conjectures_ and simply asserts them
+**STEP 8**. The procedural approach takes the _invariants_ and simply asserts them
 inside of a for loop that iterates over the inputs and dry runs. One can call each dry run
 execution independently, or use `DryRunExecutor`'s convenience methods `dryrun_app_on_sequence()` and
 `dryrun_logicsig_on_sequence()`. For example, let's assert that the above invariants hold for all
@@ -289,41 +289,41 @@ for i, inspector in enumerate(dryrun_results):
 #### Declarative Blackbox Dry Run Sequence Assertions
 
 **STEP 9**. The TEAL Blackbox Toolkit also allows for declarative style test writing.
-Let's look at some sample assertions for our `lsig_square` TEAL program:
+Let's define some invariants for a particular
+sequence of `lsig_square` TEAL program dry runs:
 
 ```python
-    "lsig_square": {
-        "inputs": [(i,) for i in range(100)],
-        "assertions": {
-            DRProp.stackTop: lambda args: args[0] ** 2,
-            DRProp.maxStackHeight: 2,
-            DRProp.status: lambda i: "REJECT" if i[0] = 0 else "PASS",
-            DRProp.finalScratch: lambda args: ({} if args[0] else {0: args[0]}),
-        },
+scenario = {
+    "inputs": [(i,) for i in range(100)],
+    "invariants": {
+        DRProp.stackTop: lambda args: args[0] ** 2,
+        DRProp.maxStackHeight: 2,
+        DRProp.status: lambda i: "REJECT" if i[0] = 0 else "PASS",
+        DRProp.finalScratch: lambda args: ({} if args[0] else {0: args[0]}),
     },
+}
 ```
 
 In the parlance of the TEAL Blackbox Toolkit, a set of such declarative assertions
-is called a **test scenario**. Scenarios are dict's containing two keys `inputs` and `assertions` and follow [certain conventions](https://github.com/algorand/py-algorand-sdk/blob/3d3992ccc9b3758f28e68d2c00408d2e1363a3bb/algosdk/testing/teal_blackbox.py#L942). In particular:
+is called a **test scenario**. Scenarios are dict's containing two keys `inputs` and `invariants` and follow [certain conventions](./blackbox/invariant.py#L101). In particular:
 
-* **inputs** are lists of tuples, each tuple representing the `args` to be fed into a single dry run execution
-* **assertions** are dicts that map [DryRunProperty](https://github.com/algorand/py-algorand-sdk/blob/3d3992ccc9b3758f28e68d2c00408d2e1363a3bb/algosdk/testing/teal_blackbox.py#L20)'s to actual assertions
-* here is a [live example scenario](https://github.com/algorand/py-algorand-sdk/blob/c6e91b86acf545b66a94d27581d6cfa6318206fc/x/blackbox/blackbox_test.py#L442) for $`x^2`$
+* **inputs** gives a list of tuples, each tuple representing the `args` to be fed into a single dry run execution
+* **invariants** gives a dict that maps [DryRunProperty](https://github.com/algorand/py-algorand-sdk/blob/3d3992ccc9b3758f28e68d2c00408d2e1363a3bb/algosdk/testing/teal_blackbox.py#L20)'s to an invariant _predicate_
 
 In English, letting $`x`$ be the input variable for our square function, the above **test scenario**:
 
 * provides a list of 100 tuples of the form $`(x)`$ that will serve as args.
   * IE: $`(0), (1), (2), ... , (99)`$
-* establishes 4 different _sequence assertions_ as follows:
+* establishes 4 different _invariants_ as follows:
   * the **stack's top** will contain $`x^2`$
   * the **max stack height** during execution is always 2
   * the executions' **status** is **PASS** except for the case $`x=0`$
   * the **final scratch** will have $`x`$ stored at slot `0` except for that strange $`x=0`$ case (recall the [0-val scratch slot artifact](#0val-artifact))
 
-Declarative sequence assertions make use of the following:
+Declarative invariants make use of the following:
 
 * `DryRunProperty` (aka `DRProp`): an enum that acts as a key in a scenario's assertions dict
-* class `SequenceAssertion`
+* class `Invariant`
   * its constructor takes in a predicate (there are [4 kinds of predicates](#predicate)) and returns a callable that is used for runtime assertions
   * method `inputs_and_assertions()` validates a scenario and extracts out its assertions
   * method `dryrun_assert()` evaluates the dry-run sequence using the constructed `SequenceAssertion`
@@ -331,30 +331,37 @@ Declarative sequence assertions make use of the following:
 To employ the declarative test scenario above write the following:
 
 ```python
+from blackbox.blackbox import (
+    DryRunExecutor,
+    DryRunProperty as DRProp,
+    ExecutionMode,
+)
+from blackbox.invariant import Invariant
+from tests.clients import get_algod
+
 algod = get_algod()
 
 scenario = {
     "inputs": [(i,) for i in range(100)],
-    "assertions": {
+    "invariants": {
         DRProp.stackTop: lambda args: args[0] ** 2,
         DRProp.maxStackHeight: 2,
-        DRProp.status: lambda i: "REJECT" if i[0] = 0 else "PASS",
-        DRProp.finalScratch: lambda args: ({} if args[0] else {0: args[0]}),
+        DRProp.status: lambda i: "REJECT" if i[0] == 0 else "PASS",
+        DRProp.finalScratch: lambda args: ({0: args[0]} if args[0] else {}),
     },
-},
-mode = ExecutionMode.Signature
+}
 
-# Validate the scenario and dig out inputs/assertions:
-inputs, assertions = SequenceAssertion.inputs_and_assertions(scenario, mode)
+# Validate the scenario and dig out inputs/invariants:
+inputs, invariants = Invariant.inputs_and_invariants(
+    scenario, ExecutionMode.Signature
+)
 
-# Execute the dry runs and obtain sequence of DryRunInspectors:
-dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+# Execute the dry runs and obtain a sequence of DryRunInspectors:
+inspectors = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
 
-# Sequence assertions:
-for i, prop_n_predicate in enumerate(assertions.items()):
-    property, predicate = prop_n_predicate
-    assertion = SequenceAssertion(predicate)
-    assertion.dryrun_assert(inputs, dryrun_results, property)
+# Invariant assertions on sequence:
+for property, invariant in invariants.items():
+    invariant.validates(property, inputs, inspectors)
 ```
   
 **STEP 10**. _**Deep Dive into Sequence Assertion via Exercises**_
