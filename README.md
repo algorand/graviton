@@ -8,7 +8,8 @@
 
 ### What is TEAL Blackbox Testing?
 
-TEAL Blackbox Testing lets you treat your TEAL program as a black box that for every received input produces an output and other observable effects. You can create reports that summarize those effects, and turn the _reports_ into _program invariant conjectures_ which you then check with _sequence assertions_.
+TEAL Blackbox Testing lets you gain confidence that your Algorand smart contracts
+are correct by writing assertions and and analyzing results via dry runs.
 
 ### Why Blackbox Testing?
 
@@ -20,7 +21,7 @@ Here are some use cases:
 
 ## Simple TEAL Blackbox Toolkit Example: Program for $`x^2`$
 
-Consider the following [TEAL program](https://github.com/algorand/py-algorand-sdk/blob/23c21170cfb19652d5da854e499dca47eabb20e8/x/blackbox/teal/lsig_square.teal) that purportedly computes $`x^2`$:
+Consider this [TEAL program](./tests/teal/lsig_square.teal) for computing $`x^2`$:
 
 ```plain
 #pragma version 6
@@ -38,7 +39,7 @@ exp
 retsub
 ```
 
-You'd like to write some unit tests to validate that it computes what you think it should, and also make **assertions** about the:
+We'd like to write some unit tests to validate its correctness and make **assertions** about the:
 
 * program's opcode cost
 * program's stack
@@ -48,11 +49,11 @@ You'd like to write some unit tests to validate that it computes what you think 
 * status (**PASS**, **REJECT** or _erroring_)
 * error conditions that are and aren't encountered
 
-Even better, before making fine-grained assertions you'd like to get a sense of what the program is doing on a large set of inputs so you can discover program invariants. The TEAL Blackbox Toolkit's recommended approach for enabling these goals is to:
+Even better, before making fine-grained assertions we'd like to get a sense of what the program is doing on a large set of inputs and discover _experimentally_ these program invariants. Let's go through how we can do this:
 
 * start by making basic assertions and validate them using dry runs (see "**Basic Assertions**" section below)
-* execute the program on a run-sequence of inputs and explore the results (see "**EDRA: Exploratory Dry Run Analysis**" section below)
-* create invariants for the entire run-sequence and assert that the invariants hold (see "**Advanced: Asserting Invariants on a Dry Run Sequence**" section below)
+* execute the program on a sequence of inputs and explore the results (see "**EDRA: Exploratory Dry Run Analysis**" section below)
+* create invariants for the entire sequence and assert that the invariants hold (see "**Advanced: Asserting Invariants on a Dry Run Sequence**" section below)
 
 > Becoming a TEAL Blackbox Toolkit Ninja involves 10 steps as described below
 
