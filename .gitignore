@@ -2,6 +2,7 @@
 
 # Integration tests
 .sandbox
+sandbox
 
 # Comma Seperated Value reports
 *.csv

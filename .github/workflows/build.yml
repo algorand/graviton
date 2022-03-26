@@ -65,4 +65,4 @@ jobs:
       - name: Setup integration test environment
         run: make pip-test unit-test
       - name: Run integration tests
-        run: make blackbox
+        run: make gh-blackbox

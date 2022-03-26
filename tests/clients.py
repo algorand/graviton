@@ -4,9 +4,9 @@ from algosdk.v2client.algod import AlgodClient
 # from algosdk.v2client.indexer import IndexerClient
 
 DEVNET_TOKEN = "a" * 64
-ALGOD_PORT = 60000
-# KMD_PORT = 60001
-# INDEXER_PORTS = range(59_996, 60_000)
+ALGOD_PORT = 4001
+# KMD_PORT = 4002
+# INDEXER_PORT = 8980
 
 
 def get_algod() -> AlgodClient:
@@ -17,9 +17,5 @@ def get_algod() -> AlgodClient:
 #     return KMDClient(DEVNET_TOKEN, f"http://localhost:{KMD_PORT}")
 
 
-# def get_indexer(port: int) -> IndexerClient:
-#     assert (
-#         port in INDEXER_PORTS
-#     ), f"port for available indexers must be in {INDEXER_PORTS} but was provided {port}"
-
-#     return IndexerClient(DEVNET_TOKEN, f"http://localhost:{port}")
+# def get_indexer() -> IndexerClient:
+#     return IndexerClient(DEVNET_TOKEN, f"http://localhost:{INDEXER_PORT}")
