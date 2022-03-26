@@ -24,12 +24,12 @@ integration-test:
 
 ###### Mac Only ######
 
-# assumes you've installed pipx, build and tox via:
-# pip install pipx; pipx install build; pipx install tox
+# assumes installations of pipx, build and tox via:
+# `pip install pipx; pipx install build; pipx install tox`
 mac-project-build:
 	pyproject-build
 
-# assumes you have a symbolic link: sandbox -> /cloned/repo/algorand/sandbox
+# assumes a symbolic link: sandbox -> /cloned/repo/algorand/sandbox
 mac-sandbox-test:
 	./sandbox/sandbox test
 
@@ -37,7 +37,10 @@ mac-blackbox-smoke: blackbox-smoke-prefix mac-sandbox-test
 
 mac-blackbox: mac-blackbox-smoke integration-test
 
-mac-publish: py
+# assumes you've installed act via `brew install act`:
+mac-gh-simulate:
+	act
+
 
 ###### Github Actions Only ######
 
