@@ -43,7 +43,7 @@ mac-publish: py
 
 gh-sandbox-test:
 	# expect exit code 2 on github and 0 on mac, as indexer is not present in the install but is on the typical sandbox
-	script -e -c "bash -x ./sandbox/sandbox test"; if $? -eq 2 ]; then echo 0; else echo $?; fi
+	script -e -c "bash -x ./sandbox/sandbox test"; if [$? -eq 2 ]; then echo 0; else echo $?; fi
 
 gh-blackbox-smoke: blackbox-smoke-prefix gh-sandbox-test
 
