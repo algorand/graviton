@@ -44,7 +44,7 @@ mac-gh-simulate:
 ###### Github Actions Only ######
 
 gh-sandbox-test:
-	# allow exit code 2 as indexer returns 500 when last-round = 0
+	# relax exit code condition because indexer returns 500 when last-round = 0
 	script -e -c "bash -x ./sandbox/sandbox test" || echo "finished ./sandbox test"
 
 gh-blackbox-smoke: blackbox-smoke-prefix gh-sandbox-test
