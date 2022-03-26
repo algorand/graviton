@@ -8,8 +8,9 @@ from blackbox.blackbox import (
     DryRunProperty as DRProp,
     DryRunInspector as DRR,
     ExecutionMode,
-    SequenceAssertion,
+    mode_has_property,
 )
+from blackbox.invariant import Invariant
 
 from tests.clients import get_algod
 
@@ -349,7 +350,7 @@ def test_app_with_report(filebase: str):
     mode, scenario = ExecutionMode.Application, APP_SCENARIOS[filebase]
 
     # 0. Validate that the scenarios are well defined:
-    inputs, assertions = SequenceAssertion.inputs_and_assertions(scenario, mode)
+    inputs, assertions = Invariant.inputs_and_assertions(scenario, mode)
 
     algod = get_algod()
 
@@ -381,13 +382,11 @@ def test_app_with_report(filebase: str):
     for i, type_n_assertion in enumerate(assertions.items()):
         assert_type, assertion = type_n_assertion
 
-        assert SequenceAssertion.mode_has_assertion(
+        assert mode_has_property(
             mode, assert_type
         ), f"assert_type {assert_type} is not applicable for {mode}. Please REMOVE or MODIFY"
 
-        assertion = SequenceAssertion(
-            assertion, name=f"{case_name}[{i}]@{mode}-{assert_type}"
-        )
+        assertion = Invariant(assertion, name=f"{case_name}[{i}]@{mode}-{assert_type}")
         print(
             f"{i+1}. Semantic assertion for {case_name}-{mode}: {assert_type} <<{assertion}>>"
         )
@@ -541,7 +540,7 @@ def test_logicsig_with_report(filebase: str):
     mode, scenario = ExecutionMode.Signature, LOGICSIG_SCENARIOS[filebase]
 
     # 0. Validate that the scenarios are well defined:
-    inputs, assertions = SequenceAssertion.inputs_and_assertions(scenario, mode)
+    inputs, assertions = Invariant.inputs_and_assertions(scenario, mode)
 
     algod = get_algod()
 
@@ -573,13 +572,11 @@ def test_logicsig_with_report(filebase: str):
     for i, type_n_assertion in enumerate(assertions.items()):
         assert_type, assertion = type_n_assertion
 
-        assert SequenceAssertion.mode_has_assertion(
+        assert mode_has_property(
             mode, assert_type
         ), f"assert_type {assert_type} is not applicable for {mode}. Please REMOVE of MODIFY"
 
-        assertion = SequenceAssertion(
-            assertion, name=f"{case_name}[{i}]@{mode}-{assert_type}"
-        )
+        assertion = Invariant(assertion, name=f"{case_name}[{i}]@{mode}-{assert_type}")
         print(
             f"{i+1}. Semantic assertion for {case_name}-{mode}: {assert_type} <<{assertion}>>"
         )
