@@ -117,7 +117,7 @@ assert inspector.stack_top() == x**2
 Here we have executed a dry run on input $`x=9`$, then asserted that:
 
 * the program status was `PASS`
-* the program exited with the top of its staack containing $`x^2 = 9^2 = 81`$
+* the program exited with the top of its stack containing $`x^2 = 9^2 = 81`$
 
 Some available _assertable properties_ are:
 
@@ -158,7 +158,7 @@ assert expected == actual, inspector.report(
 )
 ```
 
-If we run the test we'll (e.g. with `pytest`) see a printout such as:
+If we run the test (e.g. with `pytest`) we'll see a printout such as:
 
 ```sh
 AssertionError:
@@ -393,7 +393,7 @@ DRProp.stackTop: {
 }
 ```
 
->Note that this case illustrates why `args` should be tuples intead of lists. In order to specify a map from args to expected, we need to make `args` a key in a dictionary. As Python dictionary keys must be hashable and lists are _not hashable_ while tuples _are_ hashable.
+>Note that this case illustrates why each `args` container should be a tuple intead of a list. In order to specify a map from args to expected, we need to make `args` a key in a dictionary. Python dictionary keys must be hashable and lists are _not hashable_ while tuples _are_ hashable, hence the tuple-requirement.
 
 4. _2-variable functions_ -these are useful when your assertion is more subtle than out-and-out equality. For example, suppose you want to assert that the `cost` of each run is _between_ $`2n \pm 5`$ where $`n`$ is the first arg of the input. Then you could declare:
 
