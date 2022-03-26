@@ -124,12 +124,12 @@ Some available _assertable properties_ are:
 * `error()`
 * `max_stack_height()`
 
-See the [DryRunInspector class comment](./blackbox/blackbox.py#L373) for more assertable properties and details.
+See the [DryRunInspector class comment](./blackbox/blackbox.py#L387) for more assertable properties and details.
 
 ### Printing out the TEAL Stack Trace for a Failing Assertion
 
 **STEP 5**. The `DryRunInspector`'s `report()` method lets you print out
-a handy report in the case of a failing assertion. Let's intentionally break the test case above by claiming that $`x^2 = x^3`$ for $`x=2`$ and print out this _report_ when our silly assertion fails:
+a handy report in the case of a failing assertion. Let's intentionally break the test case above by claiming that $`x^2 = x^3`$ for $`x=2`$ and print out this _report_ when our silly assertion fails.
 
 ```python
 from blackbox.blackbox import DryRunExecutor
@@ -153,7 +153,7 @@ assert expected == actual, inspector.report(
 )
 ```
 
-If we run the test we'll a printout such as:
+If we run the test we'll (e.g. with `pytest`) see a printout such as:
 
 ```sh
 AssertionError:
@@ -309,7 +309,7 @@ In the parlance of the TEAL Blackbox Toolkit, a set of such declarative assertio
 is called a **test scenario**. Scenarios are dict's containing two keys `inputs` and `invariants` and follow [certain conventions](./blackbox/invariant.py#L101). In particular:
 
 * **inputs** gives a list of tuples, each tuple representing the `args` to be fed into a single dry run execution
-* **invariants** gives a dict that maps [DryRunProperty](https://github.com/algorand/py-algorand-sdk/blob/3d3992ccc9b3758f28e68d2c00408d2e1363a3bb/algosdk/testing/teal_blackbox.py#L20)'s to an invariant _predicate_
+* **invariants** gives a dict that maps [DryRunProperty](./blackbox/blackbox.py#L25)'s to an invariant _predicate_
 
 In English, letting $`x`$ be the input variable for our square function, the above **test scenario**:
 

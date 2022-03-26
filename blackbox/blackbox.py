@@ -36,6 +36,9 @@ class DryRunProperty(Enum):
     localStateHas = auto()
 
 
+DRProp = DryRunProperty
+
+
 def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> bool:
     missing = {
         ExecutionMode.Signature: {
@@ -48,9 +51,6 @@ def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> 
         return False
 
     return True
-
-
-DRProp = DryRunProperty
 
 
 @dataclass
