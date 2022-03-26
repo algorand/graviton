@@ -14,8 +14,8 @@ unit-test:
 blackbox-smoke-prefix:
 	echo "hello blackbox!"
 	pwd
-	ls
-	ls sandbox
+	ls -l
+	ls -l sandbox
 	cd sandbox && docker-compose ps
 
 integration-test:
