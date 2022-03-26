@@ -61,13 +61,13 @@ Even better, before making fine-grained assertions we'd like to get a sense of w
 
 **STEP 1**. Start with a running local node and make note of Algod's port number (for our [standard sandbox](https://github.com/algorand/sandbox) this is `4001`)
 
-**STEP 2**. Set the `ALGOD_PORT` value in [x/testnet.py](https://github.com/algorand/py-algorand-sdk/blob/5faf79ddb56327a0e036ff4e21a39b52535751ae/x/testnet.py#L6) to this port number. (The port is set to `60000` by default because [SDK-testing](https://github.com/algorand/algorand-sdk-testing) bootstraps with this setting on Circle and also to avoid conflicting locally with the typical sandbox setup)
+**STEP 2**. Set the `ALGOD_PORT` value in [tests/clients.py](./tests/clients.py#L7) to this port number. (The port is already pre-set to `4001` because [graviton](https://github.com/algorand/graviton)'s CI process uses the standad sandbox)
 
 ### TEAL Program for Testing: Logic Sig v. App
 
-**STEP 3**. Next, you'll need to figure out if your TEAL program should be a Logic Signature or an Application. Each of these program _modes_ has its merits, but I won't get into the pros/cons here. From a Blackbox Test's perspective, the main difference is how each receives its arguments from the program executor. Logic sigs rely on the [arg opcode](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#arg-n) while apps rely on [txna ApplicationArgs i](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#txna-f-i). In our $`x^2`$ **logic sig** example, you can see on [line 2](https://github.com/algorand/py-algorand-sdk/blob/23c21170cfb19652d5da854e499dca47eabb20e8/x/blackbox/teal/lsig_square.teal#L2) that the `arg` opcode is used. Because each argument opcode (`arg` versus `ApplicationArgs`) is exclusive to one mode, any program that takes input will execute succesfully in _one mode only_.
+**STEP 3**. Next, you'll need to figure out if your TEAL program should be a Logic Signature or an Application. Each of these program _modes_ has its merits, but we won't get into the pros/cons here. From a Blackbox Test's perspective, the main difference is how external arguments are handled. Logic sigs rely on the [arg opcode](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#arg-n) while apps rely on [txna ApplicationArgs i](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#txna-f-i). In our $`x^2`$ **logic sig** example, you can see on [line 2](./tests/teal/lsig_square.teal#L2) that the `arg` opcode is used. Because each argument opcode (`arg` versus `ApplicationArgs`) is mode-exclusive, any program that takes input will execute succesfully in _one mode only_.
 
-**STEP 4**. Write the TEAL program that you want to test. You can inline the test as described here or follow the approach of `x/blackbox/blackbox_test.py` and save under `x/blackbox/teal`. So following the inline
+**STEP 4**. Write the TEAL program that you want to test. You can inline the test as described here or follow the approach of `./blackbox/blackbox_test.py` and save under `./blackbox/teal`. So following the inline
 appraoch we begin our TEAL Blackbox script with an <a name="teal">inline teal source variable</a>:
 
 ```python
@@ -91,17 +91,20 @@ retsub"""
 The TEAL Blackbox Toolkit comes with the following utility classes:
 
 * `DryRunExecutor` - facility to execute dry run's on apps and logic sigs
-* `DryRunTransactionResult` - class encapsulating a single app or logic sig dry run transaction and for making assertions about the dry run
+* `DryRunInspector` - class encapsulating a single app or logic sig dry run transaction and for making assertions about the dry run
 * `SequenceAssertion` - class for asserting invariants about a _sequence_ of dry run executions in a declarative fashion
 
 ### Basic Assertions
 
-When executing a dry run using  `DryRunExecutor` you'll get back `DryRunTransactionResult` objects. Such objects have
+When executing a dry run using  `DryRunExecutor` you'll get back `DryRunInspector` objects. Such objects have
 **assertable properties** which can be used to validate the dry run.
 
 **STEP 4**. Back to our $`x^2`$ example, and assuming the `teal`  variable is defined [as above](#teal). You can run the following:
 
 ```python
+from blackbox.blackbox import DryRunExecutor
+from tests.clients import get_algod
+
 algod = get_algod()
 x = 9
 args = (x,)
@@ -120,11 +123,11 @@ Some available _assertable properties_ are:
 * `error()`
 * `max_stack_height()`
 
-See the [DryRunTransactionResult class comment](https://github.com/algorand/py-algorand-sdk/blob/b2a3366b7bc976e0610429c186b7968a7f1bbc76/algosdk/testing/teal_blackbox.py#L371) for more assertable properties and details.
+See the [DryRunInspector class comment](https://github.com/algorand/py-algorand-sdk/blob/b2a3366b7bc976e0610429c186b7968a7f1bbc76/algosdk/testing/teal_blackbox.py#L371) for more assertable properties and details.
 
 ### Printing out the TEAL Stack Trace for a Failing Assertion
 
-**STEP 5**. The `DryRunTransactionResult`'s `report()` method lets you print out
+**STEP 5**. The `DryRunInspector`'s `report()` method lets you print out
 a handy report in the case of a failing assertion. Let's intentionally break the test case above by claiming that $`x^2 = x^3`$ for $`x=2`$ and print out this _report_ when our silly assertion fails:
 
 ```python
@@ -214,7 +217,7 @@ executions, and conjecture some program invariants. To aid in the investigation 
 algod = get_algod()
 inputs = [(x,) for x in range(16)]
 dryrun_results = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
-csv = DryRunTransactionResult.csv_report(inputs, dryrun_results)
+csv = DryRunInspector.csv_report(inputs, dryrun_results)
 print(csv)
 ```
 
@@ -330,7 +333,7 @@ mode = ExecutionMode.Signature
 # Validate the scenario and dig out inputs/assertions:
 inputs, assertions = SequenceAssertion.inputs_and_assertions(scenario, mode)
 
-# Execute the dry runs and obtain sequence of DryRunTransactionResults:
+# Execute the dry runs and obtain sequence of DryRunInspectors:
 dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)
 
 # Sequence assertions:

@@ -279,7 +279,7 @@ class DryRunExecutor:
         teal: str,
         args: Iterable[Union[str, int]],
         sender: str = ZERO_ADDRESS,
-    ) -> "DryRunTransactionResult":
+    ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
             algod, teal, args, ExecutionMode.Application, sender=sender
         )
@@ -291,7 +291,7 @@ class DryRunExecutor:
         teal: str,
         args: Iterable[Union[str, int]],
         sender: str = ZERO_ADDRESS,
-    ) -> "DryRunTransactionResult":
+    ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
             algod, teal, args, ExecutionMode.Signature, sender
         )
@@ -303,7 +303,7 @@ class DryRunExecutor:
         teal: str,
         inputs: List[Iterable[Union[str, int]]],
         sender: str = ZERO_ADDRESS,
-    ) -> List["DryRunTransactionResult"]:
+    ) -> List["DryRunInspector"]:
         return cls._map(cls.dryrun_app, algod, teal, inputs, sender)
 
     @classmethod
@@ -313,7 +313,7 @@ class DryRunExecutor:
         teal: str,
         inputs: List[Iterable[Union[str, int]]],
         sender: str = ZERO_ADDRESS,
-    ) -> List["DryRunTransactionResult"]:
+    ) -> List["DryRunInspector"]:
         return cls._map(cls.dryrun_logicsig, algod, teal, inputs, sender)
 
     @classmethod
@@ -328,7 +328,7 @@ class DryRunExecutor:
         args: Iterable[Union[str, int]],
         mode: ExecutionMode,
         sender: str = ZERO_ADDRESS,
-    ) -> "DryRunTransactionResult":
+    ) -> "DryRunInspector":
         assert (
             len(ExecutionMode) == 2
         ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
@@ -343,10 +343,10 @@ class DryRunExecutor:
         )
         dryrun_req = builder(teal, args, sender=sender)
         dryrun_resp = algod.dryrun(dryrun_req)
-        return DryRunTransactionResult.from_single_response(dryrun_resp)
+        return DryRunInspector.from_single_response(dryrun_resp)
 
 
-class DryRunTransactionResult:
+class DryRunInspector:
     """Methods to extract information from a single dry run transaction.
     TODO: merge this with @barnjamin's similarly named class of PR #283
 
@@ -370,7 +370,7 @@ class DryRunTransactionResult:
     status "PASS" and that the top of the stack contained $`x^2 = 9`$.
     The _assertable properties_ were `status()` and `stack_top()`.
 
-    DryRunTransactionResult provides the following **assertable properties**:
+    DryRunInspector provides the following **assertable properties**:
     * `cost`
         - total opcode cost utilized during execution
         - only available for apps
@@ -435,7 +435,7 @@ class DryRunTransactionResult:
         return ExecutionMode.Signature
 
     @classmethod
-    def from_single_response(cls, dryrun_resp: dict) -> "DryRunTransactionResult":
+    def from_single_response(cls, dryrun_resp: dict) -> "DryRunInspector":
         txns = dryrun_resp.get("txns") or []
         assert (
             len(txns) == 1
@@ -719,9 +719,7 @@ class DryRunTransactionResult:
         }
 
     @classmethod
-    def csv_report(
-        cls, inputs: List[tuple], dr_resps: List["DryRunTransactionResult"]
-    ) -> str:
+    def csv_report(cls, inputs: List[tuple], dr_resps: List["DryRunInspector"]) -> str:
         """Produce a Comma Separated Values report string capturing important statistics
         for a sequence of dry runs.
 
@@ -733,7 +731,7 @@ class DryRunTransactionResult:
         >>> algod = get_algod()
         >>> inputs = [(x,) for x in range(11)]  # [(0), (1), ... , (10)]
         >>> dryrun_results = DryRunExecutor.dryrun_app_on_sequence(algod, teal, inputs)
-        >>> csv = DryRunTransactionResult.csv_report(inputs, dryrun_results)
+        >>> csv = DryRunInspector.csv_report(inputs, dryrun_results)
         >>> print(csv)
         ```
         Then you would get the following output:
@@ -850,7 +848,7 @@ class SequenceAssertion:
     def dryrun_assert(
         self,
         inputs: List[list],
-        dryrun_results: List["DryRunTransactionResult"],
+        dryrun_results: List["DryRunInspector"],
         assert_type: DryRunProperty,
     ):
         N = len(inputs)

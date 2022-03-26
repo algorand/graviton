@@ -9,7 +9,7 @@ pip-test:
 	pip install .
 
 unit-test:
-	pytest tests/unit_test.py
+	pytest -sv tests/unit
 
 blackbox-smoke-prefix:
 	echo "hello blackbox!"
@@ -19,7 +19,7 @@ blackbox-smoke-prefix:
 	cd sandbox && docker-compose ps
 
 integration-test:
-	pytest -sv tests/integration_test.py
+	pytest -sv tests/integration
 
 
 ###### Mac Only ######

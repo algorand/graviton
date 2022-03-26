@@ -6,7 +6,7 @@ from blackbox.blackbox import (
     DryRunEncoder as Encoder,
     DryRunExecutor as Executor,
     DryRunProperty as DRProp,
-    DryRunTransactionResult as DRR,
+    DryRunInspector as DRR,
     ExecutionMode,
     SequenceAssertion,
 )
