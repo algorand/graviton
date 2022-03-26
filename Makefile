@@ -41,7 +41,6 @@ mac-blackbox: mac-blackbox-smoke integration-test
 mac-gh-simulate:
 	act
 
-
 ###### Github Actions Only ######
 
 gh-sandbox-test:

@@ -180,3 +180,42 @@ def test_step9():
     # Invariant assertions on sequence:
     for property, invariant in invariants.items():
         invariant.validates(property, inputs, inspectors)
+
+
+@pytest.mark.parametrize("exercise", ["A", "B"])
+def test_exercises(exercise):
+    from blackbox.blackbox import (
+        DryRunExecutor,
+        DryRunProperty as DRProp,
+        ExecutionMode,
+    )
+    from blackbox.invariant import Invariant
+    from tests.clients import get_algod
+
+    algod = get_algod()
+
+    status_predicate = (
+        ({(x,): "PASS" if x else "REJECT" for x in range(100)})
+        if exercise == "A"
+        else (lambda args, actual: "PASS" == actual if args[0] else True)
+    )
+    scenario = {
+        "inputs": [(i,) for i in (2, 7, 13, 11)],
+        "invariants": {
+            DRProp.stackTop: {(2,): 4, (7,): 49, (13,): 169, (11,): 121},
+            DRProp.maxStackHeight: 2,
+            DRProp.status: status_predicate,
+            DRProp.finalScratch: lambda args: ({0: args[0]} if args[0] else {}),
+        },
+    }
+    # Validate the scenario and dig out inputs/invariants:
+    inputs, invariants = Invariant.inputs_and_invariants(
+        scenario, ExecutionMode.Signature
+    )
+
+    # Execute the dry runs and obtain sequence of DryRunInspectors:
+    inspectors = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+
+    # Invariant assertions on sequence:
+    for property, invariant in invariants.items():
+        invariant.validates(property, inputs, inspectors)
