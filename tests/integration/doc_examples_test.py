@@ -1,3 +1,7 @@
+import pytest
+import re
+
+
 teal = """#pragma version 6
 arg 0
 btoi
@@ -50,9 +54,64 @@ def test_step5():
 
     # This one's absurd! x^3 != x^2
     expected, actual = x**3, inspector.stack_top()
-    assert expected == actual, inspector.report(
-        args, f"expected {expected} but got {actual}"
-    )
+
+    # wrap for test purposes only
+    with pytest.raises(AssertionError) as ae:
+        assert expected == actual, inspector.report(
+            args, f"expected {expected} but got {actual}"
+        )
+    expected = """AssertionError:
+===============
+<<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>
+===============
+      App Trace:
+   step |   PC# |   L# | Teal              | Scratch   | Stack
+--------+-------+------+-------------------+-----------+----------------------
+      1 |     1 |    1 | #pragma version 6 |           | []
+      2 |     2 |    2 | arg_0             |           | [0x0000000000000002]
+      3 |     3 |    3 | btoi              |           | [2]
+      4 |     7 |    6 | label1:           |           | [2]
+      5 |     9 |    7 | store 0           | 0->2      | []
+      6 |    11 |    8 | load 0            |           | [2]
+      7 |    13 |    9 | pushint 2         |           | [2, 2]
+      8 |    14 |   10 | exp               |           | [4]
+      9 |     6 |    4 | callsub label1    |           | [4]
+     10 |    15 |   11 | retsub            |           | [4]
+===============
+MODE: ExecutionMode.Signature
+TOTAL COST: None
+===============
+FINAL MESSAGE: PASS
+===============
+Messages: ['PASS']
+Logs: []
+===============
+-----BlackBoxResult(steps_executed=10)-----
+TOTAL STEPS: 10
+FINAL STACK: [4]
+FINAL STACK TOP: 4
+MAX STACK HEIGHT: 2
+FINAL SCRATCH: {0: 2}
+SLOTS USED: [0]
+FINAL AS ROW: {'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2}
+===============
+Global Delta:
+[]
+===============
+Local Delta:
+[]
+===============
+TXN AS ROW: {' Run': 0, ' cost': None, ' last_log': '`None', ' final_message': 'PASS', ' Status': 'PASS', 'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2, 'Arg_00': 2}
+===============
+<<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>
+===============
+assert 8 == 4
+"""
+
+    def remove_whitespace(s):
+        return re.sub(r"\s+", "", s)
+
+    assert remove_whitespace(expected) == remove_whitespace(ae.exconly())
 
 
 def test_step6():

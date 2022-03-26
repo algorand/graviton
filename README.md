@@ -160,55 +160,55 @@ assert expected == actual, inspector.report(
 )
 ```
 
-If we run the test we'll get the following printout (this is for pytest, but other testing frameworks should be similar):
+If we run the test we'll a printout such as:
 
 ```sh
-E       AssertionError: ===============
-E             <<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>
-E             ===============
-E             App Trace:
-E                step |   PC# |   L# | Teal              | Scratch   | Stack
-E         --------+-------+------+-------------------+-----------+----------------------
-E               1 |     1 |    1 | #pragma version 6 |           | []
-E               2 |     2 |    2 | arg_0             |           | [0x0000000000000002]
-E               3 |     3 |    3 | btoi              |           | [2]
-E               4 |     7 |    6 | label1:           |           | [2]
-E               5 |     9 |    7 | store 0           | 0->2      | []
-E               6 |    11 |    8 | load 0            |           | [2]
-E               7 |    13 |    9 | pushint 2         |           | [2, 2]
-E               8 |    14 |   10 | exp               |           | [4]
-E               9 |     6 |    4 | callsub label1    |           | [4]
-E              10 |    15 |   11 | retsub            |           | [4]
-E             ===============
-E             MODE: ExecutionMode.Signature
-E             TOTAL COST: None
-E             ===============
-E             FINAL MESSAGE: PASS
-E             ===============
-E             Messages: ['PASS']
-E             Logs: []
-E             ===============
-E             -----BlackBoxResult(steps_executed=10)-----
-E             TOTAL STEPS: 10
-E             FINAL STACK: [4]
-E             FINAL STACK TOP: 4
-E             MAX STACK HEIGHT: 2
-E             FINAL SCRATCH: {0: 2}
-E             SLOTS USED: [0]
-E             FINAL AS ROW: {'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2}
-E             ===============
-E             Global Delta:
-E             []
-E             ===============
-E             Local Delta:
-E             []
-E             ===============
-E             TXN AS ROW: {' Run': 0, ' cost': None, ' last_log': '`None', ' final_message': 'PASS', ' Status': 'PASS', 'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2, 'Arg_00': 2}
-E             ===============
-E             <<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>
-E             ===============
-E             
-E       assert 8 == 4
+AssertionError:
+===============
+<<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>
+===============
+      App Trace:
+   step |   PC# |   L# | Teal              | Scratch   | Stack
+--------+-------+------+-------------------+-----------+----------------------
+      1 |     1 |    1 | #pragma version 6 |           | []
+      2 |     2 |    2 | arg_0             |           | [0x0000000000000002]
+      3 |     3 |    3 | btoi              |           | [2]
+      4 |     7 |    6 | label1:           |           | [2]
+      5 |     9 |    7 | store 0           | 0->2      | []
+      6 |    11 |    8 | load 0            |           | [2]
+      7 |    13 |    9 | pushint 2         |           | [2, 2]
+      8 |    14 |   10 | exp               |           | [4]
+      9 |     6 |    4 | callsub label1    |           | [4]
+     10 |    15 |   11 | retsub            |           | [4]
+===============
+MODE: ExecutionMode.Signature
+TOTAL COST: None
+===============
+FINAL MESSAGE: PASS
+===============
+Messages: ['PASS']
+Logs: []
+===============
+-----BlackBoxResult(steps_executed=10)-----
+TOTAL STEPS: 10
+FINAL STACK: [4]
+FINAL STACK TOP: 4
+MAX STACK HEIGHT: 2
+FINAL SCRATCH: {0: 2}
+SLOTS USED: [0]
+FINAL AS ROW: {'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2}
+===============
+Global Delta:
+[]
+===============
+Local Delta:
+[]
+===============
+TXN AS ROW: {' Run': 0, ' cost': None, ' last_log': '`None', ' final_message': 'PASS', ' Status': 'PASS', 'steps': 10, ' top_of_stack': 4, 'max_stack_height': 2, 's@000': 2, 'Arg_00': 2}
+===============
+<<<<<<<<<<<expected 8 but got 4>>>>>>>>>>>
+===============
+assert 8 == 4
 ```
 
 In particular, we can:
