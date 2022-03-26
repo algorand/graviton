@@ -1,4 +1,5 @@
 <!-- markdownlint-disable no-inline-html -->
+<!-- markdownlint-disable ol-prefix -->
 
 # TEAL Blackbox Toolkit: Program Reporting and Testing via Dry Runs
 
@@ -364,14 +365,18 @@ for property, invariant in invariants.items():
     invariant.validates(property, inputs, inspectors)
 ```
   
-**STEP 10**. _**Deep Dive into Sequence Assertion via Exercises**_
+**STEP 10**. _**Deep Dive into Invariants via Exercises**_
 
-There are <a name="predicate">4 kinds of Sequence Assertions _aka_ predicates</a>
+Four kinds of <a name="predicate">predicates</a> are used to define _invariants_:
 
-1. _simple python types_ - these are useful in the case of _constant_ assertions. For example above, it was
-asserted that `maxStackHeight` was _**ALWAYS**_ 2 by just using `2` in the declaration `DRProp.maxStackHeight: 2,`
-2. _1-variable functions_ -these are useful when you have a python "simulator" for the assertable property. For example above it was asserted that `stackTop` was
-$`x^2`$ by using a lambda expression for $`x^2`$ in the declaration `DRProp.stackTop: lambda args: args[0] ** 2,`
+1. _simple python types_ - these are useful in the case of _constant_ invariants. In the above `maxStackHeight` is asserted to _**ALWAYS**_ equal 2 by using `2` in the declaration:
+
+`DRProp.maxStackHeight: 2`
+
+2. _1-variable functions_ -these are useful when you have a python "simulator" for the invariant. In the above `stackTop` is asserted to be $`x^2`$ by using a lambda expression for $`x^2`$ in the declaration:
+
+`DRProp.stackTop: lambda args: args[0] ** 2`
+
 3. _dictionaries_ of type `Dict[Tuple, Any]` - these are useful when you want to assert a discrete set of input-output pairs. For example, if you have 4 inputs that you want to assert are being squared, you could use
 
 ```python
@@ -379,16 +384,15 @@ DRProp.stackTop: {
   (2,): 4,
   (7,): 49,
   (13,): 169,
-  (11,): 121
-},
+  (11,): 121,
+}
 ```
 
->Note that this case illustrates why `args` should be tuples intead of lists. In order to specify a map from args to expected, we need to make `args` a key
->in a dictionary: Python dictionary keys must be hashable and lists are **not hashable** while tuples _are_ hashable.
+>Note that this case illustrates why `args` should be tuples intead of lists. In order to specify a map from args to expected, we need to make `args` a key in a dictionary. As Python dictionary keys must be hashable and lists are _not hashable_ while tuples _are_ hashable.
 
-<!-- markdownlint-disable ol-prefix -->
+4. _2-variable functions_ -these are useful when your assertion is more subtle than out-and-out equality. For example, suppose you want to assert that the `cost` of each run is _between_ $`2n \pm 5`$ where $`n`$ is the first arg of the input. Then you could declare:
 
-4. _2-variable functions_ -these are useful when your assertion is more subtle than out-and-out equality. For example, suppose you want to assert that the `cost` of each run is _between_ $`2n \pm 5`$ where $`n`$ is the first arg of the input. Then you could declare `DRProp.cost: lambda args, actual: 2*args[0] - 5 <= actual <= 2*args[0] + 5`
+`DRProp.cost: lambda args, actual: 2*args[0] - 5 <= actual <= 2*args[0] + 5`
 
 #### **EXERCISE A**
 
@@ -429,4 +433,4 @@ A few items to take note of:
 * **max stack height** is $`2n`$ except for $`n=0`$ and the error case
 * you can see the final values of scratch slots **s@000** and **s@001** which are respectively $`n`$ and `fibonacci(n)`
 
-You can see how [sequence assertions can be made](https://github.com/algorand/py-algorand-sdk/blob/77addfc236e78e41e2fd761fd59b506d8d344346/x/blackbox/blackbox_test.py#L324) on this function.
+Here's an example of how [invariants can be asserted](https://github.com/algorand/graviton/blob/a8c7eab729a36503948849674ea55995d5fc4ec1/tests/integration/blackbox_test.py#L315) on this function.
