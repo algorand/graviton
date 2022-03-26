@@ -114,7 +114,7 @@ assert 8 == 4
     assert remove_whitespace(expected) == remove_whitespace(ae.exconly())
 
 
-def test_step6():
+def test_step6_and_7():
     from blackbox.blackbox import DryRunExecutor, DryRunInspector
     from tests.clients import get_algod
 
@@ -123,3 +123,27 @@ def test_step6():
     run_results = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
     csv = DryRunInspector.csv_report(inputs, run_results)
     print(csv)
+
+    for i, inspector in enumerate(run_results):
+        args = inputs[i]
+        x = args[0]
+        inspector.stack_top() == x**2
+        inspector.max_stack_height() == 2
+        inspector.status() == ("REJECT" if x == 0 else "PASS")
+        inspector.final_scratch() == ({} if x == 0 else {0: x})
+
+
+def test_step8():
+    from blackbox.blackbox import DryRunExecutor
+    from tests.clients import get_algod
+
+    algod = get_algod()
+    inputs = [(x,) for x in range(101)]
+    dryrun_results = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    for i, inspector in enumerate(dryrun_results):
+        args = inputs[i]
+        x = args[0]
+        assert inspector.stack_top() == x**2
+        assert inspector.max_stack_height() == 2
+        assert inspector.status() == ("REJECT" if x == 0 else "PASS")
+        assert inspector.final_scratch() == ({} if x == 0 else {0: x})

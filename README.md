@@ -46,10 +46,10 @@ We'd like to write some unit tests to validate its correctness and make **assert
 * stack's height
 * scratch variables
 * final log message (this is especially useful for [ABI-compliant programs](https://developer.algorand.org/docs/get-details/dapps/smart-contracts/ABI/))
-* status (**PASS**, **REJECT** or _erroring_)
+* status (**PASS** or **REJECT**)
 * error conditions that are and aren't encountered
 
-Even better, before making fine-grained assertions we'd like to get a sense of what the program is doing on a large set of inputs and discover _experimentally_ these program invariants. Let's go through how we can do this:
+Even better, before making fine-grained assertions we'd like to get a sense of what the program is doing on a large set of inputs and discover _experimentally_ these **program invariants**. Let's go through how we can do this:
 
 * start by making basic assertions and validate them using dry runs (see "**Basic Assertions**" section below)
 * execute the program on a sequence of inputs and explore the results (see "**EDRA: Exploratory Dry Run Analysis**" section below)
@@ -61,7 +61,7 @@ Even better, before making fine-grained assertions we'd like to get a sense of w
 
 **STEP 1**. Start with a running local node and make note of Algod's port number (for our [standard sandbox](https://github.com/algorand/sandbox) this is `4001`)
 
-**STEP 2**. Set the `ALGOD_PORT` value in [tests/clients.py](./tests/clients.py#L7) to this port number. (The port is already pre-set to `4001` because [graviton](https://github.com/algorand/graviton)'s CI process uses the standad sandbox)
+**STEP 2**. Set the `ALGOD_PORT` value in [tests/clients.py](./tests/clients.py#L7) to this port number. (The port is already pre-set to `4001` because [graviton](https://github.com/algorand/graviton)'s [CI process](https://en.wikipedia.org/wiki/Continuous_integration) uses the standad sandbox)
 
 ### TEAL Program for Testing: Logic Sig v. App
 
@@ -88,11 +88,11 @@ retsub"""
 
 ### The TEAL Blackbox Toolkit's Utitlity Classes
 
-The TEAL Blackbox Toolkit comes with the following utility classes:
+The TEAL Blackbox Toolkit comes with the following main classes:
 
-* `DryRunExecutor` - facility to execute dry run's on apps and logic sigs
-* `DryRunInspector` - class encapsulating a single app or logic sig dry run transaction and for making assertions about the dry run
-* `SequenceAssertion` - class for asserting invariants about a _sequence_ of dry run executions in a declarative fashion
+* `DryRunExecutor` - executes dry run's for apps and logic sigs for one or more inputs
+* `DryRunInspector` - encapsulates a dry run's result for a single input and allows inspecting and making assertions about it
+* `Invariant` - class for asserting invariants about a _sequence_ of dry run executions in a declarative fashion
 
 ### Basic Assertions
 
@@ -111,15 +111,7 @@ from tests.clients import get_algod
   inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
   assert inspector.status() == "PASS"
   assert inspector.stack_top() == x**2
-
-  print(inspector.stack_top())
-  print(inspector.last_log())
-  print(inspector.cost())
-  print(inspector.status())
-  print(inspector.final_scratch())
-  print(inspector.error())
-  print(inspector.max_stack_height())
-  ```
+```
 
 Some available _assertable properties_ are:
 
@@ -240,25 +232,26 @@ print(csv)
 ```
 
 Note: that each element in the `inputs` array `(x,)` is itself a tuple as `args` given to a dry run execution need to be of type `Sequence` (remember, that these will be passed to a TEAL program which may take one, several, or no inputs at all).
-At this point, you'll be able to look at your [dry run sequence results](https://github.com/algorand/py-algorand-sdk/blob/1bc7b8fcf21401608cece65507c36d1f6dbad531/algosdk/testing/teal_blackbox.py#L713) and conduct some analysis. For the $`x^2`$ example if you load the CSV in Google sheets and reformat a bit it will look like:
+At this point, you'll be able to look at your [dry run sequence results](./blackbox/blackbox.py#L752) and conduct some analysis. For the $`x^2`$ example, 
+after loading the CSV in Google sheets and reformating a bit it will look like:
 
 <img width="465" alt="image" src="https://user-images.githubusercontent.com/291133/158812699-318169e2-487c-4dac-b97b-a9db8148b638.png">
 
-Perusing the above, it looks right:
+Pointing out some interesting results:
 
 * column `D` **Arg 00** has the input $`x`$ (it's the argument at index 0)
 * column `A` contains the **Run** number
-* column `E`  **top of stack** does indeed store $`x^2`$ at the program's termination
+* column `E`  **top of stack** does stores the program's termination, i.e.  $`x^2`$
 * column `B` **Status** of each runs **PASS**es _except for **Run 1** with **Arg 00** = 0_. (The first run **REJECT**s because $`0^2 = 0`$ and TEAL programs reject when the top of the stack is 0)
 * column `G` shows scratch slot **s@000** which stores the value of $`x`$ (except for the case $`x = 0`$ in which appears empty; in fact, slots always default to the zero value and an **<a name="0val-artifact">artifact</a>** of dry-runs is that they do not report when 0-values get stored into previously empty slots as no state change actually occurs)
 * column `F` **max stack height** is always 2. The final observation makes sense because there is no branching or looping in the program.
 
-**STEP 7**. We can re-cast these observed effects in `Columns E, B, G, F` as **program invariant conjectures** written in Python as follows:
+**STEP 7**. We can re-cast the observed effects in `Columns E, B, G, F` as **program invariant conjectures** written in Python as follows:
 
-* `dryrun_result.stack_top() == x ** 2`
-* `dryrun_result.max_stack_height() == 2`
-* `dryrun_result.status() == ("REJECT" if x == 0 else "PASS")`
-* `dryrun_result.final_scratch() == ({} if x == 0 else {0: x})`
+* `inspector.stack_top() == x ** 2`
+* `inspector.max_stack_height() == 2`
+* `inspector.status() == ("REJECT" if x == 0 else "PASS")`
+* `inspector.final_scratch() == ({} if x == 0 else {0: x})`
 
 ### Advanced: Asserting Invariants on a Dry Run Sequence
 
@@ -278,16 +271,19 @@ execution independently, or use `DryRunExecutor`'s convenience methods `dryrun_a
 $`x \leq 100`$:
 
 ```python
+from blackbox.blackbox import DryRunExecutor
+from tests.clients import get_algod
+
 algod = get_algod()
 inputs = [(x,) for x in range(101)]
 dryrun_results = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
-for i, dryrun_result in enumerate(dryrun_results):
+for i, inspector in enumerate(dryrun_results):
     args = inputs[i]
     x = args[0]
-    assert dryrun_result.stack_top() == x ** 2
-    assert dryrun_result.max_stack_height() == 2
-    assert dryrun_result.status() == ("REJECT" if x == 0 else "PASS")
-    assert dryrun_result.final_scratch() == ({} if x == 0 else {0: x})
+    assert inspector.stack_top() == x**2
+    assert inspector.max_stack_height() == 2
+    assert inspector.status() == ("REJECT" if x == 0 else "PASS")
+    assert inspector.final_scratch() == ({} if x == 0 else {0: x})
 ```
 
 #### Declarative Blackbox Dry Run Sequence Assertions

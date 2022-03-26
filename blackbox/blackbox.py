@@ -375,9 +375,9 @@ class DryRunInspector:
     >>> algod = get_algod()
     >>> x = 9
     >>> args = (x,)
-    >>> dryrun_result = DryRunExecutor.dryrun_logicsig(algod, teal, args)
-    >>> assert dryrun_result.status() == "PASS"
-    >>> assert dryrun_result.stack_stop() == x ** 2
+    >>> inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
+    >>> assert inspector.status() == "PASS"
+    >>> assert inspector.stack_stop() == x ** 2
     ```
     In the above we have asserted the the program has succesfully exited with
     status "PASS" and that the top of the stack contained $`x^2 = 9`$.
@@ -743,13 +743,13 @@ class DryRunInspector:
         ```python
         >>> algod = get_algod()
         >>> inputs = [(x,) for x in range(11)]  # [(0), (1), ... , (10)]
-        >>> dryrun_results = DryRunExecutor.dryrun_app_on_sequence(algod, teal, inputs)
-        >>> csv = DryRunInspector.csv_report(inputs, dryrun_results)
+        >>> run_results = DryRunExecutor.dryrun_app_on_sequence(algod, teal, inputs)
+        >>> csv = DryRunInspector.csv_report(inputs, run_results)
         >>> print(csv)
         ```
         Then you would get the following output:
         ```plain
-         Run, Status, cost, final_message, last_log, top_of_stack,Arg_00,max_stack_height,s@000,s@001,steps
+        Run, Status, cost, final_message, last_log, top_of_stack,Arg_00,max_stack_height,s@000,s@001,steps
         1,REJECT,14,REJECT,`None,0,0,2,,,15
         2,PASS,14,PASS,`0000000000000001,1,1,2,1,1,15
         3,PASS,14,PASS,`0000000000000004,4,2,2,2,4,15
