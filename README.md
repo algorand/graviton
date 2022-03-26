@@ -114,6 +114,11 @@ assert inspector.status() == "PASS"
 assert inspector.stack_top() == x**2
 ```
 
+Here we have executed a dry run on input $`x=9`$, then asserted that:
+
+* the program status was `PASS`
+* the program exited with the top of its staack containing $`x^2 = 9^2 = 81`$
+
 Some available _assertable properties_ are:
 
 * `stack_top()`
