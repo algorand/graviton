@@ -8,11 +8,12 @@ from tabulate import tabulate
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from algosdk.v2client.algod import AlgodClient
-from algosdk.testing.dryrun import (
+
+from blackbox.dryrun import (
     ZERO_ADDRESS,
     assert_error,
     assert_no_error,
-    Helper as DryRunHelper,
+    DryRunHelper,
 )
 
 

@@ -10,6 +10,9 @@ sandbox
 # Emacs detritus
 *~
 
+# VS Code detritus
+.vscode
+
 ##### github recommends for Python #####
 
 # Byte-compiled / optimized / DLL files

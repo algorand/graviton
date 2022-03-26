@@ -111,7 +111,7 @@ def assert_status(status, txn_index, msg, txns_res, enforce=True):
 
 
 def assert_error(drr, contains=None, txn_index=None, msg=None, enforce=True):
-    error = Helper.find_error(drr, txn_index=txn_index)
+    error = DryRunHelper.find_error(drr, txn_index=txn_index)
     ok = bool(error)
     result = None
     if not ok:  # the expected error did NOT occur
@@ -127,7 +127,7 @@ def assert_error(drr, contains=None, txn_index=None, msg=None, enforce=True):
 
 
 def assert_no_error(drr, txn_index=None, msg=None, enforce=True):
-    error = Helper.find_error(drr, txn_index=txn_index)
+    error = DryRunHelper.find_error(drr, txn_index=txn_index)
     ok = not bool(error)
     result = None
     if not ok:
@@ -153,9 +153,7 @@ def assert_global_state_contains(delta_value, txn_index, txns_res, msg=None):
             and txn_res["global-delta"] is not None
             and len(txn_res["global-delta"]) > 0
         ):
-            found = Helper.find_delta_value(
-                txn_res["global-delta"], delta_value
-            )
+            found = DryRunHelper.find_delta_value(txn_res["global-delta"], delta_value)
             if not found and idx == txn_index:
                 msg = (
                     msg
@@ -178,9 +176,7 @@ def assert_global_state_contains(delta_value, txn_index, txns_res, msg=None):
         _fail(msg)
 
 
-def assert_local_state_contains(
-    addr, delta_value, txn_index, txns_res, msg=None
-):
+def assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=None):
     if txn_index is not None and (txn_index < 0 or txn_index >= len(txns_res)):
         _fail(f"txn index {txn_index} is out of range [0, {len(txns_res)})")
 
@@ -199,7 +195,7 @@ def assert_local_state_contains(
                 addr_found = False
                 if local_delta["address"] == addr:
                     addr_found = True
-                    found = Helper.find_delta_value(
+                    found = DryRunHelper.find_delta_value(
                         local_delta["delta"], delta_value
                     )
                     if not found and idx == txn_index:
@@ -431,13 +427,9 @@ class DryrunTestCaseMixin:
         txns_res = self._checked_request(
             prog_drr_txns, lsig=None, app=app, sender=sender
         )
-        assert_local_state_contains(
-            addr, delta_value, txn_index, txns_res, msg=msg
-        )
+        assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=msg)
 
-    def dryrun_request(
-        self, program, lsig=None, app=None, sender=ZERO_ADDRESS
-    ):
+    def dryrun_request(self, program, lsig=None, app=None, sender=ZERO_ADDRESS):
         """
         Helper function for creation DryrunRequest and making the REST request
         from program source or compiled bytes
@@ -454,7 +446,7 @@ class DryrunTestCaseMixin:
         Raises:
             TypeError: program is not bytes or str
         """
-        drr = Helper.build_dryrun_request(program, lsig, app, sender)
+        drr = DryRunHelper.build_dryrun_request(program, lsig, app, sender)
         return self.algo_client.dryrun(drr)
 
     def dryrun_request_from_txn(self, txns, app):
@@ -515,9 +507,7 @@ class DryrunTestCaseMixin:
             drr = self.dryrun_request(prog_drr_txns, lsig, app, sender)
         return drr
 
-    def _checked_request(
-        self, prog_drr_txns, lsig=None, app=None, sender=ZERO_ADDRESS
-    ):
+    def _checked_request(self, prog_drr_txns, lsig=None, app=None, sender=ZERO_ADDRESS):
         """
         Helper function to make a dryrun request and perform basic validation
         """
@@ -531,29 +521,23 @@ class DryrunTestCaseMixin:
         return drr["txns"]
 
 
-class Helper:
+class DryRunHelper:
     """Utility functions for dryrun"""
 
     @classmethod
     def singleton_logicsig_request(
         cls, program: str, args: List[bytes], sender=ZERO_ADDRESS
     ):
-        return cls.build_dryrun_request(
-            program, lsig=LSig(args=args), sender=sender
-        )
+        return cls.build_dryrun_request(program, lsig=LSig(args=args), sender=sender)
 
     @classmethod
     def singleton_app_request(
         cls, program: str, args: List[bytes], sender=ZERO_ADDRESS
     ):
-        return cls.build_dryrun_request(
-            program, app=App(args=args), sender=sender
-        )
+        return cls.build_dryrun_request(program, app=App(args=args), sender=sender)
 
     @classmethod
-    def build_dryrun_request(
-        cls, program, lsig=None, app=None, sender=ZERO_ADDRESS
-    ):
+    def build_dryrun_request(cls, program, lsig=None, app=None, sender=ZERO_ADDRESS):
         """
         Helper function for creation DryrunRequest object from a program.
         By default it uses logic sig mode
@@ -587,9 +571,7 @@ class Helper:
         run_mode = cls._get_run_mode(app)
 
         app_or_lsig = (
-            cls._prepare_lsig(lsig)
-            if run_mode == "lsig"
-            else cls._prepare_app(app)
+            cls._prepare_lsig(lsig) if run_mode == "lsig" else cls._prepare_app(app)
         )
 
         del app
@@ -603,9 +585,7 @@ class Helper:
 
         if isinstance(program, str):
             return (
-                cls._prepare_lsig_source_request(
-                    program, app_or_lsig, run_mode, txn
-                )
+                cls._prepare_lsig_source_request(program, app_or_lsig, run_mode, txn)
                 if run_mode == "lsig"
                 else cls._prepare_app_source_request(
                     program, app_or_lsig, sender, run_mode, txn
@@ -640,9 +620,7 @@ class Helper:
         run_mode = "lsig"
         if app is not None:
             on_complete = (
-                app.get("on_complete")
-                if isinstance(app, dict)
-                else app.on_complete
+                app.get("on_complete") if isinstance(app, dict) else app.on_complete
             )
             run_mode = (
                 "clearp"
@@ -746,13 +724,9 @@ class Helper:
         """
         Helper function for creation Transaction for dryrun
         """
-        sp = transaction.SuggestedParams(
-            int(1000), int(1), int(100), "", flat_fee=True
-        )
+        sp = transaction.SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
         if txn_type == payment_txn:
-            txn = transaction.Transaction(
-                sender, sp, None, None, payment_txn, None
-            )
+            txn = transaction.Transaction(sender, sp, None, None, payment_txn, None)
         elif txn_type == appcall_txn:
             txn = transaction.ApplicationCallTxn(sender, sp, 0, 0)
         else:
@@ -899,9 +873,7 @@ class Helper:
             value = value.encode("utf-8")
         return dict(
             action=1,  # set bytes
-            bytes=base64.b64encode(value).decode(
-                "utf-8"
-            ),  # b64 input to string
+            bytes=base64.b64encode(value).decode("utf-8"),  # b64 input to string
         )
 
     @staticmethod
