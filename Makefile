@@ -37,7 +37,7 @@ mac-blackbox-smoke: blackbox-smoke-prefix mac-sandbox-test
 
 mac-blackbox: mac-blackbox-smoke integration-test
 
-# assumes you've installed act via `brew install act`:
+# assumes act is installed, e.g. via `brew install act`:
 mac-gh-simulate:
 	act
 
