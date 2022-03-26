@@ -106,12 +106,12 @@ When executing a dry run using  `DryRunExecutor` you'll get back `DryRunInspecto
 from blackbox.blackbox import DryRunExecutor
 from tests.clients import get_algod
 
-  algod = get_algod()
-  x = 9
-  args = (x,)
-  inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
-  assert inspector.status() == "PASS"
-  assert inspector.stack_top() == x**2
+algod = get_algod()
+x = 9
+args = (x,)
+inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
+assert inspector.status() == "PASS"
+assert inspector.stack_top() == x**2
 ```
 
 Some available _assertable properties_ are:
