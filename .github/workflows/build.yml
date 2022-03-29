@@ -16,6 +16,8 @@ jobs:
   build-test:
     runs-on: ubuntu-20.04
     container: python:${{ matrix.python }}
+    env:
+      PYTHON_VERSION:"${{ env.PYTHON_VERSION }}"
     strategy:
       matrix:
         python: [ "${{ env.PYTHON_VERSION }}"]
