@@ -70,7 +70,7 @@ Even better, before making fine-grained assertions we'd like to get a sense of w
 
 **STEP 3**. Next, you'll need to figure out if your TEAL program should be a Logic Signature or an Application. Each of these program _modes_ has its merits, but we won't get into the pros/cons here. From a Blackbox Test's perspective, the main difference is how external arguments are handled. Logic sigs rely on the [arg opcode](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#arg-n) while apps rely on [txna ApplicationArgs i](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#txna-f-i). In our $`x^2`$ **logic sig** example, you can see on [line 2](./tests/teal/lsig_square.teal#L2) that the `arg` opcode is used. Because each argument opcode (`arg` versus `ApplicationArgs`) is mode-exclusive, any program that takes input will execute succesfully in _one mode only_.
 
-**STEP 4**. Write the TEAL program that you want to test. You can inline the test as described here or follow the approach of `./blackbox/blackbox_test.py` and save under `./blackbox/teal`. So following the inline
+**STEP 4**. Write the TEAL program that you want to test. You can inline the test as described here or follow the approach of `./tests/integration/blackbox_test.py` and save under `./tests/teal`. So following the inline
 appraoch we begin our TEAL Blackbox script with an <a name="teal">inline teal source variable</a>:
 
 ```python
