@@ -1,8 +1,11 @@
 ####### Universal ######
 
 pip:
-	pip install -r requirements.txt
 	pip install -e .
+
+pip-test: pip
+	pip install -e.[test]
+
 
 unit-test:
 	pytest -sv tests/unit
