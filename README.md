@@ -240,7 +240,7 @@ print(csv)
 ```
 
 Note that each element in the `inputs` array `(x,)` is itself a tuple as `args` given to a dry run execution need to be of type `Sequence` (remember, that these will be passed to a TEAL program which may take one, several, or no inputs at all).
-At this point, you'll be able to look at your [dry run sequence results](./blackbox/graviton.py#L752) and conduct some analysis. For the $`x^2`$ example,
+At this point, you'll be able to look at your [dry run sequence results](./graviton/blackbox.py#L752) and conduct some analysis. For the $`x^2`$ example,
 after loading the CSV in Google sheets and reformating a bit it will look like:
 
 <img width="465" alt="image" src="https://user-images.githubusercontent.com/291133/158812699-318169e2-487c-4dac-b97b-a9db8148b638.png">
