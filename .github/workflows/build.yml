@@ -8,8 +8,9 @@ on:
       - main
 
 env:
-  CONFIG: dev
-  GENESIS: genesis/dev/genesis.json
+  PYTHON_VERSION: "3.10" # Duplicated in `build-test` due to Workflow limitations.
+  SANDBOX_CONFIG: dev
+  SANDBOX_GENESIS: genesis/dev/genesis.json
 
 jobs:
   build-test:
@@ -17,7 +18,7 @@ jobs:
     container: python:${{ matrix.python }}
     strategy:
       matrix:
-        python: ['3.10']
+        python: [ "3.10" ]
     steps:
       - run: python3 --version
       - name: Check out code
@@ -25,7 +26,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install pip dependencies
-        run: make pip-publish
+        run: make pip-test
       - name: build-and-test
         run: make unit-test
   run-integration-tests:
@@ -35,10 +36,19 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "${{ env.PYTHON_VERSION }}"
+      - name: Test Python version
+        run: |
+          installed="$(python --version)"
+          expected="${{ env.PYTHON_VERSION }}"
+          echo $installed
+          [[ $installed =~ "Python ${expected}" ]] && echo "Configured Python" || (echo "Failed to configure Python" && exit 1)
       - name: Install required os level applications
         run: |
           sudo apt update -y
-          sudo apt install -y curl git nodejs python-is-python3 python3-pip
+          sudo apt install -y curl git nodejs
           sudo apt -y install ca-certificates curl gnupg lsb-release
           sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
           sudo echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
@@ -56,12 +66,12 @@ jobs:
         # Ignore the failure of a step and avoid terminating the job.
         continue-on-error: true
         with:
-          key: docker-layer-caching-${{ github.workflow }}-${{ hashFiles(env.CONFIG, env.GENESIS) }}-{hash}
-          restore-keys: docker-layer-caching-${{ github.workflow }}-${{ hashFiles(env.CONFIG, env.GENESIS) }}-
+          key: docker-layer-caching-${{ github.workflow }}-${{ hashFiles(env.SANDBOX_CONFIG, env.SANDBOX_GENESIS) }}-{hash}
+          restore-keys: docker-layer-caching-${{ github.workflow }}-${{ hashFiles(env.CONFIG, env.SANDBOX_GENESIS) }}-
       - name: Create sandbox
         uses: lucasvanmol/algorand-sandbox-action@v1
         with:
-          config: ${{ env.CONFIG }}
+          config: ${{ env.SANDBOX_CONFIG }}
       - name: Setup integration test environment
         run: make pip-test unit-test
       - name: Run integration tests
