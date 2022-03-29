@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
 # Maybe this is the culprit for why I can't get a proper
 # build in dependant repos?
 # [build-system]
