@@ -165,7 +165,7 @@ def test_step9():
         "invariants": {
             DRProp.stackTop: lambda args: args[0] ** 2,
             DRProp.maxStackHeight: 2,
-            DRProp.status: lambda i: "REJECT" if i[0] == 0 else "PASS",
+            DRProp.status: lambda args: "REJECT" if args[0] == 0 else "PASS",
             DRProp.finalScratch: lambda args: ({0: args[0]} if args[0] else {}),
         },
     }
