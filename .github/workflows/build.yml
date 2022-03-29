@@ -8,7 +8,7 @@ on:
       - main
 
 env:
-  PYTHON_VERSION: 3.10 # Duplicated in `build-test` due to Workflow limitations.
+  PYTHON_VERSION: "3.10" # Duplicated in `build-test` due to Workflow limitations.
   SANDBOX_CONFIG: dev
   SANDBOX_GENESIS: genesis/dev/genesis.json
 
