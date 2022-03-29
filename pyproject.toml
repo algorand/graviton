@@ -1,6 +1,8 @@
-[build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+# Maybe this is the culprit for why I can't get a proper
+# build in dependant repos?
+# [build-system]
+# requires = ["setuptools", "wheel"]
+# build-backend = "setuptools.build_meta"
 
 [metadata]
 name = "graviton"

@@ -17,9 +17,9 @@ from algosdk.v2client.models import (
     TealKeyValue,
     TealValue,
 )
-from blackbox.dryrun import DryrunTestCaseMixin, DryRunHelper
+from ...blackbox.dryrun import DryrunTestCaseMixin, DryRunHelper
 
-from tests.clients import get_algod
+from ...tests.clients import get_algod
 
 
 def b64_encode_hack(s, b=None):

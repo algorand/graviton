@@ -8,7 +8,7 @@ from typing import Any, Dict, Sequence, List, Optional, Union
 
 from algosdk.v2client.algod import AlgodClient
 
-from blackbox.dryrun import (
+from ..blackbox.dryrun import (
     ZERO_ADDRESS,
     assert_error,
     assert_no_error,
