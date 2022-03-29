@@ -249,7 +249,7 @@ Pointing out some interesting results:
 
 * column `D` **Arg 00** has the input $`x`$ (it's the argument at index 0)
 * column `A` contains the **Run** number
-* column `E`  **top of stack** it the value at program's termination, i.e.  $`x^2`$
+* column `E`  **top of stack** is the value at program's termination, i.e.  $`x^2`$
 * column `B` **Status** of each runs **PASS**es _except for **Run 1** with **Arg 00** = 0_. (The first run **REJECT**s because $`0^2 = 0`$ and TEAL programs reject when the top of the stack is 0)
 * column `G` shows scratch slot **s@000** which stores the value of $`x`$ (except for the case $`x = 0`$ in which appears empty; in fact, slots always default to the zero value and an **<a name="0val-artifact">artifact</a>** of dry-runs is that they do not report when 0-values get stored into previously empty slots as no state change actually occurs)
 * column `F` **max stack height** is always 2. The final observation makes sense because there is no branching or looping in the program.
