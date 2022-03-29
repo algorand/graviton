@@ -8,8 +8,8 @@ setup(
     description="TBD",
     author="TBD",
     url="https://github.com/algorand/graviton",
-    # py_modules=["blackbox"],
-    packages=find_packages(),
+    py_modules=["blackbox"],
+    # packages=find_packages(),
 )
 
 
