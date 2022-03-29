@@ -8,7 +8,7 @@ on:
       - main
 
 env:
-  PYTHON_VERSION: 3.10
+  PYTHON_VERSION: 3.10 # Duplicated in `build-test` due to Workflow limitations.
   SANDBOX_CONFIG: dev
   SANDBOX_GENESIS: genesis/dev/genesis.json
 
@@ -16,11 +16,9 @@ jobs:
   build-test:
     runs-on: ubuntu-20.04
     container: python:${{ matrix.python }}
-    env:
-      PYTHON_VERSION:"${{ env.PYTHON_VERSION }}"
     strategy:
       matrix:
-        python: [ "${{ env.PYTHON_VERSION }}"]
+        python: [ "3.10" ]
     steps:
       - run: python3 --version
       - name: Check out code
