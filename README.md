@@ -103,7 +103,7 @@ When executing a dry run using  `DryRunExecutor` you'll get back `DryRunInspecto
 **STEP 4**. Back to our $`x^2`$ example, and assuming the `teal`  variable is defined [as above](#teal). You can run the following:
 
 ```python
-from blackbox.blackbox import DryRunExecutor
+from graviton.blackbox import DryRunExecutor
 from tests.clients import get_algod
 
 algod = get_algod()
@@ -129,7 +129,7 @@ Some available _assertable properties_ are:
 * `error()`
 * `max_stack_height()`
 
-See the [DryRunInspector class comment](./blackbox/blackbox.py#L387) for more assertable properties and details.
+See the [DryRunInspector class comment](./blackbox/graviton.py#L387) for more assertable properties and details.
 
 ### Printing out the TEAL Stack Trace for a Failing Assertion
 
@@ -137,7 +137,7 @@ See the [DryRunInspector class comment](./blackbox/blackbox.py#L387) for more as
 a handy report in the case of a failing assertion. Let's intentionally break the test case above by claiming that $`x^2 = x^3`$ for $`x=2`$ and print out this _report_ when our silly assertion fails.
 
 ```python
-from blackbox.blackbox import DryRunExecutor
+from graviton.blackbox import DryRunExecutor
 from tests.clients import get_algod
 
 algod = get_algod()
@@ -227,7 +227,7 @@ Let's expand our investigation from a single dry-run to multiple runs or a **run
 **STEP 6**. Back to our $`x^2`$ example, here's how to generate a report with 1 row for each of the inputs `0, 1, ... , 15`:
 
 ```python
-from blackbox.blackbox import DryRunExecutor, DryRunInspector
+from graviton.blackbox import DryRunExecutor, DryRunInspector
 from tests.clients import get_algod
 
 algod = get_algod()
@@ -238,7 +238,7 @@ print(csv)
 ```
 
 Note that each element in the `inputs` array `(x,)` is itself a tuple as `args` given to a dry run execution need to be of type `Sequence` (remember, that these will be passed to a TEAL program which may take one, several, or no inputs at all).
-At this point, you'll be able to look at your [dry run sequence results](./blackbox/blackbox.py#L752) and conduct some analysis. For the $`x^2`$ example,
+At this point, you'll be able to look at your [dry run sequence results](./blackbox/graviton.py#L752) and conduct some analysis. For the $`x^2`$ example,
 after loading the CSV in Google sheets and reformating a bit it will look like:
 
 <img width="465" alt="image" src="https://user-images.githubusercontent.com/291133/158812699-318169e2-487c-4dac-b97b-a9db8148b638.png">
@@ -277,7 +277,7 @@ execution independently, or use `DryRunExecutor`'s convenience methods `dryrun_a
 $`x \leq 100`$:
 
 ```python
-from blackbox.blackbox import DryRunExecutor
+from graviton.blackbox import DryRunExecutor
 from tests.clients import get_algod
 
 algod = get_algod()
@@ -314,7 +314,7 @@ In the parlance of the TEAL Blackbox Toolkit, a set of such declarative assertio
 is called a **test scenario**. Scenarios are dict's containing two keys `inputs` and `invariants` and follow [certain conventions](./blackbox/invariant.py#L101). In particular:
 
 * **inputs** gives a list of tuples, each tuple representing the `args` to be fed into a single dry run execution
-* **invariants** gives a dict that maps [DryRunProperty](./blackbox/blackbox.py#L25)'s to an invariant _predicate_
+* **invariants** gives a dict that maps [DryRunProperty](./blackbox/graviton.py#L25)'s to an invariant _predicate_
 
 In English, letting $`x`$ be the input variable for our square function, the above **test scenario**:
 
@@ -337,12 +337,12 @@ Declarative invariants make use of the following:
 To employ the declarative test scenario above write the following:
 
 ```python
-from blackbox.blackbox import (
+from graviton.blackbox import (
     DryRunExecutor,
     DryRunProperty as DRProp,
     ExecutionMode,
 )
-from blackbox.invariant import Invariant
+from graviton.invariant import Invariant
 from tests.clients import get_algod
 
 algod = get_algod()
