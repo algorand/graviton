@@ -17,7 +17,7 @@ from algosdk.v2client.models import (
     TealKeyValue,
     TealValue,
 )
-from blackbox.dryrun import DryrunTestCaseMixin, DryRunHelper
+from graviton.dryrun import DryrunTestCaseMixin, DryRunHelper
 
 from tests.clients import get_algod
 
