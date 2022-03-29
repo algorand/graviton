@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     python_requires=">=3.8",
@@ -8,12 +8,9 @@ setup(
     description="TBD",
     author="TBD",
     url="https://github.com/algorand/graviton",
-    py_modules=["blackbox"],
+    # py_modules=["blackbox"],
+    packages=find_packages(),
 )
-
-
-
-
 
 
 #!/usr/bin/env python3
