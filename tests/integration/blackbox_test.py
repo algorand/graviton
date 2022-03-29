@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from ...blackbox.blackbox import (
+from blackbox.blackbox import (
     DryRunEncoder as Encoder,
     DryRunExecutor as Executor,
     DryRunProperty as DRProp,
@@ -10,9 +10,9 @@ from ...blackbox.blackbox import (
     ExecutionMode,
     mode_has_property,
 )
-from ...blackbox.invariant import Invariant
+from blackbox.invariant import Invariant
 
-from ...tests.clients import get_algod
+from tests.clients import get_algod
 
 TESTS_DIR = Path.cwd() / "tests"
 

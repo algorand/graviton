@@ -1,12 +1,8 @@
 ####### Universal ######
 
-pip-publish:
+pip:
 	pip install -r requirements.txt
 	pip install -e .
-
-pip-test:
-	pip install -r requirements.txt
-	pip install .
 
 unit-test:
 	pytest -sv tests/unit
