@@ -131,7 +131,7 @@ Some available _assertable properties_ are:
 * `error()`
 * `max_stack_height()`
 
-See the [DryRunInspector class comment](./blackbox/graviton.py#L387) for more assertable properties and details.
+See the [DryRunInspector class comment](./graviton/blackbox.py#L387) for more assertable properties and details.
 
 ### Printing out the TEAL Stack Trace for a Failing Assertion
 
@@ -313,10 +313,10 @@ scenario = {
 ```
 
 In the parlance of the TEAL Blackbox Toolkit, a set of such declarative assertions
-is called a **test scenario**. Scenarios are dict's containing two keys `inputs` and `invariants` and follow [certain conventions](./blackbox/invariant.py#L101). In particular:
+is called a **test scenario**. Scenarios are dict's containing two keys `inputs` and `invariants` and follow [certain conventions](./graviton/invariant.py#L101). In particular:
 
 * **inputs** gives a list of tuples, each tuple representing the `args` to be fed into a single dry run execution
-* **invariants** gives a dict that maps [DryRunProperty](./blackbox/graviton.py#L25)'s to an invariant _predicate_
+* **invariants** gives a dict that maps [DryRunProperty](./graviton/blackbox.py#L25)'s to an invariant _predicate_
 
 In English, letting $`x`$ be the input variable for our square function, the above **test scenario**:
 
