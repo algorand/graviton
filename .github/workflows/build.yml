@@ -38,7 +38,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v3
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: "${{ env.PYTHON_VERSION }}"
       - name: Test Python version
         run: |
           installed="$(python --version)"
