@@ -21,7 +21,7 @@ integration-test:
 	pytest -sv tests/integration
 
 
-###### Mac Only ######
+###### Local Only ######
 
 # assumes installations of pipx, build and tox via:
 # `pip install pipx; pipx install build; pipx install tox`
