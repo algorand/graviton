@@ -26,7 +26,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install pip dependencies
-        run: make pip-publish
+        run: make pip-test
       - name: build-and-test
         run: make unit-test
   run-integration-tests:
