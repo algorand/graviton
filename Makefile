@@ -1,12 +1,11 @@
 ####### Universal ######
 
-pip-publish:
-	pip install -r requirements.txt
+pip:
 	pip install -e .
 
-pip-test:
-	pip install -r requirements.txt
-	pip install .
+pip-test: pip
+	pip install -e.[test]
+
 
 unit-test:
 	pytest -sv tests/unit
@@ -26,19 +25,19 @@ integration-test:
 
 # assumes installations of pipx, build and tox via:
 # `pip install pipx; pipx install build; pipx install tox`
-mac-project-build:
+local-project-build:
 	pyproject-build
 
 # assumes a symbolic link: sandbox -> /cloned/repo/algorand/sandbox
-mac-sandbox-test:
+local-sandbox-test:
 	./sandbox/sandbox test
 
-mac-blackbox-smoke: blackbox-smoke-prefix mac-sandbox-test
+local-blackbox-smoke: blackbox-smoke-prefix local-sandbox-test
 
-mac-blackbox: mac-blackbox-smoke integration-test
+local-blackbox: local-blackbox-smoke integration-test
 
 # assumes act is installed, e.g. via `brew install act`:
-mac-gh-simulate:
+local-gh-simulate:
 	act
 
 ###### Github Actions Only ######

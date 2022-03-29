@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from blackbox.blackbox import (
+from graviton.blackbox import (
     DryRunEncoder as Encoder,
     DryRunExecutor as Executor,
     DryRunProperty as DRProp,
@@ -10,7 +10,7 @@ from blackbox.blackbox import (
     ExecutionMode,
     mode_has_property,
 )
-from blackbox.invariant import Invariant
+from graviton.invariant import Invariant
 
 from tests.clients import get_algod
 

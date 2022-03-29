@@ -1,7 +1,7 @@
 from inspect import signature
 from typing import Any, Callable, Dict, List, Tuple, Union
 
-from blackbox.blackbox import (
+from graviton.blackbox import (
     DryRunInspector,
     DryRunProperty,
     ExecutionMode,
