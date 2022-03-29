@@ -13,7 +13,10 @@ sandbox
 # VS Code detritus
 .vscode
 
-##### github recommends for Python #####
+# IDE
+.idea
+
+##### BEGIN: github recommends for Python #####
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -145,5 +148,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# IDE
-.idea
+##### END: github recommends for Python #####
