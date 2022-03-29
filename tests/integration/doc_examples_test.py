@@ -18,7 +18,7 @@ retsub"""
 
 
 def test_step4():
-    from blackbox.blackbox import DryRunExecutor
+    from graviton.blackbox import DryRunExecutor
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -38,7 +38,7 @@ def test_step4():
 
 
 def test_step5():
-    from blackbox.blackbox import DryRunExecutor
+    from graviton.blackbox import DryRunExecutor
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -115,7 +115,7 @@ assert 8 == 4
 
 
 def test_step6_and_7():
-    from blackbox.blackbox import DryRunExecutor, DryRunInspector
+    from graviton.blackbox import DryRunExecutor, DryRunInspector
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -134,7 +134,7 @@ def test_step6_and_7():
 
 
 def test_step8():
-    from blackbox.blackbox import DryRunExecutor
+    from graviton.blackbox import DryRunExecutor
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -150,12 +150,12 @@ def test_step8():
 
 
 def test_step9():
-    from blackbox.blackbox import (
+    from graviton.blackbox import (
         DryRunExecutor,
         DryRunProperty as DRProp,
         ExecutionMode,
     )
-    from blackbox.invariant import Invariant
+    from graviton.invariant import Invariant
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -184,12 +184,12 @@ def test_step9():
 
 @pytest.mark.parametrize("exercise", ["A", "B"])
 def test_exercises(exercise):
-    from blackbox.blackbox import (
+    from graviton.blackbox import (
         DryRunExecutor,
         DryRunProperty as DRProp,
         ExecutionMode,
     )
-    from blackbox.invariant import Invariant
+    from graviton.invariant import Invariant
     from tests.clients import get_algod
 
     algod = get_algod()
