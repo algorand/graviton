@@ -29,6 +29,10 @@ jobs:
         run: make build-and-test
   run-integration-tests:
     runs-on: ubuntu-20.04
+    # container: python:${{ matrix.python }}
+    strategy:
+      matrix:
+        python: [ "3.8", "3.9", "3.10" ]
     steps:
       - name: Check out code
         uses: actions/checkout@v2
@@ -36,11 +40,13 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v3
         with:
-          python-version: "${{ env.PYTHON_VERSION }}"
+          python-version: "${{ matrix.python }}"
+          # python-version: "${{ env.PYTHON_VERSION }}"
       - name: Test Python version
+        # expected="${{ env.PYTHON_VERSION }}"
         run: |
           installed="$(python --version)"
-          expected="${{ env.PYTHON_VERSION }}"
+          expected="${{ matrix.python }}"
           echo $installed
           [[ $installed =~ "Python ${expected}" ]] && echo "Configured Python" || (echo "Failed to configure Python" && exit 1)
       - name: Install required os level applications
