@@ -17,7 +17,7 @@ lint: black flake8
 unit-test:
 	pytest -sv tests/unit
 
-build-and-test: pip-test lint unit-test
+build-and-test: pip-development lint unit-test
 
 blackbox-smoke-prefix:
 	echo "hello blackbox!"
