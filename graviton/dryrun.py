@@ -1,8 +1,7 @@
 import base64
 import binascii
-import string
 from dataclasses import dataclass
-import pytest
+import string
 from typing import List, Union
 
 from algosdk.constants import payment_txn, appcall_txn
@@ -43,7 +42,7 @@ class App:
     global_state: List[TealKeyValue] = None
 
 
-#### LIGHTWEIGHT ASSERTIONS FOR RE-USE ####
+# ### LIGHTWEIGHT ASSERTIONS FOR RE-USE ### #
 def _msg_if(msg):
     return "" if msg is None else f": {msg}"
 

@@ -75,7 +75,7 @@ class TealVal:
         if self.hide_empty and self.is_empty():
             return ""
 
-        assert self.is_b is not None, f"can't handle StackVariable with empty type"
+        assert self.is_b is not None, "can't handle StackVariable with empty type"
         return f"0x{b64decode(self.b).hex()}" if self.is_b else str(self.i)
 
     def as_python_type(self) -> Union[int, str, None]:
@@ -456,28 +456,28 @@ class DryRunInspector:
 
         return cls(dryrun_resp, 0)
 
-    def dig(self, property: DryRunProperty, **kwargs: Dict[str, Any]) -> Any:
+    def dig(self, dr_property: DryRunProperty, **kwargs: Dict[str, Any]) -> Any:
         """Main router for assertable properties"""
         txn = self.txn
         bbr = self.black_box_results
 
         assert mode_has_property(
-            self.mode, property
-        ), f"{self.mode} cannot handle dig information from txn for assertion type {property}"
+            self.mode, dr_property
+        ), f"{self.mode} cannot handle dig information from txn for assertion type {dr_property}"
 
-        if property == DryRunProperty.cost:
+        if dr_property == DryRunProperty.cost:
             return txn["cost"]
 
-        if property == DryRunProperty.lastLog:
+        if dr_property == DryRunProperty.lastLog:
             last_log = txn.get("logs", [None])[-1]
             if last_log is None:
                 return last_log
             return b64decode(last_log).hex()
 
-        if property == DryRunProperty.finalScratch:
+        if dr_property == DryRunProperty.finalScratch:
             return {k: v.as_python_type() for k, v in bbr.final_scratch_state.items()}
 
-        if property == DryRunProperty.stackTop:
+        if dr_property == DryRunProperty.stackTop:
             trace = self.extracts["trace"]
             stack = trace[-1]["stack"]
             if not stack:
@@ -485,19 +485,19 @@ class DryRunInspector:
             tv = TealVal.from_scratch(stack[-1])
             return tv.as_python_type()
 
-        if property == DryRunProperty.maxStackHeight:
+        if dr_property == DryRunProperty.maxStackHeight:
             return max(len(t["stack"]) for t in self.extracts["trace"])
 
-        if property == DryRunProperty.status:
+        if dr_property == DryRunProperty.status:
             return self.extracts["status"]
 
-        if property == DryRunProperty.passed:
+        if dr_property == DryRunProperty.passed:
             return self.extracts["status"] == "PASS"
 
-        if property == DryRunProperty.rejected:
+        if dr_property == DryRunProperty.rejected:
             return self.extracts["status"] == "REJECT"
 
-        if property == DryRunProperty.error:
+        if dr_property == DryRunProperty.error:
             contains = kwargs.get("contains")
             ok, msg = assert_error(
                 self.parent_dryrun_response, contains=contains, enforce=False
@@ -505,12 +505,12 @@ class DryRunInspector:
             # when there WAS an error, we return its msg, else False
             return ok
 
-        if property == DryRunProperty.errorMessage:
+        if dr_property == DryRunProperty.errorMessage:
             _, msg = assert_no_error(self.parent_dryrun_response, enforce=False)
             # when there was no error, we return None, else return its msg
             return msg if msg else None
 
-        raise Exception(f"Unknown assert_type {property}")
+        raise Exception(f"Unknown assert_type {dr_property}")
 
     def cost(self) -> Optional[int]:
         """Assertable property for the total opcode cost that was used during dry run execution

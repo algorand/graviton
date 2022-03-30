@@ -144,7 +144,7 @@ class Invariant:
         invariants = {}
         predicates = scenario.get("invariants", {})
         if predicates:
-            assert isinstance(predicates, dict), f"invariants must be a dict"
+            assert isinstance(predicates, dict), "invariants must be a dict"
 
             for key, predicate in predicates.items():
                 assert isinstance(key, DryRunProperty) and mode_has_property(

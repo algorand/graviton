@@ -25,10 +25,8 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Install pip dependencies
-        run: make pip-test
-      - name: build-and-test
-        run: make unit-test
+      - name: pip, lint, and units
+        run: make build-and-test
   run-integration-tests:
     runs-on: ubuntu-20.04
     steps:

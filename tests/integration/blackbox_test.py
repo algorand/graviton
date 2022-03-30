@@ -122,19 +122,19 @@ load 1""",
     prop_assert(lsig_res, lsig_res.cost(), None)
 
     prop_assert(app_res, app_res.last_log(), None)
-    prop_assert(app_log_res, app_log_res.last_log(), (x ** 2).to_bytes(8, "big").hex())
-    prop_assert(app_log_res, app_log_res.last_log(), Encoder.hex(x ** 2))
+    prop_assert(app_log_res, app_log_res.last_log(), (x**2).to_bytes(8, "big").hex())
+    prop_assert(app_log_res, app_log_res.last_log(), Encoder.hex(x**2))
     prop_assert(lsig_res, lsig_res.last_log(), None)
 
     prop_assert(app_res, app_res.final_scratch(), {0: x})
-    prop_assert(app_log_res, app_log_res.final_scratch(), {0: x, 1: x ** 2})
+    prop_assert(app_log_res, app_log_res.final_scratch(), {0: x, 1: x**2})
     prop_assert(lsig_res, lsig_res.final_scratch(), {0: x})
-    prop_assert(bad_lsig_res, bad_lsig_res.final_scratch(), {0: x, 1: x ** 2})
+    prop_assert(bad_lsig_res, bad_lsig_res.final_scratch(), {0: x, 1: x**2})
 
-    prop_assert(app_res, app_res.stack_top(), x ** 2)
-    prop_assert(app_log_res, app_log_res.stack_top(), x ** 2)
-    prop_assert(lsig_res, lsig_res.stack_top(), x ** 2)
-    prop_assert(bad_lsig_res, bad_lsig_res.stack_top(), Encoder.hex0x(x ** 2))
+    prop_assert(app_res, app_res.stack_top(), x**2)
+    prop_assert(app_log_res, app_log_res.stack_top(), x**2)
+    prop_assert(lsig_res, lsig_res.stack_top(), x**2)
+    prop_assert(bad_lsig_res, bad_lsig_res.stack_top(), Encoder.hex0x(x**2))
 
     prop_assert(app_res, app_res.max_stack_height(), 2)
     prop_assert(app_log_res, app_log_res.max_stack_height(), 2)
@@ -181,11 +181,11 @@ APP_SCENARIOS = {
         # since only a single input, just assert a constant in each case
         "invariants": {
             DRProp.cost: 11,
-            DRProp.lastLog: Encoder.hex(2 ** 10),
+            DRProp.lastLog: Encoder.hex(2**10),
             # dicts have a special meaning as invariants. So in the case of "finalScratch"
             # which is supposed to _ALSO_ output a dict, we need to use a lambda as a work-around
-            DRProp.finalScratch: lambda _: {0: 2 ** 10},
-            DRProp.stackTop: 2 ** 10,
+            DRProp.finalScratch: lambda _: {0: 2**10},
+            DRProp.stackTop: 2**10,
             DRProp.maxStackHeight: 2,
             DRProp.status: "PASS",
             DRProp.passed: True,
@@ -404,7 +404,7 @@ LOGICSIG_SCENARIOS = {
             # DRA.cost: 11,
             # DRA.lastLog: lightly_encode_output(2 ** 10, logs=True),
             DRProp.finalScratch: lambda _: {},
-            DRProp.stackTop: 2 ** 10,
+            DRProp.stackTop: 2**10,
             DRProp.maxStackHeight: 2,
             DRProp.status: "PASS",
             DRProp.passed: True,

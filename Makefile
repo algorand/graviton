@@ -7,12 +7,18 @@ pip:
 pip-test: pip
 	pip install -e.[test]
 
-black:
-	black .
+flake8:
+	flake8 graviton tests
 
+black:
+	black --check .
+
+lint: black flake8
 
 unit-test:
 	pytest -sv tests/unit
+
+build-and-test: pip-test lint unit-test
 
 blackbox-smoke-prefix:
 	echo "hello blackbox!"
