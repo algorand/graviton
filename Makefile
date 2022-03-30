@@ -1,11 +1,10 @@
 ####### Universal ######
 
 pip:
-	pip install --upgrade pip
 	pip install -e .
 
-pip-test: pip
-	pip install -e.[test]
+pip-development: pip
+	pip install -e.[development]
 
 flake8:
 	flake8 graviton tests

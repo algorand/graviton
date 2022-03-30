@@ -13,7 +13,7 @@ setup(
     author_email="pypiservice@algorand.com",
     python_requires=">=3.8",
     install_requires=["py-algorand-sdk", "tabulate==0.8.9"],
-    extras_require={"test": ["pytest==7.1.1", "black==22.3.0", "flake8==4.0.1"]},
+    extras_require={"development": ["pytest==7.1.1", "black==22.3.0", "flake8==4.0.1"]},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
