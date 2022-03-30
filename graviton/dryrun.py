@@ -112,7 +112,6 @@ def assert_status(status, txn_index, msg, txns_res, enforce=True):
 def assert_error(drr, contains=None, txn_index=None, msg=None, enforce=True):
     error = DryRunHelper.find_error(drr, txn_index=txn_index)
     ok = bool(error)
-    result = None
     if not ok:  # the expected error did NOT occur
         result = f"expected truthy error but got {error}" + _msg_if(msg)
         if enforce:
@@ -190,6 +189,7 @@ def assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=None
             and txn_res["local-deltas"] is not None
             and len(txn_res["local-deltas"]) > 0
         ):
+            addr_found = False
             for local_delta in txn_res["local-deltas"]:
                 addr_found = False
                 if local_delta["address"] == addr:

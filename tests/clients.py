@@ -11,11 +11,3 @@ ALGOD_PORT = 4001
 
 def get_algod() -> AlgodClient:
     return AlgodClient(DEVNET_TOKEN, f"http://localhost:{ALGOD_PORT}")
-
-
-# def get_kmd() -> KMDClient:
-#     return KMDClient(DEVNET_TOKEN, f"http://localhost:{KMD_PORT}")
-
-
-# def get_indexer() -> IndexerClient:
-#     return IndexerClient(DEVNET_TOKEN, f"http://localhost:{INDEXER_PORT}")

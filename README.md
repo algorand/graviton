@@ -7,6 +7,8 @@
 
 **NOTE: to get math formulas to render here using Chrome, add the [xhub extension](https://chrome.google.com/webstore/detail/xhub/anidddebgkllnnnnjfkmjcaallemhjee/related) and reload**
 
+**DISCLAIMER**: Graviton is subject to change and makes no backwards compatability guarantees.
+
 ## Blackbox Testing Howto
 
 ### What is TEAL Blackbox Testing?
