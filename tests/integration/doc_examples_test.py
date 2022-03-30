@@ -178,8 +178,8 @@ def test_step9():
     inspectors = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
 
     # Invariant assertions on sequence:
-    for property, invariant in invariants.items():
-        invariant.validates(property, inputs, inspectors)
+    for dr_property, invariant in invariants.items():
+        invariant.validates(dr_property, inputs, inspectors)
 
 
 @pytest.mark.parametrize("exercise", ["A", "B"])
@@ -217,5 +217,5 @@ def test_exercises(exercise):
     inspectors = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
 
     # Invariant assertions on sequence:
-    for property, invariant in invariants.items():
-        invariant.validates(property, inputs, inspectors)
+    for dr_property, invariant in invariants.items():
+        invariant.validates(dr_property, inputs, inspectors)

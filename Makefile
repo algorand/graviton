@@ -49,5 +49,3 @@ gh-sandbox-test:
 gh-blackbox-smoke: blackbox-smoke-prefix gh-sandbox-test
 
 gh-blackbox: gh-blackbox-smoke integration-test
-
-.PHONY: pip-publish pip-test unit-test gh-blackbox

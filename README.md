@@ -368,8 +368,8 @@ inputs, invariants = Invariant.inputs_and_invariants(
 inspectors = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
 
 # Invariant assertions on sequence:
-for property, invariant in invariants.items():
-    invariant.validates(property, inputs, inspectors)
+for dr_property, invariant in invariants.items():
+    invariant.validates(dr_property, inputs, inspectors)
 ```
   
 **STEP 10**. _**Deep Dive into Invariants via Exercises**_

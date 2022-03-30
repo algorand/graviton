@@ -41,7 +41,7 @@ class Invariant:
 
     def validates(
         self,
-        property: DryRunProperty,
+        dr_property: DryRunProperty,
         inputs: List[list],
         inspectors: List[DryRunInspector],
     ):
@@ -51,12 +51,12 @@ class Invariant:
         ), f"inputs (len={N}) and dryrun responses (len={len(inspectors)}) must have the same length"
 
         assert isinstance(
-            property, DryRunProperty
-        ), f"invariants types must be DryRunProperty's but got [{property}] which is a {type(property)}"
+            dr_property, DryRunProperty
+        ), f"invariants types must be DryRunProperty's but got [{dr_property}] which is a {type(dr_property)}"
 
         for i, args in enumerate(inputs):
             res = inspectors[i]
-            actual = res.dig(property)
+            actual = res.dig(dr_property)
             ok, msg = self(args, actual)
             assert ok, res.report(args, msg, row=i + 1)
 

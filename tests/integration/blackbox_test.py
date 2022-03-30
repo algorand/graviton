@@ -382,17 +382,17 @@ def test_app_with_report(filebase: str):
 
     # 4. Sequential invariants (if provided any)
     for i, type_n_invariant in enumerate(invariants.items()):
-        property, invariant = type_n_invariant
+        dr_property, invariant = type_n_invariant
 
         assert mode_has_property(
-            mode, property
-        ), f"assert_type {property} is not applicable for {mode}. Please REMOVE or MODIFY"
+            mode, dr_property
+        ), f"assert_type {dr_property} is not applicable for {mode}. Please REMOVE or MODIFY"
 
-        invariant = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{property}")
+        invariant = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{dr_property}")
         print(
-            f"{i+1}. Semantic invariant for {case_name}-{mode}: {property} <<{invariant}>>"
+            f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant}>>"
         )
-        invariant.validates(property, inputs, dryrun_results)
+        invariant.validates(dr_property, inputs, dryrun_results)
 
 
 # NOTE: logic sig dry runs are missing some information when compared with app dry runs.
@@ -574,14 +574,14 @@ def test_logicsig_with_report(filebase: str):
 
     # 4. Sequential invariants (if provided any)
     for i, type_n_invariant in enumerate(invariants.items()):
-        property, invariant = type_n_invariant
+        dr_property, invariant = type_n_invariant
 
         assert mode_has_property(
-            mode, property
-        ), f"assert_type {property} is not applicable for {mode}. Please REMOVE of MODIFY"
+            mode, dr_property
+        ), f"assert_type {dr_property} is not applicable for {mode}. Please REMOVE of MODIFY"
 
-        invariant = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{property}")
+        invariant = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{dr_property}")
         print(
-            f"{i+1}. Semantic invariant for {case_name}-{mode}: {property} <<{invariant}>>"
+            f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant}>>"
         )
-        invariant.validates(property, inputs, dryrun_results)
+        invariant.validates(dr_property, inputs, dryrun_results)
