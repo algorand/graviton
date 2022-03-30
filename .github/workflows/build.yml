@@ -73,6 +73,6 @@ jobs:
         with:
           config: ${{ env.SANDBOX_CONFIG }}
       - name: Setup integration test environment
-        run: make pip-test unit-test
+        run: make pip-development unit-test
       - name: Run integration tests
         run: make gh-blackbox
