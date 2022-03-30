@@ -13,7 +13,7 @@ Versioning is in Animal Emoji Lexicographical Order (AELO). For example:
 ## Tagging Cheatsheet
 
 * create an annotated tag:
-  * `git tag -a 🦙 -m "productionize graviton" && git push origin 🦙`
+  * `git tag -as 🦙 -m "productionize graviton" && git push origin 🦙`
 * get tag details:
   * `git show 🦙`
 
