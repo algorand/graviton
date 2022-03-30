@@ -5,8 +5,6 @@ from algosdk.v2client.algod import AlgodClient
 
 DEVNET_TOKEN = "a" * 64
 ALGOD_PORT = 4001
-# KMD_PORT = 4002
-# INDEXER_PORT = 8980
 
 
 def get_algod() -> AlgodClient:
