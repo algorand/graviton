@@ -1,3 +1,23 @@
+##### graviton specific ignores #####
+
+# Integration tests
+.sandbox
+sandbox
+
+# Comma Seperated Value reports
+*.csv
+
+# Emacs detritus
+*~
+
+# VS Code detritus
+.vscode
+
+# IDE
+.idea
+
+##### BEGIN: github recommends for Python #####
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -127,3 +147,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+##### END: github recommends for Python #####
