@@ -26,7 +26,7 @@ def test_step4():
     args = (x,)
     inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
     assert inspector.status() == "PASS"
-    assert inspector.stack_top() == x**2
+    assert inspector.stack_top() == x ** 2
 
     print(inspector.stack_top())
     print(inspector.last_log())
@@ -53,7 +53,7 @@ def test_step5():
     )
 
     # This one's absurd! x^3 != x^2
-    expected, actual = x**3, inspector.stack_top()
+    expected, actual = x ** 3, inspector.stack_top()
 
     # wrap for test purposes only
     with pytest.raises(AssertionError) as ae:
@@ -127,7 +127,7 @@ def test_step6_and_7():
     for i, inspector in enumerate(run_results):
         args = inputs[i]
         x = args[0]
-        inspector.stack_top() == x**2
+        inspector.stack_top() == x ** 2
         inspector.max_stack_height() == 2
         inspector.status() == ("REJECT" if x == 0 else "PASS")
         inspector.final_scratch() == ({} if x == 0 else {0: x})
@@ -143,7 +143,7 @@ def test_step8():
     for i, inspector in enumerate(dryrun_results):
         args = inputs[i]
         x = args[0]
-        assert inspector.stack_top() == x**2
+        assert inspector.stack_top() == x ** 2
         assert inspector.max_stack_height() == 2
         assert inspector.status() == ("REJECT" if x == 0 else "PASS")
         assert inspector.final_scratch() == ({} if x == 0 else {0: x})

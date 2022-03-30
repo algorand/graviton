@@ -1,10 +1,14 @@
 ####### Universal ######
 
 pip:
+	pip install --upgrade pip
 	pip install -e .
 
 pip-test: pip
 	pip install -e.[test]
+
+black:
+	black .
 
 
 unit-test:
