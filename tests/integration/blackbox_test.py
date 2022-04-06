@@ -17,15 +17,6 @@ from tests.clients import get_algod
 TESTS_DIR = Path.cwd() / "tests"
 
 
-def test_algod():
-    algod = get_algod()
-    url = algod.algod_address
-    print(f"algod.url: {url}")
-    status = algod.status()
-    print(f"algod.status(): {status}")
-    assert status, "somehow got nothing out of Algod's status"
-
-
 def fac_with_overflow(n):
     if n < 2:
         return 1
