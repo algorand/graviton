@@ -1,0 +1,43 @@
+#pragma version 5
+intcblock 1 12 35
+pushbytes 0x43616e20796f7520666163746f722031202a20785e32202d203132202a2078202b203335203f // "Can you factor 1 * x^2 - 12 * x + 35 ?"
+pop
+arg 0
+btoi
+arg 1
+btoi
+!=
+intc_0 // 1
+intc_1 // 12
+intc_2 // 35
+arg 0
+btoi
+callsub sub0
+&&
+intc_0 // 1
+intc_1 // 12
+intc_2 // 35
+arg 1
+btoi
+callsub sub0
+&&
+return
+sub0: // is_quad_root
+store 3
+store 2
+store 1
+store 0
+load 0
+load 3
+*
+load 3
+*
+load 2
++
+load 1
+load 3
+*
+-
+pushint 0 // 0
+==
+retsub

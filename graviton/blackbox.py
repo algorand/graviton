@@ -34,6 +34,7 @@ class DryRunProperty(Enum):
     errorMessage = auto()
     globalStateHas = auto()
     localStateHas = auto()
+    lastMessage = auto()
 
 
 DRProp = DryRunProperty
@@ -509,6 +510,9 @@ class DryRunInspector:
             _, msg = assert_no_error(self.parent_dryrun_response, enforce=False)
             # when there was no error, we return None, else return its msg
             return msg if msg else None
+
+        if dr_property == DryRunProperty.lastMessage:
+            return self.last_message()
 
         raise Exception(f"Unknown assert_type {dr_property}")
 
