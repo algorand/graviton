@@ -53,6 +53,7 @@ class ExampleTestCase(DryrunTestCaseMixin, unittest.TestCase):
 
     def test_logic_sig(self):
         """Shows how to test logic sig with parameters
+        https://github.com/algorand/docs/blob/bbd379df193399f82686e9f6d5c2bcb9d676d2d7/docs/features/asc1/teal_test.md#testing-logicsig-with-arguments
 
         This example demonstrates how to pass LogicSig parameters
             - they need to be a list of bytes items in args key of lsig parameter to any assert function.

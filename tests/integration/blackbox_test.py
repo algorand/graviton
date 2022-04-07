@@ -6,7 +6,7 @@ from graviton.blackbox import (
     DryRunEncoder as Encoder,
     DryRunExecutor as Executor,
     DryRunProperty as DRProp,
-    DryRunInspector as DRR,
+    DryRunInspector as Inspector,
     ExecutionMode,
     mode_has_property,
 )
@@ -93,10 +93,10 @@ load 1""",
         )
     )
 
-    assert isinstance(app_res, DRR)
-    assert isinstance(app_log_res, DRR)
-    assert isinstance(lsig_res, DRR)
-    assert isinstance(bad_lsig_res, DRR)
+    assert isinstance(app_res, Inspector)
+    assert isinstance(app_log_res, Inspector)
+    assert isinstance(lsig_res, Inspector)
+    assert isinstance(bad_lsig_res, Inspector)
 
     assert app_res.mode == ExecutionMode.Application
     assert app_log_res.mode == ExecutionMode.Application
@@ -367,7 +367,7 @@ def test_app_with_report(filebase: str):
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(DRR.csv_report(inputs, dryrun_results))
+        f.write(Inspector.csv_report(inputs, dryrun_results))
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
@@ -559,7 +559,7 @@ def test_logicsig_with_report(filebase: str):
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(DRR.csv_report(inputs, dryrun_results))
+        f.write(Inspector.csv_report(inputs, dryrun_results))
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
