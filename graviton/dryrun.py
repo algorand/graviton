@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import string
 from typing import List, Union
 
-from algosdk.constants import payment_txn, appcall_txn
+from algosdk.constants import PAYMENT_TXN, APPCALL_TXN
 from algosdk.future import transaction
 from algosdk.encoding import encode_address, msgpack_encode
 from algosdk.v2client.models import (
@@ -577,9 +577,9 @@ class DryRunHelper:
         del lsig
 
         txn = (
-            cls.sample_txn(sender, payment_txn)
+            cls.sample_txn(sender, PAYMENT_TXN)
             if run_mode == "lsig"
-            else cls.sample_txn(sender, appcall_txn)
+            else cls.sample_txn(sender, APPCALL_TXN)
         )
 
         if isinstance(program, str):
@@ -724,9 +724,9 @@ class DryRunHelper:
         Helper function for creation Transaction for dryrun
         """
         sp = transaction.SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
-        if txn_type == payment_txn:
-            txn = transaction.Transaction(sender, sp, None, None, payment_txn, None)
-        elif txn_type == appcall_txn:
+        if txn_type == PAYMENT_TXN:
+            txn = transaction.Transaction(sender, sp, None, None, PAYMENT_TXN, None)
+        elif txn_type == APPCALL_TXN:
             txn = transaction.ApplicationCallTxn(sender, sp, 0, 0)
         else:
             raise ValueError("unsupported src object")
