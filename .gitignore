@@ -16,6 +16,9 @@ sandbox
 # IDE
 .idea
 
+# Mac OS
+.DS_Store
+
 ##### BEGIN: github recommends for Python #####
 
 # Byte-compiled / optimized / DLL files

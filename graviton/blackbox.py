@@ -684,7 +684,12 @@ class DryRunInspector:
         table = tabulate(rows, headers=headers, tablefmt="presto")
         return table
 
-    def report(self, args: Sequence[Union[str, int]], msg: str, row: int = 0) -> str:
+    def report(
+        self,
+        args: Sequence[Union[str, int]],
+        msg: str = "Dry Run Inspector Report",
+        row: int = 0,
+    ) -> str:
         bbr = self.black_box_results
         return f"""===============
     <<<<<<<<<<<{msg}>>>>>>>>>>>
