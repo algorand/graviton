@@ -27,5 +27,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
+    package_data={"graviton": ["py.typed"]},
     packages=find_packages(),
 )
