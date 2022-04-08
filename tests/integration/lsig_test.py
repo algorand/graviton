@@ -6,14 +6,9 @@ import pytest
 
 
 from graviton.blackbox import (
-    # DryRunEncoder as Encoder,
     DryRunExecutor as Executor,
-    DryRunProperty as DRProp,
     DryRunInspector as Inspector,
-    # ExecutionMode,
-    # mode_has_property,
 )
-from graviton.invariant import Invariant
 
 from tests.clients import get_algod
 
@@ -110,7 +105,8 @@ with open(FACTORIZER_V4, "r") as f:
     FACTORIZER_V4 = f.read()
 
 
-poly_4 = lambda x: abs(x**2 - 12 * x + 35)
+def poly_4(x):
+    return abs(x**2 - 12 * x + 35)
 
 
 @pytest.mark.parametrize("p, q", product(range(20), range(20)))

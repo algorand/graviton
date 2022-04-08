@@ -6,7 +6,6 @@ import io
 import string
 from typing import Any, Dict, List, Union
 
-from algosdk.constants import PAYMENT_TXN, APPCALL_TXN
 from algosdk.future import transaction
 from algosdk.encoding import encode_address, msgpack_encode
 from algosdk.v2client.models import (
@@ -611,36 +610,36 @@ class DryRunHelper:
         assert (
             False
         ), f"this is unreachable  as far as I can tell - type(program)={type(program)} - (HAVE DEPRECATED program of type bytes)!!!"
-        del app
-        del lsig
+        # del app
+        # del lsig
 
-        # in case of bytes:
-        sources = []
-        apps = []
-        accounts = []
-        rnd = None
+        # # in case of bytes:
+        # sources = []
+        # apps = []
+        # accounts = []
+        # rnd = None
 
-        txn = (
-            transaction.ApplicationCallTxn(**txn_params)
-            if is_app
-            else transaction.PaymentTxn(**txn_params)
-        )
-        if run_mode != "lsig":
-            txns = [cls._build_appcall_signed_txn(txn, app_or_lsig)]
-            application = cls.sample_app(sender, app_or_lsig, program)
-            apps = [application]
-            accounts = app_or_lsig.accounts
-            rnd = app_or_lsig.round
-        else:
-            txns = [cls._build_logicsig_txn(program, txn, app_or_lsig)]
+        # txn = (
+        #     transaction.ApplicationCallTxn(**txn_params)
+        #     if is_app
+        #     else transaction.PaymentTxn(**txn_params)
+        # )
+        # if run_mode != "lsig":
+        #     txns = [cls._build_appcall_signed_txn(txn, app_or_lsig)]
+        #     application = cls.sample_app(sender, app_or_lsig, program)
+        #     apps = [application]
+        #     accounts = app_or_lsig.accounts
+        #     rnd = app_or_lsig.round
+        # else:
+        #     txns = [cls._build_logicsig_txn(program, txn, app_or_lsig)]
 
-        return DryrunRequest(
-            txns=txns,
-            sources=sources,
-            apps=apps,
-            accounts=accounts,
-            round=rnd,
-        )
+        # return DryrunRequest(
+        #     txns=txns,
+        #     sources=sources,
+        #     apps=apps,
+        #     accounts=accounts,
+        #     round=rnd,
+        # )
 
     @classmethod
     def _get_run_mode(cls, app):

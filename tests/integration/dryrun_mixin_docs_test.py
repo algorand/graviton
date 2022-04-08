@@ -5,7 +5,6 @@ import base64
 from tabulate import tabulate
 import unittest
 
-from algosdk.constants import PAYMENT_TXN, APPCALL_TXN
 from algosdk.future import transaction
 from algosdk.encoding import decode_address, checksum
 from algosdk.v2client.models import (
