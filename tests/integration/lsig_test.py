@@ -35,8 +35,8 @@ def test_factorizer_game_version_report(suffix):
         f.write(Inspector.csv_report(inputs, dryrun_results))
 
 
-FACTORIZER_V1 = TESTS_DIR / "teal" / "lsig_factorizer_game_1_5_7_V1.teal"
-with open(FACTORIZER_V1, "r") as f:
+v1_file = TESTS_DIR / "teal" / "lsig_factorizer_game_1_5_7_V1.teal"
+with open(v1_file, "r") as f:
     FACTORIZER_V1 = f.read()
 
 
@@ -94,8 +94,8 @@ int 0x31
     # self.assertPass(drr)
 
 
-FACTORIZER_V4 = TESTS_DIR / "teal" / "lsig_factorizer_game_1_5_7_V4.teal"
-with open(FACTORIZER_V4, "r") as f:
+v4_file = TESTS_DIR / "teal" / "lsig_factorizer_game_1_5_7_V4.teal"
+with open(v4_file, "r") as f:
     FACTORIZER_V4 = f.read()
 
 

@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from enum import Enum, auto
 import io
 from tabulate import tabulate
-from typing import Any, Dict, Sequence, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from algosdk.v2client.algod import AlgodClient
+from algosdk.v2client.models import DryrunRequest
 from algosdk.future.transaction import (
     OnComplete,
     StateSchema,
@@ -46,7 +47,7 @@ DRProp = DryRunProperty
 
 
 def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> bool:
-    missing = {
+    missing: Dict[ExecutionMode, set] = {
         ExecutionMode.Signature: {
             DryRunProperty.cost,
             DryRunProperty.lastLog,
@@ -63,7 +64,7 @@ def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> 
 class TealVal:
     i: int = 0
     b: str = ""
-    is_b: bool = None
+    is_b: Optional[bool] = None
     hide_empty: bool = True
 
     @classmethod
@@ -96,8 +97,8 @@ class BlackboxResults:
     program_counters: List[int]
     teal_line_numbers: List[int]
     teal_source_lines: List[str]
-    stack_evolution: List[list]
-    scratch_evolution: List[dict]
+    stack_evolution: List[str]
+    scratch_evolution: List[List[str]]
     final_scratch_state: Dict[int, TealVal]
     slots_used: List[int]
     raw_stacks: List[list]
@@ -132,16 +133,16 @@ class BlackboxResults:
         ), f"mismatch of lengths in tls v. stacks ({N} v. {len(stacks)})"
 
         # process scratch var's
-        scratches = [
+        _scr1 = [
             [TealVal.from_scratch(s) for s in x]
             for x in [t.get("scratch", []) for t in trace]
         ]
-        scratches = [
+        _scr2 = [
             {i: s for i, s in enumerate(scratch) if not s.is_empty()}
-            for scratch in scratches
+            for scratch in _scr1
         ]
-        slots_used = sorted(set().union(*(s.keys() for s in scratches)))
-        final_scratch_state = scratches[-1]
+        slots_used = sorted(set().union(*(s.keys() for s in _scr2)))
+        final_scratch_state = _scr2[-1]
         if not scratch_verbose:
 
             def compute_delta(prev, curr):
@@ -151,9 +152,9 @@ class BlackboxResults:
                     return {k: curr[k] for k in new_keys}
                 return {k: v for k, v in curr.items() if prev[k] != v}
 
-            scratch_deltas = [scratches[0]]
-            for i in range(1, len(scratches)):
-                scratch_deltas.append(compute_delta(scratches[i - 1], scratches[i]))
+            scratch_deltas = [_scr2[0]]
+            for i in range(1, len(_scr2)):
+                scratch_deltas.append(compute_delta(_scr2[i - 1], _scr2[i]))
 
             scratches = [
                 [f"{i}{scratch_colon}{v}" for i, v in scratch.items()]
@@ -165,7 +166,7 @@ class BlackboxResults:
                     f"{i}{scratch_colon}{scratch[i]}" if i in scratch else ""
                     for i in slots_used
                 ]
-                for scratch in scratches
+                for scratch in _scr2
             ]
 
         assert N == len(
@@ -216,9 +217,7 @@ class BlackboxResults:
     def max_stack_height(self) -> int:
         return max(len(s) for s in self.raw_stacks)
 
-    def final_scratch(
-        self, with_formatting: bool = False
-    ) -> Dict[Union[int, str], Union[int, str]]:
+    def final_scratch(self, with_formatting: bool = False) -> dict:
         unformatted = {
             i: str(s) if s.is_b else s.i for i, s in self.final_scratch_state.items()
         }
@@ -229,7 +228,7 @@ class BlackboxResults:
     def slots(self) -> List[int]:
         return self.slots_used
 
-    def final_as_row(self) -> Dict[str, Union[str, int]]:
+    def final_as_row(self) -> dict:
         return {
             "steps": self.steps(),
             " top_of_stack": self.final_stack_top(),
@@ -412,10 +411,11 @@ class DryRunExecutor:
         ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
-
         args = DryRunEncoder.encode_args(args)
+
+        builder: Callable[[str, List[str], Dict[str, Any]], DryrunRequest]
         builder = (
-            DryRunHelper.singleton_app_request
+            DryRunHelper.singleton_app_request  # type: ignore
             if is_app
             else DryRunHelper.singleton_logicsig_request
         )
@@ -842,7 +842,7 @@ class DryRunInspector:
 
     def csv_row(
         self, row_num: int, args: Sequence[Union[int, str]]
-    ) -> Dict[str, Union[str, int]]:
+    ) -> Dict[str, Optional[str | int]]:
         return {
             " Run": row_num,
             " cost": self.cost(),
@@ -857,7 +857,7 @@ class DryRunInspector:
     @classmethod
     def csv_report(
         cls,
-        inputs: List[tuple],
+        inputs: List[Sequence[Union[str, int]]],
         dr_resps: List["DryRunInspector"],
         txns: List[Dict[str, Any]] = None,
     ) -> str:
@@ -899,10 +899,10 @@ class DryRunInspector:
                 txns
             ), f"cannot produce CSV with unmatching size of inputs ({len(inputs)}) v. txns ({len(txns)})"
 
-        dr_resps = [resp.csv_row(i + 1, inputs[i]) for i, resp in enumerate(dr_resps)]
+        _drrs = [resp.csv_row(i + 1, inputs[i]) for i, resp in enumerate(dr_resps)]
 
         def row(i):
-            return {**dr_resps[i], **(txns[i] if txns else {})}
+            return {**_drrs[i], **(txns[i] if txns else {})}
 
         def row_columns(i):
             return row(i).keys()
@@ -911,8 +911,6 @@ class DryRunInspector:
             fields = sorted(set().union(*(row_columns(i) for i in range(N))))
             writer = csv.DictWriter(csv_str, fieldnames=fields)
             writer.writeheader()
-            # for drr in dr_resps:
-            #     writer.writerow(drr)
             for i in range(N):
                 writer.writerow(row(i))
 

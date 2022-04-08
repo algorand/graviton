@@ -4,7 +4,7 @@ from contextlib import redirect_stdout
 from dataclasses import dataclass
 import io
 import string
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from algosdk.future import transaction
 from algosdk.encoding import encode_address, msgpack_encode
@@ -27,7 +27,7 @@ PRINTABLE = frozenset(string.printable)
 class LSig:
     """Logic Sig program parameters"""
 
-    args: List[bytes] = None
+    args: Optional[List[bytes]] = None
 
 
 @dataclass
@@ -35,12 +35,12 @@ class App:
     """Application program parameters"""
 
     creator: str = ZERO_ADDRESS
-    round: int = None
+    round: Optional[int] = None
     app_idx: int = 0
     on_complete: int = 0
-    args: List[bytes] = None
-    accounts: List[Union[str, Account]] = None
-    global_state: List[TealKeyValue] = None
+    args: Optional[List[Union[bytes, str]]] = None
+    accounts: Optional[List[Union[str, Account]]] = None
+    global_state: Optional[List[TealKeyValue]] = None
 
 
 # ### LIGHTWEIGHT ASSERTIONS FOR RE-USE ### #
@@ -532,7 +532,7 @@ class DryRunHelper:
 
     @classmethod
     def singleton_app_request(
-        cls, program: str, args: List[bytes], txn_params: Dict[str, Any]
+        cls, program: str, args: List[Union[bytes, str]], txn_params: Dict[str, Any]
     ):
         return cls.dryrun_request(program, App(args=args), txn_params)
 
@@ -818,38 +818,36 @@ class DryRunHelper:
         with redirect_stdout(f):
             if "error" in drr and drr["error"]:
                 print("error:", drr["error"])
-            if "txns" not in drr or not isinstance(drr["txns"], list):
-                return
-
-            for idx, txn_res in enumerate(drr["txns"]):
-                msgs = []
-                trace = []
-                try:
-                    msgs = txn_res["app-call-messages"]
-                    trace = txn_res["app-call-trace"]
-                except KeyError:
+            if "txns" in drr and isinstance(drr["txns"], list):
+                for idx, txn_res in enumerate(drr["txns"]):
+                    msgs = []
+                    trace = []
                     try:
-                        msgs = txn_res["logic-sig-messages"]
-                        trace = txn_res["logic-sig-trace"]
+                        msgs = txn_res["app-call-messages"]
+                        trace = txn_res["app-call-trace"]
                     except KeyError:
-                        pass
-                if msgs:
-                    print(f"txn[{idx}] messages:")
-                    for msg in msgs:
-                        print(msg)
-                if trace:
-                    print(f"txn[{idx}] trace:")
-                    for item in trace:
-                        dis = txn_res["disassembly"][item["line"]]
-                        stack = cls._format_stack(item["stack"])
-                        line = "{:4d}".format(item["line"])
-                        pc = "{:04d}".format(item["pc"])
-                        disasm = "{:25}".format(dis)
-                        stack_line = "{}".format(stack)
-                        result = f"{line} ({pc}): {disasm} [{stack_line}]"
-                        if "error" in item:
-                            result += f" error: {item['error']}"
-                        print(result)
+                        try:
+                            msgs = txn_res["logic-sig-messages"]
+                            trace = txn_res["logic-sig-trace"]
+                        except KeyError:
+                            pass
+                    if msgs:
+                        print(f"txn[{idx}] messages:")
+                        for msg in msgs:
+                            print(msg)
+                    if trace:
+                        print(f"txn[{idx}] trace:")
+                        for item in trace:
+                            dis = txn_res["disassembly"][item["line"]]
+                            stack = cls._format_stack(item["stack"])
+                            line = "{:4d}".format(item["line"])
+                            pc = "{:04d}".format(item["pc"])
+                            disasm = "{:25}".format(dis)
+                            stack_line = "{}".format(stack)
+                            result = f"{line} ({pc}): {disasm} [{stack_line}]"
+                            if "error" in item:
+                                result += f" error: {item['error']}"
+                            print(result)
         out = f.getvalue()
         print(out)
         return out

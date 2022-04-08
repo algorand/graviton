@@ -12,7 +12,10 @@ flake8:
 black:
 	black --check .
 
-lint: black flake8
+mypy:
+	mypy graviton tests
+
+lint: flake8 black mypy
 
 unit-test:
 	pytest -sv tests/unit

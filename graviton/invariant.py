@@ -1,5 +1,5 @@
 from inspect import signature
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import cast, Any, Callable, Dict, List, Sequence, Tuple, Union
 
 from graviton.blackbox import (
     DryRunInspector,
@@ -16,7 +16,7 @@ class Invariant:
         self,
         predicate: Union[Dict[Tuple, Union[str, int]], Callable],
         enforce: bool = False,
-        name: str = None,
+        name: Any = None,
     ):
         self.definition = predicate
         self.predicate, self._expected = self.prepare_predicate(predicate)
@@ -93,11 +93,13 @@ class Invariant:
     @classmethod
     def inputs_and_invariants(
         cls,
-        scenario: Dict[str, Union[list, dict]],
+        scenario: Dict[str, Any],
         mode: ExecutionMode,
         raw_predicates: bool = False,
-    ) -> Tuple[List[tuple], Dict[DryRunProperty, Any]]:
+    ) -> Tuple[List[Sequence[Union[str, int]]], Dict[DryRunProperty, Any]]:
         """
+        TODO: Do we really need this, or does this just overcomplicate?
+
         Validate that a Blackbox Test Scenario has been properly constructed, and return back
         its components which consist of **inputs** and _optional_ **invariants**.
 
@@ -129,20 +131,15 @@ class Invariant:
             scenario, dict
         ), f"a Blackbox Scenario should be a dict but got a {type(scenario)}"
 
-        inputs = scenario.get("inputs")
-        # TODO: we can be more flexible here and allow arbitrary iterable `args`. Because
-        # invariants are allowed to be dicts, and therefore each `args` needs to be
-        # hashable in that case, we are restricting to tuples currently.
-        # However, this function could be friendlier and just _convert_ each of the
-        # `args` to a tuple, thus eliminating any downstream issues.
+        inputs = cast(List[Sequence[Union[str, int]]], scenario.get("inputs"))
         assert (
             inputs
             and isinstance(inputs, list)
             and all(isinstance(args, tuple) for args in inputs)
         ), "need a list of inputs with at least one args and all args must be tuples"
 
-        invariants = {}
-        predicates = scenario.get("invariants", {})
+        invariants: Dict[DryRunProperty, Any] = {}
+        predicates = cast(Dict[DryRunProperty, Any], scenario.get("invariants", {}))
         if predicates:
             assert isinstance(predicates, dict), "invariants must be a dict"
 
