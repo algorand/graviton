@@ -7,6 +7,11 @@ from tabulate import tabulate
 from typing import Any, Dict, Sequence, List, Optional, Union
 
 from algosdk.v2client.algod import AlgodClient
+from algosdk.future.transaction import (
+    OnComplete,
+    StateSchema,
+    SuggestedParams,
+)
 
 from graviton.dryrun import (
     ZERO_ADDRESS,
@@ -286,16 +291,55 @@ class DryRunEncoder:
 class DryRunExecutor:
     """Methods to package up and kick off dry run executions"""
 
+    SUGGESTED_PARAMS = SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
+
     @classmethod
     def dryrun_app(
         cls,
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
-        sender: str = ZERO_ADDRESS,
+        *,
+        sender: str = None,
+        sp: SuggestedParams = None,
+        index: int = None,
+        on_complete: OnComplete = None,
+        local_schema: StateSchema = None,
+        global_schema: StateSchema = None,
+        approval_program: str = None,
+        clear_program: str = None,
+        app_args: Sequence[Union[str, int]] = None,  # does this contradict args?
+        accounts: List[str] = None,
+        foreign_apps: List[str] = None,
+        foreign_assets: List[str] = None,
+        note: str = None,
+        lease: str = None,
+        rekey_to: str = None,
+        extra_pages: int = None,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
-            algod, teal, args, ExecutionMode.Application, sender=sender
+            algod,
+            teal,
+            args,
+            ExecutionMode.Application,
+            cls.transaction_params(
+                sender=ZERO_ADDRESS if sender is None else sender,
+                sp=cls.SUGGESTED_PARAMS if sp is None else sp,
+                note=note,
+                lease=lease,
+                rekey_to=rekey_to,
+                index=0 if index is None else index,
+                on_complete=OnComplete.NoOpOC if on_complete is None else on_complete,
+                local_schema=local_schema,
+                global_schema=global_schema,
+                approval_program=approval_program,
+                clear_program=clear_program,
+                app_args=app_args,
+                accounts=accounts,
+                foreign_apps=foreign_apps,
+                foreign_assets=foreign_assets,
+                extra_pages=extra_pages,
+            ),
         )
 
     @classmethod
@@ -304,10 +348,31 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
-        sender: str = ZERO_ADDRESS,
+        *,
+        sender: str = None,
+        sp: SuggestedParams = None,
+        receiver: str = None,
+        amt: int = None,
+        close_remainder_to: str = None,
+        note: str = None,
+        lease: str = None,
+        rekey_to: str = None,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
-            algod, teal, args, ExecutionMode.Signature, sender
+            algod,
+            teal,
+            args,
+            ExecutionMode.Signature,
+            cls.transaction_params(
+                sender=ZERO_ADDRESS if sender is None else sender,
+                sp=cls.SUGGESTED_PARAMS if sp is None else sp,
+                note=note,
+                lease=lease,
+                rekey_to=rekey_to,
+                receiver=ZERO_ADDRESS if receiver is None else receiver,
+                amt=0 if amt is None else amt,
+                close_remainder_to=close_remainder_to,
+            ),
         )
 
     @classmethod
@@ -316,9 +381,9 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
-        sender: str = ZERO_ADDRESS,
+        # sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_app, algod, teal, inputs, sender)
+        return cls._map(cls.dryrun_app, algod, teal, inputs)  # , sender)
 
     @classmethod
     def dryrun_logicsig_on_sequence(
@@ -326,13 +391,13 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
-        sender: str = ZERO_ADDRESS,
+        # sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_logicsig, algod, teal, inputs, sender)
+        return cls._map(cls.dryrun_logicsig, algod, teal, inputs)  # , sender)
 
     @classmethod
-    def _map(cls, f, algod, teal, inps, sndr):
-        return list(map(lambda args: f(algod, teal, args, sender=sndr), inps))
+    def _map(cls, f, algod, teal, inputs):
+        return list(map(lambda args: f(algod, teal, args), inputs))
 
     @classmethod
     def execute_one_dryrun(
@@ -341,7 +406,7 @@ class DryRunExecutor:
         teal: str,
         args: Sequence[Union[str, int]],
         mode: ExecutionMode,
-        sender: str = ZERO_ADDRESS,
+        txn_params: dict,
     ) -> "DryRunInspector":
         assert (
             len(ExecutionMode) == 2
@@ -355,9 +420,59 @@ class DryRunExecutor:
             if is_app
             else DryRunHelper.singleton_logicsig_request
         )
-        dryrun_req = builder(teal, args, sender=sender)
+        dryrun_req = builder(teal, args, txn_params)
         dryrun_resp = algod.dryrun(dryrun_req)
         return DryRunInspector.from_single_response(dryrun_resp)
+
+    @classmethod
+    def transaction_params(
+        cls,
+        *,
+        # generic:
+        sender: str = None,
+        sp: SuggestedParams = None,
+        note: str = None,
+        lease: str = None,
+        rekey_to: str = None,
+        # payments:
+        receiver: str = None,
+        amt: int = None,
+        close_remainder_to: str = None,
+        # apps:
+        index: int = None,
+        on_complete: OnComplete = None,
+        local_schema: StateSchema = None,
+        global_schema: StateSchema = None,
+        approval_program: str = None,
+        clear_program: str = None,
+        app_args: Sequence[Union[str, int]] = None,  # does this contradict args?
+        accounts: List[str] = None,
+        foreign_apps: List[str] = None,
+        foreign_assets: List[str] = None,
+        extra_pages: int = None,
+    ) -> Dict[str, Any]:
+        params = dict(
+            sender=sender,
+            sp=sp,
+            note=note,
+            lease=lease,
+            rekey_to=rekey_to,
+            receiver=receiver,
+            amt=amt,
+            close_remainder_to=close_remainder_to,
+            index=index,
+            on_complete=on_complete,
+            local_schema=local_schema,
+            global_schema=global_schema,
+            approval_program=approval_program,
+            clear_program=clear_program,
+            app_args=app_args,
+            accounts=accounts,
+            foreign_apps=foreign_apps,
+            foreign_assets=foreign_assets,
+            extra_pages=extra_pages,
+        )
+        return {k: v for k, v in params.items() if v is not None}
 
 
 class DryRunInspector:

@@ -1,8 +1,10 @@
 import base64
 import binascii
+from contextlib import redirect_stdout
 from dataclasses import dataclass
+import io
 import string
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
 from algosdk.constants import PAYMENT_TXN, APPCALL_TXN
 from algosdk.future import transaction
@@ -445,7 +447,7 @@ class DryrunTestCaseMixin:
         Raises:
             TypeError: program is not bytes or str
         """
-        drr = DryRunHelper.build_dryrun_request(program, lsig, app, sender)
+        drr = DryRunHelper._deprecated_dryrun(program, lsig, app, sender)
         return self.algo_client.dryrun(drr)
 
     def dryrun_request_from_txn(self, txns, app):
@@ -525,18 +527,42 @@ class DryRunHelper:
 
     @classmethod
     def singleton_logicsig_request(
-        cls, program: str, args: List[bytes], sender=ZERO_ADDRESS
+        cls, program: str, args: List[bytes], txn_params: Dict[str, Any]
     ):
-        return cls.build_dryrun_request(program, lsig=LSig(args=args), sender=sender)
+        return cls.dryrun_request(program, LSig(args=args), txn_params)
 
     @classmethod
     def singleton_app_request(
-        cls, program: str, args: List[bytes], sender=ZERO_ADDRESS
+        cls, program: str, args: List[bytes], txn_params: Dict[str, Any]
     ):
-        return cls.build_dryrun_request(program, app=App(args=args), sender=sender)
+        return cls.dryrun_request(program, App(args=args), txn_params)
 
     @classmethod
-    def build_dryrun_request(cls, program, lsig=None, app=None, sender=ZERO_ADDRESS):
+    def dryrun_request(cls, program, lsig_or_app, txn_params):
+        assert isinstance(
+            lsig_or_app, (LSig, App)
+        ), f"Cannot handle {lsig_or_app} of type {type(lsig_or_app)}"
+        is_app = isinstance(lsig_or_app, App)
+        if is_app:
+            return cls._app_request(program, lsig_or_app, txn_params)
+
+        return cls._lsig_request(program, lsig_or_app, txn_params)
+
+    @classmethod
+    def _app_request(cls, program, app, txn_params):
+        run_mode = cls._get_run_mode(app)
+        enriched = cls._prepare_app(app)
+        txn = transaction.ApplicationCallTxn(**txn_params)
+        return cls._prepare_app_source_request(program, enriched, run_mode, txn)
+
+    @classmethod
+    def _lsig_request(cls, program, lsig, txn_params):
+        enriched = cls._prepare_lsig(lsig)
+        txn = transaction.PaymentTxn(**txn_params)
+        return cls._prepare_lsig_source_request(program, enriched, txn)
+
+    @classmethod
+    def _deprecated_dryrun(cls, program, lsig=None, app=None, sender=ZERO_ADDRESS):
         """
         Helper function for creation DryrunRequest object from a program.
         By default it uses logic sig mode
@@ -564,32 +590,29 @@ class DryRunHelper:
         if lsig and not isinstance(lsig, (LSig, dict)):
             raise ValueError("lsig must be a dict or LSig")
 
+        if isinstance(app, dict):
+            app = App(**app)
+        elif isinstance(lsig, dict):
+            lsig = LSig(**lsig)
+        else:  # both are None
+            lsig = LSig()
+
         if not isinstance(program, (bytes, str)):
             raise TypeError("program must be bytes or str")
 
         run_mode = cls._get_run_mode(app)
-
-        app_or_lsig = (
-            cls._prepare_lsig(lsig) if run_mode == "lsig" else cls._prepare_app(app)
-        )
-
-        del app
-        del lsig
-
-        txn = (
-            cls.sample_txn(sender, PAYMENT_TXN)
-            if run_mode == "lsig"
-            else cls.sample_txn(sender, APPCALL_TXN)
-        )
+        is_app = run_mode != "lsig"
+        lsig_or_app = app if is_app else lsig
+        txn_params = cls.sample_txn_params(sender, is_app)
 
         if isinstance(program, str):
-            return (
-                cls._prepare_lsig_source_request(program, app_or_lsig, run_mode, txn)
-                if run_mode == "lsig"
-                else cls._prepare_app_source_request(
-                    program, app_or_lsig, sender, run_mode, txn
-                )
-            )
+            return cls.dryrun_request(program, lsig_or_app, txn_params)
+
+        assert (
+            False
+        ), f"this is unreachable  as far as I can tell - type(program)={type(program)} - (HAVE DEPRECATED program of type bytes)!!!"
+        del app
+        del lsig
 
         # in case of bytes:
         sources = []
@@ -597,6 +620,11 @@ class DryRunHelper:
         accounts = []
         rnd = None
 
+        txn = (
+            transaction.ApplicationCallTxn(**txn_params)
+            if is_app
+            else transaction.PaymentTxn(**txn_params)
+        )
         if run_mode != "lsig":
             txns = [cls._build_appcall_signed_txn(txn, app_or_lsig)]
             application = cls.sample_app(sender, app_or_lsig, program)
@@ -630,6 +658,7 @@ class DryRunHelper:
 
     @classmethod
     def _prepare_app(cls, app):
+        # TODO: This code is smelly. Make it less so.
         if isinstance(app, dict):
             app = App(**app)
 
@@ -640,13 +669,8 @@ class DryRunHelper:
             accounts = []
             for acc in app.accounts:
                 if isinstance(acc, str):
-                    accounts.append(
-                        Account(
-                            address=acc,
-                        )
-                    )
-                else:
-                    accounts.append(acc)
+                    acc = Account(address=acc)
+                accounts.append(acc)
             app.accounts = accounts
 
         return app
@@ -657,12 +681,11 @@ class DryRunHelper:
             lsig = LSig()
         elif isinstance(lsig, dict):
             lsig = LSig(**lsig)
-
         return lsig
 
     @classmethod
-    def _prepare_lsig_source_request(cls, program, lsig, run_mode, txn):
-        source = DryrunSource(field_name=run_mode, source=program, txn_index=0)
+    def _prepare_lsig_source_request(cls, program, lsig, txn):
+        source = DryrunSource(field_name="lsig", source=program, txn_index=0)
         apps = []
         accounts = []
         rnd = None
@@ -677,7 +700,8 @@ class DryRunHelper:
         )
 
     @classmethod
-    def _prepare_app_source_request(cls, program, app, sender, run_mode, txn):
+    def _prepare_app_source_request(cls, program, app, run_mode, txn):
+        sender = txn.sender
         source = DryrunSource(field_name=run_mode, source=program, txn_index=0)
         txns = [cls._build_appcall_signed_txn(txn, app)]
         application = cls.sample_app(sender, app)
@@ -719,18 +743,12 @@ class DryRunHelper:
         return transaction.SignedTransaction(txn, None)
 
     @classmethod
-    def sample_txn(cls, sender, txn_type):
-        """
-        Helper function for creation Transaction for dryrun
-        """
+    def sample_txn_params(cls, sender: str, is_app: bool):
         sp = transaction.SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
-        if txn_type == PAYMENT_TXN:
-            txn = transaction.Transaction(sender, sp, None, None, PAYMENT_TXN, None)
-        elif txn_type == APPCALL_TXN:
-            txn = transaction.ApplicationCallTxn(sender, sp, 0, 0)
-        else:
-            raise ValueError("unsupported src object")
-        return txn
+        if is_app:
+            return dict(sender=sender, sp=sp, index=0, on_complete=0)
+
+        return dict(sender=sender, sp=sp, receiver=sender, amt=0)
 
     @staticmethod
     def sample_app(sender, app, program=None):
@@ -795,42 +813,47 @@ class DryRunHelper:
         return " ".join(parts)
 
     @classmethod
-    def pprint(cls, drr):
+    def pprint(cls, drr) -> str:
         """Helper function to pretty print dryrun response"""
-        if "error" in drr and drr["error"]:
-            print("error:", drr["error"])
-        if "txns" not in drr or not isinstance(drr["txns"], list):
-            return
+        f = io.StringIO()
+        with redirect_stdout(f):
+            if "error" in drr and drr["error"]:
+                print("error:", drr["error"])
+            if "txns" not in drr or not isinstance(drr["txns"], list):
+                return
 
-        for idx, txn_res in enumerate(drr["txns"]):
-            msgs = []
-            trace = []
-            try:
-                msgs = txn_res["app-call-messages"]
-                trace = txn_res["app-call-trace"]
-            except KeyError:
+            for idx, txn_res in enumerate(drr["txns"]):
+                msgs = []
+                trace = []
                 try:
-                    msgs = txn_res["logic-sig-messages"]
-                    trace = txn_res["logic-sig-trace"]
+                    msgs = txn_res["app-call-messages"]
+                    trace = txn_res["app-call-trace"]
                 except KeyError:
-                    pass
-            if msgs:
-                print(f"txn[{idx}] messages:")
-                for msg in msgs:
-                    print(msg)
-            if trace:
-                print(f"txn[{idx}] trace:")
-                for item in trace:
-                    dis = txn_res["disassembly"][item["line"]]
-                    stack = cls._format_stack(item["stack"])
-                    line = "{:4d}".format(item["line"])
-                    pc = "{:04d}".format(item["pc"])
-                    disasm = "{:25}".format(dis)
-                    stack_line = "{}".format(stack)
-                    result = f"{line} ({pc}): {disasm} [{stack_line}]"
-                    if "error" in item:
-                        result += f" error: {item['error']}"
-                    print(result)
+                    try:
+                        msgs = txn_res["logic-sig-messages"]
+                        trace = txn_res["logic-sig-trace"]
+                    except KeyError:
+                        pass
+                if msgs:
+                    print(f"txn[{idx}] messages:")
+                    for msg in msgs:
+                        print(msg)
+                if trace:
+                    print(f"txn[{idx}] trace:")
+                    for item in trace:
+                        dis = txn_res["disassembly"][item["line"]]
+                        stack = cls._format_stack(item["stack"])
+                        line = "{:4d}".format(item["line"])
+                        pc = "{:04d}".format(item["pc"])
+                        disasm = "{:25}".format(dis)
+                        stack_line = "{}".format(stack)
+                        result = f"{line} ({pc}): {disasm} [{stack_line}]"
+                        if "error" in item:
+                            result += f" error: {item['error']}"
+                        print(result)
+        out = f.getvalue()
+        print(out)
+        return out
 
     @staticmethod
     def find_error(drr, txn_index=None):

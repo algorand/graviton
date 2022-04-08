@@ -145,35 +145,24 @@ int 0
 return
 """
         self.assertReject(source, app=dict(app_idx=0))
-        self.assertReject(
-            source,
-            app=dict(
-                app_idx=1,
-                args=[b"\x01", b"\xFF", b"\x01\x00", b"\x01\xFF"],
-            ),
-        )
-        self.assertPass(
-            source,
-            app=dict(
-                app_idx=0,
-                args=[b"\x01", b"\xFF", b"\x01\x00", b"\x01\xFF"],
-            ),
-        )
+
+        args = [b"\x01", b"\xFF", b"\x01\x00", b"\x01\xFF"]
+        self.assertReject(source, app=dict(app_idx=1, args=args))
+
+        bad_init = dict(app_idx=0, args=args)
+        self.assertPass(source, app=bad_init)
 
         sender = "42NJMHTPFVPXVSDGA6JGKUV6TARV5UZTMPFIREMLXHETRKIVW34QFSDFRE"
-        drr = self.dryrun_request(
-            source,
-            sender=sender,
-            app=dict(
-                app_idx=0,
-                args=[
-                    (0x01).to_bytes(1, byteorder="big"),
-                    (0xFF).to_bytes(1, byteorder="big"),
-                    (0x0100).to_bytes(2, byteorder="big"),
-                    (0x01FF).to_bytes(2, byteorder="big"),
-                ],
-            ),
+        bytes_args_app = dict(
+            app_idx=0,
+            args=[
+                (0x01).to_bytes(1, byteorder="big"),
+                (0xFF).to_bytes(1, byteorder="big"),
+                (0x0100).to_bytes(2, byteorder="big"),
+                (0x01FF).to_bytes(2, byteorder="big"),
+            ],
         )
+        drr = self.dryrun_request(source, sender=sender, app=bytes_args_app)
         self.assertPass(drr)
 
         value = dict(
@@ -475,13 +464,17 @@ byte {"0x" + proof.hex()}
         app = base64.b64decode(app_compiled["result"])
 
         # create transactions
-        txn1 = DryRunHelper.sample_txn(logic_hash, PAYMENT_TXN)
+        txn1 = transaction.PaymentTxn(
+            **DryRunHelper.sample_txn_params(logic_hash, is_app=False)
+        )
         txn1.note = proof
         logicsig = transaction.LogicSig(logic, None)
         stxn1 = transaction.LogicSigTransaction(txn1, logicsig)
 
         app_idx = 1
-        txn2 = DryRunHelper.sample_txn(self.default_address(), APPCALL_TXN)
+        txn2 = transaction.ApplicationCallTxn(
+            **DryRunHelper.sample_txn_params(self.default_address(), is_app=True)
+        )
         txn2.index = app_idx
         txn2.app_args = args
         stxn2 = transaction.SignedTransaction(txn2, None)
