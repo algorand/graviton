@@ -381,9 +381,8 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
-        # sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_app, algod, teal, inputs)  # , sender)
+        return cls._map(cls.dryrun_app, algod, teal, inputs)
 
     @classmethod
     def dryrun_logicsig_on_sequence(
@@ -391,9 +390,9 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
-        # sender: str = ZERO_ADDRESS,
+        txn_params: List[Dict[str, Any]] = None,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_logicsig, algod, teal, inputs)  # , sender)
+        return cls._map(cls.dryrun_logicsig, algod, teal, inputs)
 
     @classmethod
     def _map(cls, f, algod, teal, inputs):
@@ -856,7 +855,12 @@ class DryRunInspector:
         }
 
     @classmethod
-    def csv_report(cls, inputs: List[tuple], dr_resps: List["DryRunInspector"]) -> str:
+    def csv_report(
+        cls,
+        inputs: List[tuple],
+        dr_resps: List["DryRunInspector"],
+        txns: List[Dict[str, Any]] = None,
+    ) -> str:
         """Produce a Comma Separated Values report string capturing important statistics
         for a sequence of dry runs.
 
@@ -890,14 +894,27 @@ class DryRunInspector:
         assert N == len(
             dr_resps
         ), f"cannot produce CSV with unmatching size of inputs ({len(inputs)}) v. drresps ({len(dr_resps)})"
+        if txns:
+            assert N == len(
+                txns
+            ), f"cannot produce CSV with unmatching size of inputs ({len(inputs)}) v. txns ({len(txns)})"
 
         dr_resps = [resp.csv_row(i + 1, inputs[i]) for i, resp in enumerate(dr_resps)]
+
+        def row(i):
+            return {**dr_resps[i], **(txns[i] if txns else {})}
+
+        def row_columns(i):
+            return row(i).keys()
+
         with io.StringIO() as csv_str:
-            fields = sorted(set().union(*(txn.keys() for txn in dr_resps)))
+            fields = sorted(set().union(*(row_columns(i) for i in range(N))))
             writer = csv.DictWriter(csv_str, fieldnames=fields)
             writer.writeheader()
-            for txn in dr_resps:
-                writer.writerow(txn)
+            # for drr in dr_resps:
+            #     writer.writerow(drr)
+            for i in range(N):
+                writer.writerow(row(i))
 
             return csv_str.getvalue()
 

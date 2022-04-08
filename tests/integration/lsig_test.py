@@ -34,12 +34,6 @@ def test_factorizer_game_version_report(suffix):
     with open(csvpath, "w") as f:
         f.write(Inspector.csv_report(inputs, dryrun_results))
 
-    # last_message_invariant = Invariant(
-    #     lambda args: "PASS" if set(args) == {5, 7} else "REJECT",
-    #     name="final message REJECT exactly for args not {5, 7}",
-    # )
-    # last_message_invariant.validates(DRProp.lastMessage, inputs, dryrun_results)
-
 
 FACTORIZER_V1 = TESTS_DIR / "teal" / "lsig_factorizer_game_1_5_7_V1.teal"
 with open(FACTORIZER_V1, "r") as f:
@@ -109,11 +103,55 @@ def poly_4(x):
     return abs(x**2 - 12 * x + 35)
 
 
+def expected_prize_before_dupe_constraint(p, q):
+    return 1_000_000 * max(10 - (sum(map(poly_4, (p, q))) + 1) // 2, 0)
+
+
 @pytest.mark.parametrize("p, q", product(range(20), range(20)))
 def test_factorizer_game_3_stateless(p, q):
     args = (p, q)
-    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_V4, args, amt=10_000_000)
-    # assert inspector.passed(), inspector.report(args)
-    expected_prize = 1_000_000 * max(10 - (sum(map(poly_4, args)) + 1) // 2, 0)
+    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_V4, args)
     slots = inspector.final_scratch()
-    assert slots.get(3, 0) == expected_prize, inspector.report(args)
+    assert slots.get(3, 0) == expected_prize_before_dupe_constraint(
+        p, q
+    ), inspector.report(args)
+
+
+def payment_amount(p, q):
+    return 0 if p == q else expected_prize_before_dupe_constraint(p, q)
+
+
+@pytest.mark.parametrize("p, q", product(range(20), range(20)))
+def test_factorizer_game_4_payout(p, q):
+    args = (p, q)
+    eprize = expected_prize_before_dupe_constraint(p, q)
+    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_V4, args, amt=eprize)
+    assert inspector.final_scratch().get(3, 0) == eprize, inspector.report(
+        args, f"final scratch slot #3 {p, q}"
+    )
+    actual_prize = payment_amount(p, q)
+    assert inspector.passed() == bool(actual_prize), inspector.report(
+        args, f"passed {p, q}"
+    )
+
+
+def test_factorizer_report_with_pymnt():
+    filebase = "lsig_factorizer_game_1_5_7_V4"
+    path = TESTS_DIR / "teal"
+    tealpath = path / f"{filebase}.teal"
+    with open(tealpath, "r") as f:
+        teal = f.read()
+
+    inputs = list(product(range(20), range(20)))
+    amts = list(map(lambda args: payment_amount(*args), inputs))
+    algod = get_algod()
+
+    dryrun_results, txns = [], []
+    for args, amt in zip(inputs, amts):
+        txn = {"amt": amt}
+        txns.append(txn)
+        dryrun_results.append(Executor.dryrun_logicsig(algod, teal, args, **txn))
+
+    csvpath = path / f"{filebase}.csv"
+    with open(csvpath, "w") as f:
+        f.write(Inspector.csv_report(inputs, dryrun_results, txns=txns))
