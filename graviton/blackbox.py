@@ -842,7 +842,7 @@ class DryRunInspector:
 
     def csv_row(
         self, row_num: int, args: Sequence[Union[int, str]]
-    ) -> Dict[str, Optional[str | int]]:
+    ) -> Dict[str, Optional[Union[int, str]]]:
         return {
             " Run": row_num,
             " cost": self.cost(),
