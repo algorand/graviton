@@ -404,7 +404,7 @@ class DryRunExecutor:
         teal: str,
         args: Sequence[Union[str, int]],
         mode: ExecutionMode,
-        txn_params: dict,
+        txn_params: dict = {},
     ) -> "DryRunInspector":
         assert (
             len(ExecutionMode) == 2
