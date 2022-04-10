@@ -26,7 +26,9 @@ class Invariant:
     def __repr__(self):
         return f"Invariant({self.definition})"[:100]
 
-    def __call__(self, args: list, actual: Union[str, int]) -> Tuple[bool, str]:
+    def __call__(
+        self, args: Sequence[Union[str, int]], actual: Union[str, int]
+    ) -> Tuple[bool, str]:
         invariant = self.predicate(args, actual)
         msg = ""
         if not invariant:
@@ -36,13 +38,13 @@ class Invariant:
 
         return invariant, msg
 
-    def expected(self, args: list) -> Union[str, int]:
+    def expected(self, args: Sequence[Union[str, int]]) -> Union[str, int]:
         return self._expected(args)
 
     def validates(
         self,
         dr_property: DryRunProperty,
-        inputs: List[list],
+        inputs: List[Sequence[Union[str, int]]],
         inspectors: List[DryRunInspector],
     ):
         N = len(inputs)
