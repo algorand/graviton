@@ -107,6 +107,10 @@ def expected_prize_before_dupe_constraint(p, q):
     return 1_000_000 * max(10 - (sum(map(poly_4, (p, q))) + 1) // 2, 0)
 
 
+def payment_amount(p, q):
+    return 0 if p == q else expected_prize_before_dupe_constraint(p, q)
+
+
 @pytest.mark.parametrize("p, q", product(range(20), range(20)))
 def test_factorizer_game_3_stateless(p, q):
     args = (p, q)
@@ -115,10 +119,6 @@ def test_factorizer_game_3_stateless(p, q):
     assert slots.get(3, 0) == expected_prize_before_dupe_constraint(
         p, q
     ), inspector.report(args)
-
-
-def payment_amount(p, q):
-    return 0 if p == q else expected_prize_before_dupe_constraint(p, q)
 
 
 @pytest.mark.parametrize("p, q", product(range(20), range(20)))
