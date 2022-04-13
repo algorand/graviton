@@ -270,6 +270,8 @@ class DryRunEncoder:
 
     @classmethod
     def _encode_arg(cls, arg, idx):
+        if isinstance(arg, bytes):
+            return arg
         cls._assert_encodable(arg, f"problem encoding arg ({arg}) at index ({idx})")
         return cls._to_bytes(arg, only_ints=True)
 
