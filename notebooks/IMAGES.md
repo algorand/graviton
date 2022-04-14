@@ -1,0 +1,3 @@
+# Images that aren't Showing up in the Notebook on Github
+
+... will paste the screenshots on github ...
