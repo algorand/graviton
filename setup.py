@@ -24,9 +24,10 @@ setup(
             "types-tabulate==0.8.6",
         ],
         "notebooks": [
-            "jupyter-client==7.2.2",
-            "jupyter-core==4.9.2",
-            "nbformat==5.3.0",
+            # "jupyter-client==7.2.2",
+            # "jupyter-core==4.9.2",
+            # "nbformat==5.3.0",
+            "nbmake==1.3.0",
             "pandas==1.4.2",
             "plotly==5.7.0",
         ],

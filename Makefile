@@ -6,6 +6,9 @@ pip:
 pip-development: pip
 	pip install -e.[development]
 
+pip-notebooks: pip-development
+	pip install -e.[notebooks]
+
 flake8:
 	flake8 graviton tests
 
@@ -32,6 +35,9 @@ blackbox-smoke-prefix:
 NUM_PROCS = auto
 integration-test:
 	pytest -n $(NUM_PROCS) --durations=10 -sv tests/integration
+
+notebooks-test:
+	pytest --nbmake notebooks
 
 pre-commit-check: lint unit-test integration-test
 
@@ -62,4 +68,4 @@ gh-sandbox-test:
 
 gh-blackbox-smoke: blackbox-smoke-prefix gh-sandbox-test
 
-gh-blackbox: gh-blackbox-smoke integration-test
+gh-blackbox: gh-blackbox-smoke integration-test notebooks-test
