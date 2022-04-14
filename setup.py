@@ -22,7 +22,7 @@ setup(
             "pytest==7.1.1",
             "pytest-xdist==2.5.0",
             "types-tabulate==0.8.6",
-        ]
+        ],
         "notebooks": [
             "jupyter-client==7.2.2",
             "jupyter-core==4.9.2",
