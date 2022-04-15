@@ -307,7 +307,7 @@ class DryRunExecutor:
         global_schema: StateSchema = None,
         approval_program: str = None,
         clear_program: str = None,
-        app_args: Sequence[Union[str, int]] = None,  # does this contradict args?
+        app_args: Sequence[Union[str, int]] = None,
         accounts: List[str] = None,
         foreign_apps: List[str] = None,
         foreign_assets: List[str] = None,
@@ -444,7 +444,7 @@ class DryRunExecutor:
         global_schema: StateSchema = None,
         approval_program: str = None,
         clear_program: str = None,
-        app_args: Sequence[Union[str, int]] = None,  # does this contradict args?
+        app_args: Sequence[Union[str, int]] = None,
         accounts: List[str] = None,
         foreign_apps: List[str] = None,
         foreign_assets: List[str] = None,
