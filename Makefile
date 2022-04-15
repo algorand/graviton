@@ -33,8 +33,9 @@ blackbox-smoke-prefix:
 	cd sandbox && docker-compose ps
 
 NUM_PROCS = auto
+VERBOSITY = -sv
 integration-test:
-	pytest -n $(NUM_PROCS) --durations=10 -sv tests/integration
+	pytest -n $(NUM_PROCS) --durations=10 $(VERBOSITY) tests/integration
 
 notebooks-test:
 	pytest --nbmake -n $(NUM_PROCS) notebooks

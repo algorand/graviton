@@ -15,11 +15,12 @@ from algosdk.future.transaction import (
 )
 
 from graviton.dryrun import (
-    ZERO_ADDRESS,
     assert_error,
     assert_no_error,
     DryRunHelper,
 )
+
+from graviton.models import ZERO_ADDRESS
 
 
 class ExecutionMode(Enum):
