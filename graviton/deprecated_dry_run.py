@@ -2,6 +2,11 @@ from algosdk.future import transaction
 from algosdk.v2client.models import DryrunRequest
 
 from . import models
+from .dryrun import DryRunHelper
+
+
+def make_deprecated_dryrun(algo_client):
+    return DeprecatedDryRun(algo_client, DryRunHelper.dryrun_request)
 
 
 class DeprecatedDryRun:

@@ -16,7 +16,6 @@ from algosdk.v2client.models import (
     Account,
 )
 
-from .deprecated_dry_run import DeprecatedDryRun
 from . import models
 
 PRINTABLE = frozenset(string.printable)
@@ -202,8 +201,8 @@ def assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=None
         _fail(msg)
 
 
-def make_deprecated_dryrun(algo_client):
-    return DeprecatedDryRun(algo_client, DryRunHelper.dryrun_request)
+# def make_deprecated_dryrun(algo_client):
+#     return DeprecatedDryRun(algo_client, DryRunHelper.dryrun_request)
 
 
 class DryRunHelper:
