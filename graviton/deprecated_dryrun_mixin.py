@@ -9,7 +9,7 @@ from .dryrun import (
     assert_status,
 )
 
-from .deprecated_dry_run import make_deprecated_dryrun
+from .deprecated_dryrun import make_deprecated_dryrun
 
 
 class DryrunTestCaseMixin:

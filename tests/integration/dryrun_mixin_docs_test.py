@@ -17,9 +17,9 @@ from algosdk.v2client.models import (
     TealValue,
 )
 
+from graviton.deprecated_dryrun import DeprecatedDryRun, make_deprecated_dryrun
 from graviton.deprecated_dryrun_mixin import DryrunTestCaseMixin
-from graviton.deprecated_dry_run import DeprecatedDryRun
-from graviton.dryrun import DryRunHelper, make_deprecated_dryrun
+from graviton.dryrun import DryRunHelper
 
 from tests.clients import get_algod
 
