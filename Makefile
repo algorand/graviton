@@ -40,7 +40,7 @@ integration-test:
 notebooks-test:
 	pytest --nbmake -n $(NUM_PROCS) notebooks
 
-pre-commit-check: lint unit-test integration-test
+pre-commit-check: lint unit-test integration-test notebooks-test
 
 ###### Local Only ######
 
@@ -50,8 +50,16 @@ local-project-build:
 	pyproject-build
 
 # assumes a symbolic link: sandbox -> /cloned/repo/algorand/sandbox
+SANDBOX = ./sandbox/sandbox
+SANDBOX_ENV = 
+local-sandbox-up:
+	$(SANDBOX) up $(SANDBOX_ENV)
+
+local-sandbox-pause:
+	$(SANDBOX) pause
+
 local-sandbox-test:
-	./sandbox/sandbox test
+	$(SANDBOX) test
 
 local-blackbox-smoke: blackbox-smoke-prefix local-sandbox-test
 
