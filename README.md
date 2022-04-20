@@ -75,4 +75,3 @@ Once `act` is available you can simulate all the github actions integration test
 ```sh
 make local-gh-simulate
 ```
-
