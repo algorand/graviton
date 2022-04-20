@@ -16,9 +16,9 @@ make pip-notebooks
 
 ### Prereq - Install and Symbolically Link to the Sandbox
 
-If you would like to use the [Makefile](./Makefile) without modificationm and with full functionality, you should create a symbolic link to  [the algorand sandbox repo](https://github.com/algorand/sandbox) as described here. There are many ways to accomplish this. Assuming you have cloned ***the sandbox*** into the path  `/path/to/algorand/sandbox/` and that you've `cd`'ed into the cloned `graviton` directory you would want to create a symbolic link as follows:
+If you would like to use the [Makefile](./Makefile) without modificationm and with full functionality, you should create a symbolic link to  [the algorand sandbox repo](https://github.com/algorand/sandbox) as described here. There are many ways to accomplish this. Assuming you have cloned ***the sandbox*** into the path  `/path/to/algorand/sandbox/` and that you've `cd`'ed into the cloned `graviton` directory you should create a symbolic link as follows:
 
-#### linux / Mac OS
+#### Linux / Mac OS
 
 ```sh
 ln -s /path/to/algorand/sandbox/ sandbox
@@ -50,7 +50,7 @@ make local-sandbox-test
 make integration-test
 ```
 
-## Running and Testing Jupyter Notebook
+## Running and Testing Jupyter Notebooks
 
 To run the notebook `notebooks/quadratic_factoring_game.ipynb` for example:
 
@@ -58,18 +58,17 @@ To run the notebook `notebooks/quadratic_factoring_game.ipynb` for example:
 make local-notebook NOTEBOOK=notebooks/quadratic_factoring_game.ipynb
 ```
 
-To run all the automated jupyter nontebook tests:
+To non-interactively run all the jupyter notebook tests:
 
 ```sh
-notebooks-test
+make notebooks-test
 ```
 
 ## Ensuring that all is Copacetic Before Pushing to Github
 
 To test in your local environment that everything is looking good before pushing to Github, it is recommended that you run `make pre-commit-check`
 
-If you would like to simulate the github actions locally, you'll need to install [nektos act](https://github.com/nektos/act/wiki/Installation). On Mac OS, if you already have [Docker](https://docs.docker.com/desktop/mac/install/) installed you can use `brew install act`, while
-on Linux and Windows, you should follow the installation instructions in the nextos repo link above.
+If you would like to simulate the github actions locally, you'll need to install [nektos act](https://github.com/nektos/act/wiki/Installation). On Mac OS with [Docker](https://docs.docker.com/desktop/mac/install/) previously installed you can use `brew install act`; on the other hand, on Linux and Windows follow the installation instructions in the nextos repo link above.
 
 Once `act` is available you can simulate all the github actions integration tests with:
 
