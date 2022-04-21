@@ -1,4 +1,4 @@
-# Graviton - Testing TEAL via Dry Runs
+# Graviton - Testing TEAL with Dry Runs
 
 ## [Tutorial](./graviton/README.md)
 
