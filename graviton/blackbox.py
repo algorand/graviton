@@ -449,6 +449,9 @@ class DryRunInspector:
 
     @classmethod
     def from_single_response(cls, dryrun_resp: dict) -> "DryRunInspector":
+        error = dryrun_resp.get("error")
+        assert not error, f"dryrun response included the following error: [{error}]"
+
         txns = dryrun_resp.get("txns") or []
         assert (
             len(txns) == 1
