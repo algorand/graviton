@@ -4,7 +4,7 @@
 .sandbox
 sandbox
 
-# Comma Seperated Value reports
+# Comma Separated Value reports
 *.csv
 
 # Emacs detritus
@@ -15,6 +15,9 @@ sandbox
 
 # IDE
 .idea
+
+# Mac OS
+.DS_Store
 
 ##### BEGIN: github recommends for Python #####
 
