@@ -1,6 +1,12 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## `v0.1.2`
+
+### Fixed
+
+* Misleading error message in the case of an erroring dry run response
+
 ## `v0.1.1`
 
 ### Added
