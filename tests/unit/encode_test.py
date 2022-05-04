@@ -1,5 +1,4 @@
 from algosdk.abi import TupleType, BoolType, UintType, ArrayDynamicType
-from pandas import UInt32Dtype, UInt64Dtype
 import pytest
 
 from graviton.blackbox import DryRunEncoder
