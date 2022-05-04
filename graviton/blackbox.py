@@ -6,6 +6,7 @@ import io
 from tabulate import tabulate
 from typing import Any, Dict, Sequence, List, Optional, Union
 
+from algosdk import abi
 from algosdk.v2client.algod import AlgodClient
 
 from graviton.dryrun import (
@@ -236,14 +237,21 @@ class DryRunEncoder:
     """Encoding utilities for dry run executions and results"""
 
     @classmethod
-    def encode_args(cls, args: Sequence[Union[bytes, str, int]]) -> List[str]:
+    def encode_args(
+        cls,
+        args: Sequence[Union[bytes, str, int]],
+        abi_types: List[Optional[abi.ABIType]],
+    ) -> List[str]:
         """
         Encoding convention for Black Box Testing.
 
         * Assumes int's are uint64 and encodes them as such
         * Leaves str's alone
         """
-        return [cls._encode_arg(a, i) for i, a in enumerate(args)]
+        return [
+            cls._encode_arg(a, i, abi_types[i] if abi_types else None)
+            for i, a in enumerate(args)
+        ]
 
     @classmethod
     def hex0x(cls, x) -> str:
@@ -258,7 +266,7 @@ class DryRunEncoder:
         * Assumes everything else is a str
         * Encodes them into hex str's
         """
-        cls._assert_encodable(out)
+        cls._partial_encode_assert(out, None)
         return cls._to_bytes(out).hex()
 
     @classmethod
@@ -269,17 +277,31 @@ class DryRunEncoder:
         return x.to_bytes(8, "big") if is_int else bytes(x, "utf-8")
 
     @classmethod
-    def _encode_arg(cls, arg, idx):
-        cls._assert_encodable(arg, f"problem encoding arg ({arg}) at index ({idx})")
+    def _encode_arg(cls, arg, idx, abi_type: Optional[abi.ABIType]) -> Optional[bytes]:
+        partial = cls._partial_encode_assert(
+            arg, abi_type, f"problem encoding arg ({arg}) at index ({idx})"
+        )
+        if partial is not None:
+            return partial
         return cls._to_bytes(arg, only_ints=True)
 
     @classmethod
-    def _assert_encodable(cls, arg: Any, msg: str = "") -> None:
+    def _partial_encode_assert(
+        cls, arg: Any, abi_type: Optional[abi.ABIType], msg: str = ""
+    ) -> Optional[bytes]:
+        if abi_type:
+            try:
+                return abi_type.encode(arg)
+            except Exception as e:
+                raise AssertionError(
+                    f"{msg +': ' if msg else ''}can't handle arg [{arg}] of type {type(arg)} and abi-type {abi_type}: {e}"
+                )
         assert isinstance(
             arg, (bytes, int, str)
         ), f"{msg +': ' if msg else ''}can't handle arg [{arg}] of type {type(arg)}"
         if isinstance(arg, int):
             assert arg >= 0, f"can't handle negative arguments but was given {arg}"
+        return None
 
 
 class DryRunExecutor:
