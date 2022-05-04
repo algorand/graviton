@@ -318,10 +318,16 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
+        abi_types: List[Optional[abi.ABIType]] = None,
         sender: str = ZERO_ADDRESS,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
-            algod, teal, args, ExecutionMode.Application, sender=sender
+            algod,
+            teal,
+            args,
+            ExecutionMode.Application,
+            abi_types=abi_types,
+            sender=sender,
         )
 
     @classmethod
@@ -330,10 +336,16 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
+        abi_types: List[Optional[abi.ABIType]] = None,
         sender: str = ZERO_ADDRESS,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
-            algod, teal, args, ExecutionMode.Signature, sender
+            algod,
+            teal,
+            args,
+            ExecutionMode.Signature,
+            abi_types=abi_types,
+            sender=sender,
         )
 
     @classmethod
@@ -342,9 +354,10 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
+        abi_types: List[Optional[abi.ABIType]] = None,
         sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_app, algod, teal, inputs, sender)
+        return cls._map(cls.dryrun_app, algod, teal, inputs, abi_types, sender)
 
     @classmethod
     def dryrun_logicsig_on_sequence(
@@ -352,13 +365,14 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
+        abi_types: List[Optional[abi.ABIType]] = None,
         sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_logicsig, algod, teal, inputs, sender)
+        return cls._map(cls.dryrun_logicsig, algod, teal, inputs, abi_types, sender)
 
     @classmethod
-    def _map(cls, f, algod, teal, inps, sndr):
-        return list(map(lambda args: f(algod, teal, args, sender=sndr), inps))
+    def _map(cls, f, algod, teal, inps, abi_types, sndr):
+        return list(map(lambda args: f(algod, teal, args, abi_types, sndr), inps))
 
     @classmethod
     def execute_one_dryrun(
@@ -367,6 +381,7 @@ class DryRunExecutor:
         teal: str,
         args: Sequence[Union[str, int]],
         mode: ExecutionMode,
+        abi_types: List[Optional[abi.ABIType]] = None,
         sender: str = ZERO_ADDRESS,
     ) -> "DryRunInspector":
         assert (
@@ -375,7 +390,7 @@ class DryRunExecutor:
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
 
-        args = DryRunEncoder.encode_args(args)
+        args = DryRunEncoder.encode_args(args, abi_types=abi_types)
         builder = (
             DryRunHelper.singleton_app_request
             if is_app
