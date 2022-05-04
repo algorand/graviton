@@ -236,7 +236,7 @@ class DryRunEncoder:
     """Encoding utilities for dry run executions and results"""
 
     @classmethod
-    def encode_args(cls, args: Sequence[Union[str, int]]) -> List[str]:
+    def encode_args(cls, args: Sequence[Union[bytes, str, int]]) -> List[str]:
         """
         Encoding convention for Black Box Testing.
 
@@ -270,15 +270,13 @@ class DryRunEncoder:
 
     @classmethod
     def _encode_arg(cls, arg, idx):
-        if isinstance(arg, bytes):
-            return arg
         cls._assert_encodable(arg, f"problem encoding arg ({arg}) at index ({idx})")
         return cls._to_bytes(arg, only_ints=True)
 
     @classmethod
     def _assert_encodable(cls, arg: Any, msg: str = "") -> None:
         assert isinstance(
-            arg, (int, str)
+            arg, (bytes, int, str)
         ), f"{msg +': ' if msg else ''}can't handle arg [{arg}] of type {type(arg)}"
         if isinstance(arg, int):
             assert arg >= 0, f"can't handle negative arguments but was given {arg}"
