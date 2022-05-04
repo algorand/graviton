@@ -51,3 +51,27 @@ def test_encode_abi():
     expected = [PyDynArr.encode([1, 3, 5, 7, 9]), (42).to_bytes(8, "big"), "blah"]
     actual = encoder(args, abi_types=[PyDynArr, None, None])
     assert expected == actual
+
+    with pytest.raises(AssertionError) as ae:
+        encoder(args)
+
+    assert (
+        ae.value.args[0]
+        == "problem encoding arg ([1, 3, 5, 7, 9]) at index (0): can't handle arg [[1, 3, 5, 7, 9]] of type <class 'list'>"
+    )
+
+    with pytest.raises(AssertionError) as ae:
+        encoder(args, abi_types=[1, 2, 3, 4])
+
+    assert (
+        ae.value.args[0] == "mismatch between args (length=3) anbd abi_types (length=4)"
+    )
+
+    args = [["wrong", "types", "for", "dynamic", "int", "array"], "blah", "blah"]
+    with pytest.raises(AssertionError) as ae:
+        encoder(args, abi_types=[PyDynArr, None, None])
+
+    assert (
+        ae.value.args[0]
+        == "problem encoding arg (['wrong', 'types', 'for', 'dynamic', 'int', 'array']) at index (0): can't handle arg [['wrong', 'types', 'for', 'dynamic', 'int', 'array']] of type <class 'list'> and abi-type uint64[]: value wrong is not a non-negative int or is too big to fit in size 64"
+    )

@@ -240,7 +240,7 @@ class DryRunEncoder:
     def encode_args(
         cls,
         args: Sequence[Union[bytes, str, int]],
-        abi_types: List[Optional[abi.ABIType]],
+        abi_types: List[Optional[abi.ABIType]] = None,
     ) -> List[str]:
         """
         Encoding convention for Black Box Testing.
@@ -248,6 +248,11 @@ class DryRunEncoder:
         * Assumes int's are uint64 and encodes them as such
         * Leaves str's alone
         """
+        if abi_types:
+            a_len, t_len = len(args), len(abi_types)
+            assert (
+                a_len == t_len
+            ), f"mismatch between args (length={a_len}) anbd abi_types (length={t_len})"
         return [
             cls._encode_arg(a, i, abi_types[i] if abi_types else None)
             for i, a in enumerate(args)
