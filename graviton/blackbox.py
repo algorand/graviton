@@ -318,7 +318,8 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
-        abi_types: List[Optional[abi.ABIType]] = None,
+        abi_arg_types: List[Optional[abi.ABIType]] = None,
+        abi_ret_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
@@ -326,7 +327,8 @@ class DryRunExecutor:
             teal,
             args,
             ExecutionMode.Application,
-            abi_types=abi_types,
+            abi_arg_types=abi_arg_types,
+            abi_ret_type=abi_ret_type,
             sender=sender,
         )
 
@@ -336,7 +338,8 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
-        abi_types: List[Optional[abi.ABIType]] = None,
+        abi_arg_types: List[Optional[abi.ABIType]] = None,
+        abi_ret_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
@@ -344,7 +347,8 @@ class DryRunExecutor:
             teal,
             args,
             ExecutionMode.Signature,
-            abi_types=abi_types,
+            abi_arg_types=abi_arg_types,
+            abi_ret_type=abi_ret_type,
             sender=sender,
         )
 
@@ -354,10 +358,13 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
-        abi_types: List[Optional[abi.ABIType]] = None,
+        abi_arg_types: List[Optional[abi.ABIType]] = None,
+        abi_ret_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_app, algod, teal, inputs, abi_types, sender)
+        return cls._map(
+            cls.dryrun_app, algod, teal, inputs, abi_arg_types, abi_ret_type, sender
+        )
 
     @classmethod
     def dryrun_logicsig_on_sequence(
@@ -365,14 +372,25 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
-        abi_types: List[Optional[abi.ABIType]] = None,
+        abi_arg_types: List[Optional[abi.ABIType]] = None,
+        abi_ret_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_logicsig, algod, teal, inputs, abi_types, sender)
+        return cls._map(
+            cls.dryrun_logicsig,
+            algod,
+            teal,
+            inputs,
+            abi_arg_types,
+            abi_ret_type,
+            sender,
+        )
 
     @classmethod
-    def _map(cls, f, algod, teal, inps, abi_types, sndr):
-        return list(map(lambda args: f(algod, teal, args, abi_types, sndr), inps))
+    def _map(cls, f, algod, teal, inps, abi_types, abi_ret_type, sndr):
+        return list(
+            map(lambda args: f(algod, teal, args, abi_types, abi_ret_type, sndr), inps)
+        )
 
     @classmethod
     def execute_one_dryrun(
@@ -381,7 +399,8 @@ class DryRunExecutor:
         teal: str,
         args: Sequence[Union[str, int]],
         mode: ExecutionMode,
-        abi_types: List[Optional[abi.ABIType]] = None,
+        abi_arg_types: List[Optional[abi.ABIType]] = None,
+        abi_ret_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> "DryRunInspector":
         assert (
@@ -390,7 +409,7 @@ class DryRunExecutor:
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
 
-        args = DryRunEncoder.encode_args(args, abi_types=abi_types)
+        args = DryRunEncoder.encode_args(args, abi_types=abi_arg_types)
         builder = (
             DryRunHelper.singleton_app_request
             if is_app
@@ -398,7 +417,7 @@ class DryRunExecutor:
         )
         dryrun_req = builder(teal, args, sender=sender)
         dryrun_resp = algod.dryrun(dryrun_req)
-        return DryRunInspector.from_single_response(dryrun_resp)
+        return DryRunInspector.from_single_response(dryrun_resp, abi_type=abi_ret_type)
 
 
 class DryRunInspector:
@@ -454,7 +473,7 @@ class DryRunInspector:
         - returns True if there was no error, or the actual error when an error occured
     """
 
-    def __init__(self, dryrun_resp: dict, txn_index: int):
+    def __init__(self, dryrun_resp: dict, txn_index: int, abi_type: abi.ABIType = None):
         txns = dryrun_resp.get("txns", [])
         assert txns, "Dry Run response is missing transactions"
 
@@ -469,6 +488,7 @@ class DryRunInspector:
         self.txn: dict = txn
         self.extracts: dict = self.extract_all(self.txn, self.is_app())
         self.black_box_results: BlackboxResults = self.extracts["bbr"]
+        self.abi_type = abi_type
 
     def is_app(self) -> bool:
         return self.mode == ExecutionMode.Application
@@ -490,7 +510,9 @@ class DryRunInspector:
         return ExecutionMode.Signature
 
     @classmethod
-    def from_single_response(cls, dryrun_resp: dict) -> "DryRunInspector":
+    def from_single_response(
+        cls, dryrun_resp: dict, abi_type: abi.ABIType = None
+    ) -> "DryRunInspector":
         error = dryrun_resp.get("error")
         assert not error, f"dryrun response included the following error: [{error}]"
 
@@ -499,7 +521,7 @@ class DryRunInspector:
             len(txns) == 1
         ), f"require exactly 1 dry run transaction to create a singleton but had {len(txns)} instead"
 
-        return cls(dryrun_resp, 0)
+        return cls(dryrun_resp, 0, abi_type=abi_type)
 
     def dig(self, dr_property: DryRunProperty, **kwargs: Dict[str, Any]) -> Any:
         """Main router for assertable properties"""
@@ -569,7 +591,27 @@ class DryRunInspector:
         return type: string representing the hex bytes of the final log
         available Mode: Application only
         """
-        return self.dig(DRProp.lastLog) if self.is_app() else None
+        if not self.is_app():
+            return None
+
+        res = self.dig(DRProp.lastLog)
+        if not self.abi_type or suppress_abi:
+            return res
+
+        # TODO: this may be more subtle
+        return self.abi_type.decode(res)
+
+    def stack_top(self, suppress_abi: bool = False) -> Union[int, str]:
+        """Assertable property for the contents of the top of the stack and the end of a dry run execution
+        return type: int or string
+        available: all modes
+        """
+        res = self.dig(DRProp.stackTop)
+        if not self.abi_type or suppress_abi:
+            return res
+
+        # TODO: this may be more subtle
+        return self.abi_type.decode(res)
 
     def logs(self) -> Optional[List[str]]:
         """Assertable property for all the logs that were printed during dry run execution
@@ -592,13 +634,6 @@ class DryRunInspector:
         available: all modes
         """
         return self.dig(DRProp.maxStackHeight)
-
-    def stack_top(self, suppress_abi: bool = False) -> Union[int, str]:
-        """Assertable property for the contents of the top of the stack and the end of a dry run execution
-        return type: int or string
-        available: all modes
-        """
-        return self.dig(DRProp.stackTop)
 
     def status(self) -> str:
         """Assertable property for the program run status at the end of dry run execution
