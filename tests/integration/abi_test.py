@@ -26,8 +26,8 @@ store 3                     // 3: 0
 int 0                       // [0]
 store 4                     // 4: 0
 abisum_0_l1:                // []
-load 4                      
-load 2                      
+load 4
+load 2
 int 0                       // [0, x, 0]
 extract_uint16              // [0, len(x)]
 store 6                     // 6: len(x)
