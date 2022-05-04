@@ -29,6 +29,7 @@ blackbox-smoke-prefix:
 integration-test:
 	pytest -sv tests/integration
 
+all-tests: lint unit-test integration-test
 
 ###### Local Only ######
 

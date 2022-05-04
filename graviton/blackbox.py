@@ -564,7 +564,7 @@ class DryRunInspector:
         """
         return self.dig(DRProp.cost) if self.is_app() else None
 
-    def last_log(self) -> Optional[str]:
+    def last_log(self, suppress_abi: bool = False) -> Optional[str]:
         """Assertable property for the last log that was printed during dry run execution
         return type: string representing the hex bytes of the final log
         available Mode: Application only
@@ -593,7 +593,7 @@ class DryRunInspector:
         """
         return self.dig(DRProp.maxStackHeight)
 
-    def stack_top(self) -> Union[int, str]:
+    def stack_top(self, suppress_abi: bool = False) -> Union[int, str]:
         """Assertable property for the contents of the top of the stack and the end of a dry run execution
         return type: int or string
         available: all modes
