@@ -586,7 +586,9 @@ class DryRunInspector:
         """
         return self.dig(DRProp.cost) if self.is_app() else None
 
-    def last_log(self, suppress_abi: bool = False) -> Optional[str]:
+    def last_log(
+        self, suppress_abi: bool = False, has_abi_prefix: bool = False
+    ) -> Optional[str]:
         """Assertable property for the last log that was printed during dry run execution
         return type: string representing the hex bytes of the final log
         available Mode: Application only
@@ -598,10 +600,13 @@ class DryRunInspector:
         if not self.abi_type or suppress_abi:
             return res
 
-        # TODO: this may be more subtle
-        return self.abi_type.decode(res)
+        if has_abi_prefix:
+            res = res[8:]  # skip the first 8 hex char's = first 4 bytes
+        return self.abi_type.decode(bytes.fromhex(res))
 
-    def stack_top(self, suppress_abi: bool = False) -> Union[int, str]:
+    def stack_top(
+        self, suppress_abi: bool = False, skip_abi_return_prefix: bool = False
+    ) -> Union[int, str]:
         """Assertable property for the contents of the top of the stack and the end of a dry run execution
         return type: int or string
         available: all modes
@@ -610,7 +615,8 @@ class DryRunInspector:
         if not self.abi_type or suppress_abi:
             return res
 
-        # TODO: this may be more subtle
+        if skip_abi_return_prefix:
+            res = res[4:]
         return self.abi_type.decode(res)
 
     def logs(self) -> Optional[List[str]]:
