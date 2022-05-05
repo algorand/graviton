@@ -65,5 +65,6 @@ def test_dynamic_array_sum():
     inspector = DryRunExecutor.dryrun_app(
         algod, dyanmic_array_sum_teal, args, abi_arg_types, abi_out_type
     )
-    assert inspector.last_log(has_abi_prefix=True) == 15
-    assert inspector.stack_top(suppress_abi=True) == 1
+    inspector.config(suppress_abi=False, has_abi_prefix=True, force_abi=False)
+    assert inspector.last_log() == 15
+    assert inspector.stack_top() == 1

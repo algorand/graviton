@@ -473,6 +473,8 @@ class DryRunInspector:
         - returns True if there was no error, or the actual error when an error occured
     """
 
+    CONFIG_OPTIONS = {"suppress_abi", "force_abi", "has_abi_prefix"}
+
     def __init__(self, dryrun_resp: dict, txn_index: int, abi_type: abi.ABIType = None):
         txns = dryrun_resp.get("txns", [])
         assert txns, "Dry Run response is missing transactions"
@@ -489,6 +491,24 @@ class DryRunInspector:
         self.extracts: dict = self.extract_all(self.txn, self.is_app())
         self.black_box_results: BlackboxResults = self.extracts["bbr"]
         self.abi_type = abi_type
+
+        # config options:
+        self.config(
+            suppress_abi=False, force_abi=False, has_abi_prefix=bool(self.abi_type)
+        )
+
+    def config(self, **kwargs: dict[str, bool]):
+        bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS
+        if bad_keys:
+            raise ValueError(f"unknown config options: {bad_keys}")
+
+        for k, v in kwargs.items():
+            if v is not None:
+                assert isinstance(
+                    v, bool
+                ), f"configuration {k}=[{v}] must be bool but was {type(v)}"
+
+            setattr(self, k, v)
 
     def is_app(self) -> bool:
         return self.mode == ExecutionMode.Application
@@ -586,9 +606,7 @@ class DryRunInspector:
         """
         return self.dig(DRProp.cost) if self.is_app() else None
 
-    def last_log(
-        self, suppress_abi: bool = False, has_abi_prefix: bool = False
-    ) -> Optional[str]:
+    def last_log(self) -> Optional[str]:
         """Assertable property for the last log that was printed during dry run execution
         return type: string representing the hex bytes of the final log
         available Mode: Application only
@@ -597,27 +615,19 @@ class DryRunInspector:
             return None
 
         res = self.dig(DRProp.lastLog)
-        if not self.abi_type or suppress_abi:
+        if not self.abi_type or self.suppress_abi:
             return res
 
-        if has_abi_prefix:
+        if self.has_abi_prefix:
             res = res[8:]  # skip the first 8 hex char's = first 4 bytes
         return self.abi_type.decode(bytes.fromhex(res))
 
-    def stack_top(
-        self, suppress_abi: bool = False, skip_abi_return_prefix: bool = False
-    ) -> Union[int, str]:
+    def stack_top(self) -> Union[int, str]:
         """Assertable property for the contents of the top of the stack and the end of a dry run execution
         return type: int or string
         available: all modes
         """
-        res = self.dig(DRProp.stackTop)
-        if not self.abi_type or suppress_abi:
-            return res
-
-        if skip_abi_return_prefix:
-            res = res[4:]
-        return self.abi_type.decode(res)
+        return self.dig(DRProp.stackTop)
 
     def logs(self) -> Optional[List[str]]:
         """Assertable property for all the logs that were printed during dry run execution
