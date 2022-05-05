@@ -497,7 +497,7 @@ class DryRunInspector:
             suppress_abi=False, force_abi=False, has_abi_prefix=bool(self.abi_type)
         )
 
-    def config(self, **kwargs: dict[str, bool]):
+    def config(self, **kwargs: Dict[str, bool]):
         bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS
         if bad_keys:
             raise ValueError(f"unknown config options: {bad_keys}")
