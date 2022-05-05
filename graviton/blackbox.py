@@ -318,8 +318,8 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
-        abi_arg_types: List[Optional[abi.ABIType]] = None,
-        abi_ret_type: abi.ABIType = None,
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
@@ -327,8 +327,8 @@ class DryRunExecutor:
             teal,
             args,
             ExecutionMode.Application,
-            abi_arg_types=abi_arg_types,
-            abi_ret_type=abi_ret_type,
+            abi_argument_types=abi_argument_types,
+            abi_return_type=abi_return_type,
             sender=sender,
         )
 
@@ -338,8 +338,8 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
-        abi_arg_types: List[Optional[abi.ABIType]] = None,
-        abi_ret_type: abi.ABIType = None,
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
@@ -347,8 +347,8 @@ class DryRunExecutor:
             teal,
             args,
             ExecutionMode.Signature,
-            abi_arg_types=abi_arg_types,
-            abi_ret_type=abi_ret_type,
+            abi_argument_types=abi_argument_types,
+            abi_return_type=abi_return_type,
             sender=sender,
         )
 
@@ -358,12 +358,18 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
-        abi_arg_types: List[Optional[abi.ABIType]] = None,
-        abi_ret_type: abi.ABIType = None,
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
         return cls._map(
-            cls.dryrun_app, algod, teal, inputs, abi_arg_types, abi_ret_type, sender
+            cls.dryrun_app,
+            algod,
+            teal,
+            inputs,
+            abi_argument_types,
+            abi_return_type,
+            sender,
         )
 
     @classmethod
@@ -372,8 +378,8 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
-        abi_arg_types: List[Optional[abi.ABIType]] = None,
-        abi_ret_type: abi.ABIType = None,
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
         return cls._map(
@@ -381,8 +387,8 @@ class DryRunExecutor:
             algod,
             teal,
             inputs,
-            abi_arg_types,
-            abi_ret_type,
+            abi_argument_types,
+            abi_return_type,
             sender,
         )
 
@@ -399,8 +405,8 @@ class DryRunExecutor:
         teal: str,
         args: Sequence[Union[str, int]],
         mode: ExecutionMode,
-        abi_arg_types: List[Optional[abi.ABIType]] = None,
-        abi_ret_type: abi.ABIType = None,
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
         sender: str = ZERO_ADDRESS,
     ) -> "DryRunInspector":
         assert (
@@ -409,7 +415,7 @@ class DryRunExecutor:
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
 
-        args = DryRunEncoder.encode_args(args, abi_types=abi_arg_types)
+        args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
         builder = (
             DryRunHelper.singleton_app_request
             if is_app
@@ -417,7 +423,9 @@ class DryRunExecutor:
         )
         dryrun_req = builder(teal, args, sender=sender)
         dryrun_resp = algod.dryrun(dryrun_req)
-        return DryRunInspector.from_single_response(dryrun_resp, abi_type=abi_ret_type)
+        return DryRunInspector.from_single_response(
+            dryrun_resp, abi_type=abi_return_type
+        )
 
 
 class DryRunInspector:
