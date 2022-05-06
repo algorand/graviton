@@ -252,7 +252,7 @@ class DryRunEncoder:
             a_len, t_len = len(args), len(abi_types)
             assert (
                 a_len == t_len
-            ), f"mismatch between args (length={a_len}) anbd abi_types (length={t_len})"
+            ), f"mismatch between args (length={a_len}) and abi_types (length={t_len})"
         return [
             cls._encode_arg(a, i, abi_types[i] if abi_types else None)
             for i, a in enumerate(args)

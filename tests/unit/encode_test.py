@@ -63,7 +63,7 @@ def test_encode_abi():
         encoder(args, abi_types=[1, 2, 3, 4])
 
     assert (
-        ae.value.args[0] == "mismatch between args (length=3) anbd abi_types (length=4)"
+        ae.value.args[0] == "mismatch between args (length=3) and abi_types (length=4)"
     )
 
     args = [["wrong", "types", "for", "dynamic", "int", "array"], "blah", "blah"]
