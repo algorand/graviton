@@ -481,7 +481,7 @@ class DryRunInspector:
         - returns True if there was no error, or the actual error when an error occured
     """
 
-    CONFIG_OPTIONS = {"suppress_abi", "force_abi", "has_abi_prefix"}
+    CONFIG_OPTIONS = {"suppress_abi", "has_abi_prefix"}
 
     def __init__(self, dryrun_resp: dict, txn_index: int, abi_type: abi.ABIType = None):
         txns = dryrun_resp.get("txns", [])
@@ -501,9 +501,7 @@ class DryRunInspector:
         self.abi_type = abi_type
 
         # config options:
-        self.config(
-            suppress_abi=False, force_abi=False, has_abi_prefix=bool(self.abi_type)
-        )
+        self.config(suppress_abi=False, has_abi_prefix=bool(self.abi_type))
 
     def config(self, **kwargs: Dict[str, bool]):
         bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS
