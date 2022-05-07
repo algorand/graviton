@@ -511,10 +511,9 @@ class DryRunInspector:
             raise ValueError(f"unknown config options: {bad_keys}")
 
         for k, v in kwargs.items():
-            if v is not None:
-                assert isinstance(
-                    v, bool
-                ), f"configuration {k}=[{v}] must be bool but was {type(v)}"
+            assert isinstance(
+                v, bool
+            ), f"configuration {k}=[{v}] must be bool but was {type(v)}"
 
             setattr(self, k, v)
 
