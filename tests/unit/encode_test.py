@@ -34,6 +34,7 @@ def test_encode_abi():
 
     PyInt65 = TupleType(arg_types=[BoolType(), UintType(64)])
 
+    abi_types = [PyInt65, None, PyInt65, None, None]
     args = [[True, 42], 42, [False, 1339], "I am a string", b"I am bytes I am"]
     expected = [
         PyInt65.encode([True, 42]),
@@ -42,13 +43,14 @@ def test_encode_abi():
         "I am a string",
         b"I am bytes I am",
     ]
-    actual = encoder(args, abi_types=[PyInt65, None, PyInt65, None, None])
+    actual = encoder(args, abi_types=abi_types)
     assert expected == actual
 
     PyDynArr = ArrayDynamicType(UintType(64))
+    abi_types = [PyDynArr, None, None]
     args = [[1, 3, 5, 7, 9], 42, "blah"]
     expected = [PyDynArr.encode([1, 3, 5, 7, 9]), (42).to_bytes(8, "big"), "blah"]
-    actual = encoder(args, abi_types=[PyDynArr, None, None])
+    actual = encoder(args, abi_types=abi_types)
     assert expected == actual
 
     with pytest.raises(AssertionError) as ae:
