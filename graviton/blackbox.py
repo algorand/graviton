@@ -247,6 +247,12 @@ class DryRunEncoder:
 
         * Assumes int's are uint64 and encodes them as such
         * Leaves str's alone
+
+        Arguments:
+            args - the dry-run arguments to be encoded
+
+            abi_types (optional) - When present this list needs to be the same length as `args`.
+                When `None` is supplied as the abi_type, the corresponding element of `args` is not encoded.
         """
         if abi_types:
             a_len, t_len = len(args), len(abi_types)
@@ -310,7 +316,12 @@ class DryRunEncoder:
 
 
 class DryRunExecutor:
-    """Methods to package up and kick off dry run executions"""
+    """Methods to package up and kick off dry run executions
+
+    When executing an A.B.I. compliant dry-run specify `abi_argument_types` as well as an `abi_return_type`:
+       * `abi_argument_types` are handed off to the `DryRunEncoder` for encoding purposes
+       * `abi_return_type` is given the `DryRunInspector`'s resulting from execution for ABI-decoding into Python
+    """
 
     @classmethod
     def dryrun_app(
@@ -430,7 +441,6 @@ class DryRunExecutor:
 
 class DryRunInspector:
     """Methods to extract information from a single dry run transaction.
-    TODO: merge this with @barnjamin's similarly named class of PR #283
 
     The class contains convenience methods and properties for inspecting
     dry run execution results on a _single transaction_ and for making
@@ -477,8 +487,12 @@ class DryRunInspector:
     * `error` with optional `contains` matching
         - when no contains is provided, returns True exactly when execution fails due to error
         - when contains given, only return True if an error occured included contains
-    * `noError`
-        - returns True if there was no error, or the actual error when an error occured
+
+    A.B.I. types and last_log():
+
+    When an `abi_type` is provided, `last_log()` will be decoded using that type after removal of
+    a presumed 4-byte return prefix. To suppress removing the 4-byte prefix set `config(has_abi_prefix=False)`.
+    To suppress decoding the last log entry altogether, and show the raw hex, set `config(suppress_abi=True)`.
     """
 
     CONFIG_OPTIONS = {"suppress_abi", "has_abi_prefix"}
@@ -624,7 +638,7 @@ class DryRunInspector:
             return res
 
         if self.has_abi_prefix:
-            res = res[8:]  # skip the first 8 hex char's = first 4 bytes
+            res = res[8:]  # skip the first 8 hex char's == first 4 bytes
         return self.abi_type.decode(bytes.fromhex(res))
 
     def stack_top(self) -> Union[int, str]:
