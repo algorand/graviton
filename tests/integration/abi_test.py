@@ -65,11 +65,27 @@ def test_dynamic_array_sum():
     inspector = DryRunExecutor.dryrun_app(
         algod, dyanmic_array_sum_teal, args, abi_arg_types, abi_out_type
     )
+    # with default config:
+    assert inspector.abi_type
+    assert inspector.suppress_abi is False
+    assert inspector.has_abi_prefix is True
+
+    assert inspector.last_log() == 15, inspector.report(args, "last log messed up")
+    assert inspector.stack_top() == 1, inspector.report(args, "stack top messed up")
+
     inspector.config(suppress_abi=False, has_abi_prefix=True)
+    assert inspector.abi_type
+    assert inspector.suppress_abi is False
+    assert inspector.has_abi_prefix is True
+
     assert inspector.last_log() == 15, inspector.report(args, "last log messed up")
     assert inspector.stack_top() == 1, inspector.report(args, "stack top messed up")
 
     inspector.config(suppress_abi=True)
+    assert inspector.abi_type
+    assert inspector.suppress_abi is True
+    assert inspector.has_abi_prefix is True
+
     assert inspector.last_log() == "151f7c75000000000000000f", inspector.report(
         args, "last log messed up"
     )
