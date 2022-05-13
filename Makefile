@@ -40,7 +40,7 @@ integration-test:
 notebooks-test:
 	pytest --nbmake -n $(NUM_PROCS) notebooks
 
-pre-commit-check: lint unit-test integration-test notebooks-test
+all-tests: lint unit-test integration-test notebooks-test
 
 ###### Local Only ######
 

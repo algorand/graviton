@@ -6,6 +6,7 @@ import io
 from tabulate import tabulate
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
+from algosdk import abi
 from algosdk.v2client.algod import AlgodClient
 from algosdk.v2client.models import DryrunRequest
 from algosdk.future.transaction import (
@@ -242,14 +243,32 @@ class DryRunEncoder:
     """Encoding utilities for dry run executions and results"""
 
     @classmethod
-    def encode_args(cls, args: Sequence[Union[str, int]]) -> List[str]:
+    def encode_args(
+        cls,
+        args: Sequence[Union[bytes, str, int]],
+        abi_types: List[Optional[abi.ABIType]] = None,
+    ) -> List[str]:
         """
         Encoding convention for Black Box Testing.
 
         * Assumes int's are uint64 and encodes them as such
         * Leaves str's alone
+
+        Arguments:
+            args - the dry-run arguments to be encoded
+
+            abi_types (optional) - When present this list needs to be the same length as `args`.
+                When `None` is supplied as the abi_type, the corresponding element of `args` is not encoded.
         """
-        return [cls._encode_arg(a, i) for i, a in enumerate(args)]
+        if abi_types:
+            a_len, t_len = len(args), len(abi_types)
+            assert (
+                a_len == t_len
+            ), f"mismatch between args (length={a_len}) and abi_types (length={t_len})"
+        return [
+            cls._encode_arg(a, i, abi_types[i] if abi_types else None)
+            for i, a in enumerate(args)
+        ]
 
     @classmethod
     def hex0x(cls, x) -> str:
@@ -264,7 +283,7 @@ class DryRunEncoder:
         * Assumes everything else is a str
         * Encodes them into hex str's
         """
-        cls._assert_encodable(out)
+        cls._partial_encode_assert(out, None)
         return cls._to_bytes(out).hex()
 
     @classmethod
@@ -275,21 +294,40 @@ class DryRunEncoder:
         return x.to_bytes(8, "big") if is_int else bytes(x, "utf-8")
 
     @classmethod
-    def _encode_arg(cls, arg, idx):
-        cls._assert_encodable(arg, f"problem encoding arg ({arg}) at index ({idx})")
+    def _encode_arg(cls, arg, idx, abi_type: Optional[abi.ABIType]) -> Optional[bytes]:
+        partial = cls._partial_encode_assert(
+            arg, abi_type, f"problem encoding arg ({arg}) at index ({idx})"
+        )
+        if partial is not None:
+            return partial
         return cls._to_bytes(arg, only_ints=True)
 
     @classmethod
-    def _assert_encodable(cls, arg: Any, msg: str = "") -> None:
+    def _partial_encode_assert(
+        cls, arg: Any, abi_type: Optional[abi.ABIType], msg: str = ""
+    ) -> Optional[bytes]:
+        if abi_type:
+            try:
+                return abi_type.encode(arg)
+            except Exception as e:
+                raise AssertionError(
+                    f"{msg +': ' if msg else ''}can't handle arg [{arg}] of type {type(arg)} and abi-type {abi_type}: {e}"
+                )
         assert isinstance(
-            arg, (int, str)
+            arg, (bytes, int, str)
         ), f"{msg +': ' if msg else ''}can't handle arg [{arg}] of type {type(arg)}"
         if isinstance(arg, int):
             assert arg >= 0, f"can't handle negative arguments but was given {arg}"
+        return None
 
 
 class DryRunExecutor:
-    """Methods to package up and kick off dry run executions"""
+    """Methods to package up and kick off dry run executions
+
+    When executing an A.B.I. compliant dry-run specify `abi_argument_types` as well as an `abi_return_type`:
+       * `abi_argument_types` are handed off to the `DryRunEncoder` for encoding purposes
+       * `abi_return_type` is given the `DryRunInspector`'s resulting from execution for ABI-decoding into Python
+    """
 
     SUGGESTED_PARAMS = SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
 
@@ -299,6 +337,8 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
         *,
         sender: str = None,
         sp: SuggestedParams = None,
@@ -322,7 +362,9 @@ class DryRunExecutor:
             teal,
             args,
             ExecutionMode.Application,
-            cls.transaction_params(
+            abi_argument_types=abi_argument_types,
+            abi_return_type=abi_return_type,
+            txn_params=cls.transaction_params(
                 sender=ZERO_ADDRESS if sender is None else sender,
                 sp=cls.SUGGESTED_PARAMS if sp is None else sp,
                 note=note,
@@ -348,8 +390,10 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         args: Sequence[Union[str, int]],
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
         *,
-        sender: str = None,
+        sender: str = ZERO_ADDRESS,
         sp: SuggestedParams = None,
         receiver: str = None,
         amt: int = None,
@@ -363,7 +407,9 @@ class DryRunExecutor:
             teal,
             args,
             ExecutionMode.Signature,
-            cls.transaction_params(
+            abi_argument_types=abi_argument_types,
+            abi_return_type=abi_return_type,
+            txn_params=cls.transaction_params(
                 sender=ZERO_ADDRESS if sender is None else sender,
                 sp=cls.SUGGESTED_PARAMS if sp is None else sp,
                 note=note,
@@ -381,8 +427,18 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_app, algod, teal, inputs)
+        # TODO: handle txn_params
+        return cls._map(
+            cls.dryrun_app,
+            algod,
+            teal,
+            abi_argument_types,
+            inputs,
+            abi_return_type,
+        )
 
     @classmethod
     def dryrun_logicsig_on_sequence(
@@ -390,13 +446,33 @@ class DryRunExecutor:
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[Union[str, int]]],
-        txn_params: List[Dict[str, Any]] = None,
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
     ) -> List["DryRunInspector"]:
-        return cls._map(cls.dryrun_logicsig, algod, teal, inputs)
+        # TODO: handle txn_params
+        return cls._map(
+            cls.dryrun_logicsig,
+            algod,
+            teal,
+            abi_argument_types,
+            inputs,
+            abi_return_type,
+        )
 
     @classmethod
-    def _map(cls, f, algod, teal, inputs):
-        return list(map(lambda args: f(algod, teal, args), inputs))
+    def _map(cls, f, algod, teal, abi_types, inps, abi_ret_type):
+        return list(
+            map(
+                lambda args: f(
+                    algod=algod,
+                    teal=teal,
+                    args=args,
+                    abi_argument_types=abi_types,
+                    abi_return_type=abi_ret_type,
+                ),
+                inps,
+            )
+        )
 
     @classmethod
     def execute_one_dryrun(
@@ -405,6 +481,8 @@ class DryRunExecutor:
         teal: str,
         args: Sequence[Union[str, int]],
         mode: ExecutionMode,
+        abi_argument_types: List[Optional[abi.ABIType]] = None,
+        abi_return_type: abi.ABIType = None,
         txn_params: dict = {},
     ) -> "DryRunInspector":
         assert (
@@ -412,7 +490,7 @@ class DryRunExecutor:
         ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
-        args = DryRunEncoder.encode_args(args)
+        args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
 
         builder: Callable[[str, List[str], Dict[str, Any]], DryrunRequest]
         builder = (
@@ -422,7 +500,9 @@ class DryRunExecutor:
         )
         dryrun_req = builder(teal, args, txn_params)
         dryrun_resp = algod.dryrun(dryrun_req)
-        return DryRunInspector.from_single_response(dryrun_resp)
+        return DryRunInspector.from_single_response(
+            dryrun_resp, abi_type=abi_return_type
+        )
 
     @classmethod
     def transaction_params(
@@ -477,7 +557,6 @@ class DryRunExecutor:
 
 class DryRunInspector:
     """Methods to extract information from a single dry run transaction.
-    TODO: merge this with @barnjamin's similarly named class of PR #283
 
     The class contains convenience methods and properties for inspecting
     dry run execution results on a _single transaction_ and for making
@@ -524,11 +603,17 @@ class DryRunInspector:
     * `error` with optional `contains` matching
         - when no contains is provided, returns True exactly when execution fails due to error
         - when contains given, only return True if an error occured included contains
-    * `noError`
-        - returns True if there was no error, or the actual error when an error occured
+
+    A.B.I. types and last_log():
+
+    When an `abi_type` is provided, `last_log()` will be decoded using that type after removal of
+    a presumed 4-byte return prefix. To suppress removing the 4-byte prefix set `config(has_abi_prefix=False)`.
+    To suppress decoding the last log entry altogether, and show the raw hex, set `config(suppress_abi=True)`.
     """
 
-    def __init__(self, dryrun_resp: dict, txn_index: int):
+    CONFIG_OPTIONS = {"suppress_abi", "has_abi_prefix"}
+
+    def __init__(self, dryrun_resp: dict, txn_index: int, abi_type: abi.ABIType = None):
         txns = dryrun_resp.get("txns", [])
         assert txns, "Dry Run response is missing transactions"
 
@@ -543,6 +628,22 @@ class DryRunInspector:
         self.txn: dict = txn
         self.extracts: dict = self.extract_all(self.txn, self.is_app())
         self.black_box_results: BlackboxResults = self.extracts["bbr"]
+        self.abi_type = abi_type
+
+        # config options:
+        self.config(suppress_abi=False, has_abi_prefix=bool(self.abi_type))
+
+    def config(self, **kwargs: Dict[str, bool]):
+        bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS
+        if bad_keys:
+            raise ValueError(f"unknown config options: {bad_keys}")
+
+        for k, v in kwargs.items():
+            assert isinstance(
+                v, bool
+            ), f"configuration {k}=[{v}] must be bool but was {type(v)}"
+
+            setattr(self, k, v)
 
     def is_app(self) -> bool:
         return self.mode == ExecutionMode.Application
@@ -564,13 +665,18 @@ class DryRunInspector:
         return ExecutionMode.Signature
 
     @classmethod
-    def from_single_response(cls, dryrun_resp: dict) -> "DryRunInspector":
+    def from_single_response(
+        cls, dryrun_resp: dict, abi_type: abi.ABIType = None
+    ) -> "DryRunInspector":
+        error = dryrun_resp.get("error")
+        assert not error, f"dryrun response included the following error: [{error}]"
+
         txns = dryrun_resp.get("txns") or []
         assert (
             len(txns) == 1
         ), f"require exactly 1 dry run transaction to create a singleton but had {len(txns)} instead"
 
-        return cls(dryrun_resp, 0)
+        return cls(dryrun_resp, 0, abi_type=abi_type)
 
     def dig(self, dr_property: DryRunProperty, **kwargs: Dict[str, Any]) -> Any:
         """Main router for assertable properties"""
@@ -643,7 +749,23 @@ class DryRunInspector:
         return type: string representing the hex bytes of the final log
         available Mode: Application only
         """
-        return self.dig(DRProp.lastLog) if self.is_app() else None
+        if not self.is_app():
+            return None
+
+        res = self.dig(DRProp.lastLog)
+        if not self.abi_type or self.suppress_abi:
+            return res
+
+        if self.has_abi_prefix:
+            res = res[8:]  # skip the first 8 hex char's == first 4 bytes
+        return self.abi_type.decode(bytes.fromhex(res))
+
+    def stack_top(self) -> Union[int, str]:
+        """Assertable property for the contents of the top of the stack and the end of a dry run execution
+        return type: int or string
+        available: all modes
+        """
+        return self.dig(DRProp.stackTop)
 
     def logs(self) -> Optional[List[str]]:
         """Assertable property for all the logs that were printed during dry run execution
@@ -666,13 +788,6 @@ class DryRunInspector:
         available: all modes
         """
         return self.dig(DRProp.maxStackHeight)
-
-    def stack_top(self) -> Union[int, str]:
-        """Assertable property for the contents of the top of the stack and the end of a dry run execution
-        return type: int or string
-        available: all modes
-        """
-        return self.dig(DRProp.stackTop)
 
     def status(self) -> str:
         """Assertable property for the program run status at the end of dry run execution
