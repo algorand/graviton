@@ -1,7 +1,9 @@
 from itertools import product
 from pathlib import Path
 
+# TODO: Sort out how to use hypothesis.
 # from hypothesis import given, note, strategies as st
+
 import pytest
 
 
@@ -55,6 +57,7 @@ def test_factorizer_game_2(p, q):
     ), inspector.report(args, f"last message failed for {p, q}")
 
 
+# TODO: Sort out how to use hypothesis.
 # I'm underwhelmed by hypothesis strategies.... maybe I should try using `assume()`
 # This example looks more promising: https://increment.com/testing/in-praise-of-property-based-testing/
 # (search for "What inputs are valid?")
