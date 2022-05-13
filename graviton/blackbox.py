@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 import io
 from tabulate import tabulate
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union, cast
 
 from algosdk import abi
 from algosdk.v2client.algod import AlgodClient
@@ -247,7 +247,7 @@ class DryRunEncoder:
         cls,
         args: Sequence[Union[bytes, str, int]],
         abi_types: List[Optional[abi.ABIType]] = None,
-    ) -> List[str]:
+    ) -> List[Union[bytes, str]]:
         """
         Encoding convention for Black Box Testing.
 
@@ -284,38 +284,62 @@ class DryRunEncoder:
         * Encodes them into hex str's
         """
         cls._partial_encode_assert(out, None)
-        return cls._to_bytes(out).hex()
+        return cast(bytes, cls._to_bytes(out)).hex()
 
     @classmethod
-    def _to_bytes(cls, x, only_ints=False):
-        is_int = isinstance(x, int)
-        if only_ints and not is_int:
+    def _to_bytes(
+        cls, x: Union[int, str, bytes], only_attempt_int_conversion=False
+    ) -> Union[int, str, bytes]:
+        """
+        NOTE: When only_attempt_int_conversion=False the output is guaranteed to be `bytes` (when no error)
+        """
+        if isinstance(x, bytes):
             return x
-        return x.to_bytes(8, "big") if is_int else bytes(x, "utf-8")
+
+        is_int = isinstance(x, int)
+        if only_attempt_int_conversion and not is_int:
+            return x
+
+        return (
+            cast(int, x).to_bytes(8, "big") if is_int else bytes(cast(str, x), "utf-8")
+        )
 
     @classmethod
-    def _encode_arg(cls, arg, idx, abi_type: Optional[abi.ABIType]) -> Optional[bytes]:
+    def _encode_arg(
+        cls, arg: Union[bytes, int, str], idx: int, abi_type: Optional[abi.ABIType]
+    ) -> Union[str, bytes]:
         partial = cls._partial_encode_assert(
-            arg, abi_type, f"problem encoding arg ({arg}) at index ({idx})"
+            arg, abi_type, f"problem encoding arg ({arg!r}) at index ({idx})"
         )
         if partial is not None:
-            return partial
-        return cls._to_bytes(arg, only_ints=True)
+            return cast(bytes, partial)
+
+        # BELOW:
+        # bytes -> bytes
+        # int -> bytes
+        # str -> str
+        return cast(
+            Union[str, bytes], cls._to_bytes(arg, only_attempt_int_conversion=True)
+        )
 
     @classmethod
     def _partial_encode_assert(
-        cls, arg: Any, abi_type: Optional[abi.ABIType], msg: str = ""
+        cls, arg: Union[bytes, int, str], abi_type: Optional[abi.ABIType], msg: str = ""
     ) -> Optional[bytes]:
+        """
+        When have an `abi_type` is epresent, attempt to encode `arg` accordingly (returning `bytes`)
+        ELSE: assert the type is one of `(bytes, int, str)` returning `None`
+        """
         if abi_type:
             try:
                 return abi_type.encode(arg)
             except Exception as e:
                 raise AssertionError(
-                    f"{msg +': ' if msg else ''}can't handle arg [{arg}] of type {type(arg)} and abi-type {abi_type}: {e}"
+                    f"{msg +': ' if msg else ''}can't handle arg [{arg!r}] of type {type(arg)} and abi-type {abi_type}: {e}"
                 )
         assert isinstance(
             arg, (bytes, int, str)
-        ), f"{msg +': ' if msg else ''}can't handle arg [{arg}] of type {type(arg)}"
+        ), f"{msg +': ' if msg else ''}can't handle arg [{arg!r}] of type {type(arg)}"
         if isinstance(arg, int):
             assert arg >= 0, f"can't handle negative arguments but was given {arg}"
         return None
@@ -479,7 +503,7 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[Union[str, int]],
+        args: Sequence[Union[bytes, int, str]],
         mode: ExecutionMode,
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
@@ -492,7 +516,7 @@ class DryRunExecutor:
         is_app = mode == ExecutionMode.Application
         args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
 
-        builder: Callable[[str, List[str], Dict[str, Any]], DryrunRequest]
+        builder: Callable[[str, List[Union[bytes, str]], Dict[str, Any]], DryrunRequest]
         builder = (
             DryRunHelper.singleton_app_request  # type: ignore
             if is_app
@@ -631,9 +655,11 @@ class DryRunInspector:
         self.abi_type = abi_type
 
         # config options:
+        self.suppress_abi: bool
+        self.has_abi_prefix: bool
         self.config(suppress_abi=False, has_abi_prefix=bool(self.abi_type))
 
-    def config(self, **kwargs: Dict[str, bool]):
+    def config(self, **kwargs):
         bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS
         if bad_keys:
             raise ValueError(f"unknown config options: {bad_keys}")
