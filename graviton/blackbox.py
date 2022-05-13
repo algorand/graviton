@@ -41,7 +41,7 @@ DRProp = DryRunProperty
 
 
 def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> bool:
-    missing = {
+    missing: dict[ExecutionMode, set] = {
         ExecutionMode.Signature: {
             DryRunProperty.cost,
             DryRunProperty.lastLog,
@@ -58,7 +58,7 @@ def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> 
 class TealVal:
     i: int = 0
     b: str = ""
-    is_b: bool = None
+    is_b: Optional[bool] = None
     hide_empty: bool = True
 
     @classmethod
@@ -91,7 +91,7 @@ class BlackboxResults:
     program_counters: List[int]
     teal_line_numbers: List[int]
     teal_source_lines: List[str]
-    stack_evolution: List[list]
+    stack_evolution: List[str]
     scratch_evolution: List[dict]
     final_scratch_state: Dict[int, TealVal]
     slots_used: List[int]
@@ -127,13 +127,14 @@ class BlackboxResults:
         ), f"mismatch of lengths in tls v. stacks ({N} v. {len(stacks)})"
 
         # process scratch var's
-        scratches = [
+        def list_scratches() -> list[list[TealVal]]:
+            return [
             [TealVal.from_scratch(s) for s in x]
             for x in [t.get("scratch", []) for t in trace]
         ]
-        scratches = [
+        scratches: List[Dict[int, TealVal]] = [
             {i: s for i, s in enumerate(scratch) if not s.is_empty()}
-            for scratch in scratches
+            for scratch in list_scratches()
         ]
         slots_used = sorted(set().union(*(s.keys() for s in scratches)))
         final_scratch_state = scratches[-1]
