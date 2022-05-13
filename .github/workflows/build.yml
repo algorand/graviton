@@ -72,7 +72,7 @@ jobs:
         uses: lucasvanmol/algorand-sandbox-action@v1
         with:
           config: ${{ env.SANDBOX_CONFIG }}
-      - name: Setup integration test environment (and run a smoke unit test)
+      - name: Setup integration test environment
         run: make pip-development unit-test
       - name: Setup Jupyter notebooks environment
         run: make pip-notebooks
