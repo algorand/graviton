@@ -1,6 +1,12 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## `v0.2.0` (_aka_ 🐗)
+
+### Added
+
+* ABI Functionality
+
 ## `v0.1.2`
 
 ### Fixed
