@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from enum import Enum, auto
 import io
 
-from algosdk.v2client.models import DryrunRequest
 from tabulate import tabulate
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union, cast
 
