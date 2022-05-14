@@ -98,7 +98,7 @@ class Invariant:
         raw_predicates: bool = False,
     ) -> Tuple[List[tuple], Dict[DryRunProperty, Any]]:
         """
-        Validate that a Blackbox Test Scenario has been properly constructed, and return back
+        Validate that a Blackbox Test Scenario has been properly constructed, and returns back
         its components which consist of **inputs** and _optional_ **invariants**.
 
         A scenario should adhere to the following schema:
@@ -108,7 +108,7 @@ class Invariant:
             "invariants":   Dict[DryRuninvariantType, ...an invariant...]
         }
 
-        Each invariants is a map from a _dryrun property_ to assert about
+        Each invariant is a map from a _dryrun property_ to assert about
         to the actual invariant. Actual invariants can be:
         * simple python types - these are useful in the case of _constant_ invariants.
             For example, if you want to assert that the `maxStackHeight` is 3, just use `3`.
@@ -150,6 +150,6 @@ class Invariant:
                 assert isinstance(key, DryRunProperty) and mode_has_property(
                     mode, key
                 ), f"each key must be a DryRunProperty's appropriate to {mode}. This is not the case for key {key}"
-                invariants[key] = Invariant(predicate, name=key)
+                invariants[key] = Invariant(predicate, name=str(key))
 
-        return inputs, predicates if raw_predicates else invariants
+        return inputs, predicates if raw_predicates else invariants  # type: ignore

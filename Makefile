@@ -12,7 +12,10 @@ flake8:
 black:
 	black --check .
 
-lint: black flake8
+mypy:
+	mypy .
+
+lint: black flake8 mypy
 
 unit-test:
 	pytest -sv tests/unit

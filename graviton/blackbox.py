@@ -3,8 +3,10 @@ import csv
 from dataclasses import dataclass
 from enum import Enum, auto
 import io
+
+from algosdk.v2client.models import DryrunRequest
 from tabulate import tabulate
-from typing import Any, Dict, Sequence, List, Optional, Union
+from typing import Any, Callable, Dict, Sequence, List, Optional, Union
 
 from algosdk import abi
 from algosdk.v2client.algod import AlgodClient
@@ -41,7 +43,7 @@ DRProp = DryRunProperty
 
 
 def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> bool:
-    missing: dict[ExecutionMode, set] = {
+    missing: Dict[ExecutionMode, set] = {
         ExecutionMode.Signature: {
             DryRunProperty.cost,
             DryRunProperty.lastLog,
@@ -92,7 +94,7 @@ class BlackboxResults:
     teal_line_numbers: List[int]
     teal_source_lines: List[str]
     stack_evolution: List[str]
-    scratch_evolution: List[dict]
+    scratch_evolution: List[List[str]]
     final_scratch_state: Dict[int, TealVal]
     slots_used: List[int]
     raw_stacks: List[list]
@@ -127,17 +129,18 @@ class BlackboxResults:
         ), f"mismatch of lengths in tls v. stacks ({N} v. {len(stacks)})"
 
         # process scratch var's
-        def list_scratches() -> list[list[TealVal]]:
+        def list_scratches() -> List[List[TealVal]]:
             return [
-            [TealVal.from_scratch(s) for s in x]
-            for x in [t.get("scratch", []) for t in trace]
-        ]
-        scratches: List[Dict[int, TealVal]] = [
+                [TealVal.from_scratch(s) for s in x]
+                for x in [t.get("scratch", []) for t in trace]
+            ]
+
+        scratches_dict: List[Dict[int, TealVal]] = [
             {i: s for i, s in enumerate(scratch) if not s.is_empty()}
             for scratch in list_scratches()
         ]
-        slots_used = sorted(set().union(*(s.keys() for s in scratches)))
-        final_scratch_state = scratches[-1]
+        slots_used = sorted(set().union(*(s.keys() for s in scratches_dict)))
+        final_scratch_state = scratches_dict[-1]
         if not scratch_verbose:
 
             def compute_delta(prev, curr):
@@ -147,9 +150,11 @@ class BlackboxResults:
                     return {k: curr[k] for k in new_keys}
                 return {k: v for k, v in curr.items() if prev[k] != v}
 
-            scratch_deltas = [scratches[0]]
-            for i in range(1, len(scratches)):
-                scratch_deltas.append(compute_delta(scratches[i - 1], scratches[i]))
+            scratch_deltas: List[Dict[int, TealVal]] = [scratches_dict[0]]
+            for i in range(1, len(scratches_dict)):
+                scratch_deltas.append(
+                    compute_delta(scratches_dict[i - 1], scratches_dict[i])
+                )
 
             scratches = [
                 [f"{i}{scratch_colon}{v}" for i, v in scratch.items()]
@@ -161,7 +166,7 @@ class BlackboxResults:
                     f"{i}{scratch_colon}{scratch[i]}" if i in scratch else ""
                     for i in slots_used
                 ]
-                for scratch in scratches
+                for scratch in scratches_dict
             ]
 
         assert N == len(
@@ -215,7 +220,7 @@ class BlackboxResults:
     def final_scratch(
         self, with_formatting: bool = False
     ) -> Dict[Union[int, str], Union[int, str]]:
-        unformatted = {
+        unformatted: Dict[Union[int, str], Union[int, str]] = {
             i: str(s) if s.is_b else s.i for i, s in self.final_scratch_state.items()
         }
         if not with_formatting:
@@ -228,9 +233,9 @@ class BlackboxResults:
     def final_as_row(self) -> Dict[str, Union[str, int]]:
         return {
             "steps": self.steps(),
-            " top_of_stack": self.final_stack_top(),
+            " top_of_stack": self.final_stack_top() or "",
             "max_stack_height": self.max_stack_height(),
-            **self.final_scratch(with_formatting=True),
+            **self.final_scratch(with_formatting=True),  # type:ignore
         }
 
 
@@ -242,7 +247,7 @@ class DryRunEncoder:
         cls,
         args: Sequence[Union[bytes, str, int]],
         abi_types: List[Optional[abi.ABIType]] = None,
-    ) -> List[str]:
+    ) -> List[bytes]:
         """
         Encoding convention for Black Box Testing.
 
@@ -289,7 +294,7 @@ class DryRunEncoder:
         return x.to_bytes(8, "big") if is_int else bytes(x, "utf-8")
 
     @classmethod
-    def _encode_arg(cls, arg, idx, abi_type: Optional[abi.ABIType]) -> Optional[bytes]:
+    def _encode_arg(cls, arg, idx, abi_type: Optional[abi.ABIType]) -> bytes:
         partial = cls._partial_encode_assert(
             arg, abi_type, f"problem encoding arg ({arg}) at index ({idx})"
         )
@@ -427,13 +432,17 @@ class DryRunExecutor:
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
 
-        args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
-        builder = (
+        builder: Callable[[str, List[bytes], str], DryrunRequest] = (
             DryRunHelper.singleton_app_request
             if is_app
             else DryRunHelper.singleton_logicsig_request
         )
-        dryrun_req = builder(teal, args, sender=sender)
+
+        dryrun_req = builder(
+            teal,
+            DryRunEncoder.encode_args(args, abi_types=abi_argument_types),
+            sender,
+        )
         dryrun_resp = algod.dryrun(dryrun_req)
         return DryRunInspector.from_single_response(
             dryrun_resp, abi_type=abi_return_type
@@ -518,7 +527,7 @@ class DryRunInspector:
         # config options:
         self.config(suppress_abi=False, has_abi_prefix=bool(self.abi_type))
 
-    def config(self, **kwargs: Dict[str, bool]):
+    def config(self, **kwargs: bool):
         bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS
         if bad_keys:
             raise ValueError(f"unknown config options: {bad_keys}")
@@ -635,10 +644,10 @@ class DryRunInspector:
             return None
 
         res = self.dig(DRProp.lastLog)
-        if not self.abi_type or self.suppress_abi:
+        if not self.abi_type or self.__dict__["suppress_abi"]:
             return res
 
-        if self.has_abi_prefix:
+        if self.__dict__["has_abi_prefix"]:
             res = res[8:]  # skip the first 8 hex char's == first 4 bytes
         return self.abi_type.decode(bytes.fromhex(res))
 
@@ -835,7 +844,7 @@ class DryRunInspector:
 
     def csv_row(
         self, row_num: int, args: Sequence[Union[int, str]]
-    ) -> Dict[str, Union[str, int]]:
+    ) -> Dict[str, Union[str, int, None]]:
         return {
             " Run": row_num,
             " cost": self.cost(),
@@ -883,12 +892,12 @@ class DryRunInspector:
             dr_resps
         ), f"cannot produce CSV with unmatching size of inputs ({len(inputs)}) v. drresps ({len(dr_resps)})"
 
-        dr_resps = [resp.csv_row(i + 1, inputs[i]) for i, resp in enumerate(dr_resps)]
+        rows = [resp.csv_row(i + 1, inputs[i]) for i, resp in enumerate(dr_resps)]
         with io.StringIO() as csv_str:
-            fields = sorted(set().union(*(txn.keys() for txn in dr_resps)))
+            fields = sorted(set().union(*(txn.keys() for txn in rows)))
             writer = csv.DictWriter(csv_str, fieldnames=fields)
             writer.writeheader()
-            for txn in dr_resps:
+            for txn in rows:
                 writer.writerow(txn)
 
             return csv_str.getvalue()

@@ -351,7 +351,7 @@ def test_app_with_report(filebase: str):
 
     # 0. Validate that the scenarios are well defined:
     inputs, invariants = Invariant.inputs_and_invariants(
-        scenario, mode, raw_predicates=True
+        scenario, mode, raw_predicates=True  # type: ignore
     )
 
     algod = get_algod()
@@ -371,7 +371,7 @@ def test_app_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun responses:
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)  # type: ignore
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
@@ -543,7 +543,7 @@ def test_logicsig_with_report(filebase: str):
 
     # 0. Validate that the scenarios are well defined:
     inputs, invariants = Invariant.inputs_and_invariants(
-        scenario, mode, raw_predicates=True
+        scenario, mode, raw_predicates=True  # type: ignore
     )
 
     algod = get_algod()
@@ -563,7 +563,7 @@ def test_logicsig_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun resonses:
-    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)  # type: ignore
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
