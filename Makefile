@@ -25,12 +25,12 @@ unit-test:
 
 build-and-test: pip-development lint unit-test
 
-blackbox-smoke-prefix:
-	echo "hello blackbox!"
-	pwd
-	ls -l
-	ls -l sandbox
-	cd sandbox && docker-compose ps
+# blackbox-smoke-prefix:
+# 	echo "hello blackbox!"
+# 	pwd
+# 	ls -l
+# 	ls -l sandbox
+# 	cd sandbox && docker-compose ps
 
 NUM_PROCS = auto
 VERBOSITY = -sv
@@ -61,9 +61,10 @@ local-sandbox-pause:
 local-sandbox-test:
 	$(SANDBOX) test
 
-local-blackbox-smoke: blackbox-smoke-prefix local-sandbox-test
+# local-blackbox-smoke: blackbox-smoke-prefix local-sandbox-test
+# local-blackbox: local-blackbox-smoke integration-test
 
-local-blackbox: local-blackbox-smoke integration-test
+local-blackbox: integration-test
 
 NOTEBOOK = notebooks/quadratic_factoring_game.ipynb
 # assumes already ran `make pip-notebooks`
@@ -80,6 +81,7 @@ gh-sandbox-test:
 	# relax exit code condition because indexer returns 500 when last-round = 0
 	script -e -c "bash -x ./sandbox/sandbox test" || echo "finished ./sandbox test"
 
-gh-blackbox-smoke: blackbox-smoke-prefix gh-sandbox-test
+# gh-blackbox-smoke: blackbox-smoke-prefix gh-sandbox-test
+# gh-blackbox: gh-blackbox-smoke integration-test notebooks-test
 
-gh-blackbox: gh-blackbox-smoke integration-test notebooks-test
+gh-blackbox: integration-test notebooks-test

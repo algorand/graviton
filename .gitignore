@@ -19,6 +19,9 @@ sandbox
 # Mac OS
 .DS_Store
 
+# asdf
+.tool-versions
+
 ##### BEGIN: github recommends for Python #####
 
 # Byte-compiled / optimized / DLL files
