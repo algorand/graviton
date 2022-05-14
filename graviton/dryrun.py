@@ -201,10 +201,6 @@ def assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=None
         _fail(msg)
 
 
-# def make_deprecated_dryrun(algo_client):
-#     return DeprecatedDryRun(algo_client, DryRunHelper.dryrun_request)
-
-
 class DryRunHelper:
     """Utility functions for dryrun"""
 
@@ -221,11 +217,56 @@ class DryRunHelper:
         return cls.dryrun_request(program, models.App(args=args), txn_params)
 
     @classmethod
+    def _txn_params_with_defaults(cls, txn_params: dict, for_app: bool) -> dict:
+        """
+        Fill `txn_params` with required fields (without modifying input)
+
+        Universal:
+            * sender (str): address of the sender
+            * sp (SuggestedParams): suggested params from algod
+
+        Non-Payement (for app):
+            * index (int): index of the application to call; 0 if creating a new application
+            * on_complete (OnComplete): intEnum representing what app should do on completion
+
+        Payment (for logic sig):
+            * receiver (str): address of the receiver
+            * amt (int): amount in microAlgos to be sent
+        """
+        txn_params = {**txn_params}
+
+        if "sender" not in txn_params:
+            txn_params["sender"] = encode_address(bytes(32))
+
+        if "sp" not in txn_params:
+            txn_params["sp"] = transaction.SuggestedParams(
+                int(1000), int(1), int(100), "", flat_fee=True
+            )
+
+        if for_app:
+            if "index" not in txn_params:
+                txn_params["index"] = 0
+
+            if "on_complete" not in txn_params:
+                txn_params["on_complete"] = transaction.OnComplete.NoOpOC
+        else:
+            if "receiver" not in txn_params:
+                txn_params["receiver"] = encode_address(bytes(32))
+
+            if "amt" not in txn_params:
+                txn_params["amt"] = 0
+
+        return txn_params
+
+    @classmethod
     def dryrun_request(cls, program, lsig_or_app, txn_params):
         assert isinstance(
             lsig_or_app, (models.LSig, models.App)
         ), f"Cannot handle {lsig_or_app} of type {type(lsig_or_app)}"
         is_app = isinstance(lsig_or_app, models.App)
+
+        txn_params = cls._txn_params_with_defaults(txn_params, for_app=is_app)
+
         if is_app:
             return cls._app_request(program, lsig_or_app, txn_params)
 
