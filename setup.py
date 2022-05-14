@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="graviton",
-    version="0.3.0",
+    version="0.3.1",
     url="https://github.com/algorand/graviton",
     description="verify your TEAL program by experiment and observation",
     long_description=long_description,
