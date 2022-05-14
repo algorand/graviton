@@ -235,7 +235,7 @@ class BlackboxResults:
             "steps": self.steps(),
             " top_of_stack": self.final_stack_top() or "",
             "max_stack_height": self.max_stack_height(),
-            **self.final_scratch(with_formatting=True),  # type:ignore
+            **self.final_scratch(with_formatting=True),  # type: ignore
         }
 
 
