@@ -70,6 +70,7 @@ def test_dynamic_array_sum():
     assert inspector.suppress_abi is False
     assert inspector.has_abi_prefix is True
 
+    print(inspector.last_log())
     assert inspector.last_log() == 15, inspector.report(args, "last log messed up")
     assert inspector.stack_top() == 1, inspector.report(args, "stack top messed up")
 

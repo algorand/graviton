@@ -9,16 +9,16 @@ pip-development: pip
 pip-notebooks: pip-development
 	pip install -e.[notebooks]
 
-flake8:
-	flake8 graviton tests
-
 black:
 	black --check .
 
-mypy:
-	mypy graviton tests
+flake8:
+	flake8 graviton tests
 
-lint: flake8 black mypy
+mypy:
+	mypy .
+
+lint: black flake8 mypy
 
 unit-test:
 	pytest -sv tests/unit

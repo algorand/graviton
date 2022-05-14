@@ -21,7 +21,7 @@ setup(
             "mypy==0.950",
             "pytest==7.1.1",
             "pytest-xdist==2.5.0",
-            "types-tabulate==0.8.6",
+            "types-tabulate==0.8.9",
         ],
         "notebooks": [
             "nbmake==1.3.0",

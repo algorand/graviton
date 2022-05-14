@@ -3,6 +3,8 @@ import csv
 from dataclasses import dataclass
 from enum import Enum, auto
 import io
+
+from algosdk.v2client.models import DryrunRequest
 from tabulate import tabulate
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union, cast
 
@@ -154,7 +156,7 @@ class BlackboxResults:
                     return {k: curr[k] for k in new_keys}
                 return {k: v for k, v in curr.items() if prev[k] != v}
 
-            scratch_deltas = [_scr2[0]]
+            scratch_deltas: List[Dict[int, TealVal]] = [_scr2[0]]
             for i in range(1, len(_scr2)):
                 scratch_deltas.append(compute_delta(_scr2[i - 1], _scr2[i]))
 
@@ -219,8 +221,10 @@ class BlackboxResults:
     def max_stack_height(self) -> int:
         return max(len(s) for s in self.raw_stacks)
 
-    def final_scratch(self, with_formatting: bool = False) -> dict:
-        unformatted = {
+    def final_scratch(
+        self, with_formatting: bool = False
+    ) -> Dict[Union[int, str], Union[int, str]]:
+        unformatted: Dict[Union[int, str], Union[int, str]] = {
             i: str(s) if s.is_b else s.i for i, s in self.final_scratch_state.items()
         }
         if not with_formatting:
@@ -233,9 +237,9 @@ class BlackboxResults:
     def final_as_row(self) -> dict:
         return {
             "steps": self.steps(),
-            " top_of_stack": self.final_stack_top(),
+            " top_of_stack": self.final_stack_top() or "",
             "max_stack_height": self.max_stack_height(),
-            **self.final_scratch(with_formatting=True),
+            **self.final_scratch(with_formatting=True),  # type: ignore
         }
 
 
@@ -659,7 +663,7 @@ class DryRunInspector:
         self.has_abi_prefix: bool
         self.config(suppress_abi=False, has_abi_prefix=bool(self.abi_type))
 
-    def config(self, **kwargs):
+    def config(self, **kwargs: bool):
         bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS
         if bad_keys:
             raise ValueError(f"unknown config options: {bad_keys}")
@@ -779,10 +783,10 @@ class DryRunInspector:
             return None
 
         res = self.dig(DRProp.lastLog)
-        if not self.abi_type or self.suppress_abi:
+        if not self.abi_type or self.__dict__["suppress_abi"]:
             return res
 
-        if self.has_abi_prefix:
+        if self.__dict__["has_abi_prefix"]:
             res = res[8:]  # skip the first 8 hex char's == first 4 bytes
         return self.abi_type.decode(bytes.fromhex(res))
 
@@ -984,7 +988,7 @@ class DryRunInspector:
 
     def csv_row(
         self, row_num: int, args: Sequence[Union[int, str]]
-    ) -> Dict[str, Optional[Union[int, str]]]:
+    ) -> Dict[str, Union[str, int, None]]:
         return {
             " Run": row_num,
             " cost": self.cost(),
