@@ -1,10 +1,16 @@
+from pathlib import Path
+import pytest
+
 from algosdk import abi
 
-from graviton.blackbox import DryRunExecutor
+from graviton.blackbox import DryRunExecutor, DryRunEncoder, DryRunInspector
+from graviton.abi_strategy import ABIStrategy
 
 from tests.clients import get_algod
 
-dyanmic_array_sum_teal = """#pragma version 6
+ROUNDTRIP = Path.cwd() / "tests" / "teal" / "roundtrip"
+
+DYNAMIC_ARRAY_SUM_TEAL = """#pragma version 6
 txna ApplicationArgs 1      // x = abi.DynamicArray(abi.Uint64TypeSpec())
 store 0                     // 0: x
 load 0                      // [x]
@@ -63,7 +69,7 @@ def test_dynamic_array_sum():
     abi_arg_types = (None, abi.ArrayDynamicType(abi.UintType(64)))
     abi_out_type = abi.UintType(64)
     inspector = DryRunExecutor.dryrun_app(
-        algod, dyanmic_array_sum_teal, args, abi_arg_types, abi_out_type
+        algod, DYNAMIC_ARRAY_SUM_TEAL, args, abi_arg_types, abi_out_type
     )
     # with default config:
     assert inspector.abi_type
@@ -91,3 +97,45 @@ def test_dynamic_array_sum():
         args, "last log messed up"
     )
     assert inspector.stack_top() == 1, inspector.report(args, "stack top messed up")
+
+
+def process_filename(filename):
+    abi_info = filename.split("/")[-1].split(".")[0].split("_")[2:]
+
+    length = None
+    if len(abi_info) > 1:
+        abi_str, length = abi_info
+        length = int(length[1:-1])
+    else:
+        abi_str = abi_info[0]
+
+    abi_instance = abi.ABIType.from_string(abi_str)
+    abi_strat = ABIStrategy(abi_instance, length)
+    return length, abi_str, abi_instance, abi_strat
+
+
+def get_roundtrip_teals():
+    return list(ROUNDTRIP.glob("*.teal"))
+
+
+@pytest.mark.parametrize("roundtrip_app", get_roundtrip_teals())
+def test_abi_strategy_get_random(roundtrip_app):
+    filename = str(roundtrip_app)
+
+    length, abi_str, abi_instance, abi_strat = process_filename(filename)
+    rand = abi_strat.get_random()
+    encoded = DryRunEncoder.encode_args([rand], abi_types=[abi_instance])
+    decoded = abi_instance.decode(encoded[0])
+    assert decoded == rand
+
+    print(
+        f"""
+roundtrip_app = {roundtrip_app}
+abi_str = {abi_str}
+length = {length}
+abi_instance = {abi_instance}
+rand = {rand}
+encoded = {encoded}
+decoded = {decoded}
+"""
+    )
