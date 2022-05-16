@@ -1,5 +1,5 @@
 from inspect import signature
-from typing import cast, Any, Callable, Dict, List, Sequence, Tuple, Union
+from typing import cast, Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from graviton.blackbox import (
     DryRunInspector,
@@ -16,7 +16,7 @@ class Invariant:
         self,
         predicate: Union[Dict[Tuple, Union[str, int]], Callable],
         enforce: bool = False,
-        name: Any = None,
+        name: Optional[str] = None,
     ):
         self.definition = predicate
         self.predicate, self._expected = self.prepare_predicate(predicate)

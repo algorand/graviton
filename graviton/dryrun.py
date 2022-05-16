@@ -274,7 +274,7 @@ class DryRunHelper:
 
     @classmethod
     def _app_request(cls, program, app, txn_params):
-        """TODO: out to be able to stop delegating at tis point"""
+        """TODO: ought to be able to stop delegating at this point"""
         run_mode = models.get_run_mode(app)
         enriched = cls._prepare_app(app)
         txn = transaction.ApplicationCallTxn(**txn_params)
@@ -282,7 +282,7 @@ class DryRunHelper:
 
     @classmethod
     def _lsig_request(cls, program, lsig, txn_params):
-        """TODO: out to be able to stop delegating at tis point"""
+        """TODO: ought to be able to stop delegating at this point"""
         enriched = cls._prepare_lsig(lsig)
         txn = transaction.PaymentTxn(**txn_params)
         return cls._prepare_lsig_source_request(program, enriched, txn)
