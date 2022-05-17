@@ -14,14 +14,14 @@
 ### What is TEAL Blackbox Testing?
 
 TEAL Blackbox Testing lets you gain confidence that your Algorand smart contracts
-are correct by writing assertions and and analyzing results via dry runs.
+are correct by writing assertions and analyzing results via dry runs.
 
 ### Why Blackbox Testing?
 
 Here are some use cases:
 
 * by allowing you to assert that certain invariants hold over a large set of inputs you gain greater confidence that your TEAL programs and AVM smart contracts work as designed
-* when tweaking, refactoring or optimizing your TEAL source, ensure that no regressions have occured
+* when tweaking, refactoring or optimizing your TEAL source, ensure that no regressions have occurred
 * allows AVM developers to practice the art of TTDD (TEAL Test Driven Development)
 
 ## Simple TEAL Blackbox Toolkit Example: Program for $`x^2`$
@@ -70,10 +70,10 @@ Even better, before making fine-grained assertions we'd like to get a sense of w
 
 ### TEAL Program for Testing: Logic Sig v. App
 
-**STEP 3**. Next, you'll need to figure out if your TEAL program should be a Logic Signature or an Application. Each of these program _modes_ has its merits, but we won't get into the pros/cons here. From a Blackbox Test's perspective, the main difference is how external arguments are handled. Logic sigs rely on the [arg opcode](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#arg-n) while apps rely on [txna ApplicationArgs i](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#txna-f-i). In our $`x^2`$ **logic sig** example, you can see on [line 2](./tests/teal/lsig_square.teal#L2) that the `arg` opcode is used. Because each argument opcode (`arg` versus `ApplicationArgs`) is mode-exclusive, any program that takes input will execute succesfully in _one mode only_.
+**STEP 3**. Next, you'll need to figure out if your TEAL program should be a Logic Signature or an Application. Each of these program _modes_ has its merits, but we won't get into the pros/cons here. From a Blackbox Test's perspective, the main difference is how external arguments are handled. Logic sigs rely on the [arg opcode](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#arg-n) while apps rely on [txna ApplicationArgs i](https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#txna-f-i). In our $`x^2`$ **logic sig** example, you can see on [line 2](./tests/teal/lsig_square.teal#L2) that the `arg` opcode is used. Because each argument opcode (`arg` versus `ApplicationArgs`) is mode-exclusive, any program that takes input will execute successfully in _one mode only_.
 
 **STEP 4**. Write the TEAL program that you want to test. You can inline the test as described here or follow the approach of `./tests/integration/blackbox_test.py` and save under `./tests/teal`. So following the inline
-appraoch we begin our TEAL Blackbox script with an <a name="teal">inline teal source variable</a>:
+approach we begin our TEAL Blackbox script with an <a name="teal">inline teal source variable</a>:
 
 ```python
 teal = """#pragma version 6
@@ -91,7 +91,7 @@ exp
 retsub"""
 ```
 
-### The TEAL Blackbox Toolkit's Utitlity Classes
+### The TEAL Blackbox Toolkit's Utility Classes
 
 The TEAL Blackbox Toolkit comes with the following main classes:
 
@@ -226,7 +226,7 @@ In particular, we can:
 Let's expand our investigation from a single dry-run to multiple runs or a **run sequence**. We'll observe how _assertable properties_ depend on inputs and conjecture some program invariants. To aid in the investigation we'll generate a report in CSV format (Comma Separated Values) where:
 
 * columns represent _assertable properties_ of dry-runs, and
-* rows represents dry-run executions for specific inputs
+* rows represent dry-run executions for specific inputs
 
 **STEP 6**. Back to our $`x^2`$ example, here's how to generate a report with 1 row for each of the inputs `0, 1, ... , 15`:
 
@@ -243,7 +243,7 @@ print(csv)
 
 Note that each element in the `inputs` array `(x,)` is itself a tuple as `args` given to a dry run execution need to be of type `Sequence` (remember, that these will be passed to a TEAL program which may take one, several, or no inputs at all).
 At this point, you'll be able to look at your [dry run sequence results](./graviton/blackbox.py#L752) and conduct some analysis. For the $`x^2`$ example,
-after loading the CSV in Google sheets and reformating a bit it will look like:
+after loading the CSV in Google sheets and reformatting a bit it will look like:
 
 <img width="465" alt="image" src="https://user-images.githubusercontent.com/291133/158812699-318169e2-487c-4dac-b97b-a9db8148b638.png">
 

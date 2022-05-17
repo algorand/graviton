@@ -199,7 +199,7 @@ mut_mut = {mut_mut}
         args, "rand v. original", last_steps=last_rows
     )
     assert original == mut_mut, inspector.report(
-        args, "orginal v. mut_mut", last_steps=last_rows
+        args, "original v. mut_mut", last_steps=last_rows
     )
 
     expected_mut = abi_strat.mutate_for_roundtrip(rand)
