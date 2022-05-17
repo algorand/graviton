@@ -91,7 +91,7 @@ def test_factorizer_game_4_payout(p, q):
 
 
 def test_factorizer_report_with_pymnt():
-    filebase = "lsig_factorizer_game_1_5_7_V4"
+    filebase = "lsig_factorizer_game_1_5_7"
     path = TESTS_DIR / "teal"
     tealpath = path / f"{filebase}.teal"
     with open(tealpath, "r") as f:
