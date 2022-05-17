@@ -49,8 +49,6 @@ all-tests: lint unit-test integration-test notebooks-test
 local-project-build:
 	pyproject-build
 
-local-blackbox: integration-testq
-
 # assumes a symbolic link: sandbox -> /cloned/repo/algorand/sandbox
 local-sandbox-test:
 	./sandbox/sandbox test
