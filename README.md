@@ -16,7 +16,7 @@ make pip-notebooks
 
 ### Prereq - Install and Symbolically Link to the Sandbox
 
-If you would like to use the [Makefile](./Makefile) without modificationm and with full functionality, you should create a symbolic link to  [the algorand sandbox repo](https://github.com/algorand/sandbox) as described here. There are many ways to accomplish this. Assuming you have cloned ***the sandbox*** into the path  `/path/to/algorand/sandbox/` and that you've `cd`'ed into the cloned `graviton` directory you should create a symbolic link as follows:
+If you would like to use the [Makefile](./Makefile) without modification and with full functionality, you should create a symbolic link to  [the algorand sandbox repo](https://github.com/algorand/sandbox) as described here. There are many ways to accomplish this. Assuming you have cloned ***the sandbox*** into the path  `/path/to/algorand/sandbox/` and that you've `cd`'ed into the cloned `graviton` directory you should create a symbolic link as follows:
 
 #### Linux / Mac OS
 
