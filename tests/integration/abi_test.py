@@ -193,16 +193,16 @@ mut_mut = {mut_mut}
     last_rows = 2
 
     assert passed == (cost <= 700), inspector.report(
-        args, f"passed={passed} contradicted cost={cost}", last_rows=last_rows
+        args, f"passed={passed} contradicted cost={cost}", last_steps=last_rows
     )
     assert rand == original, inspector.report(
-        args, "rand v. original", last_rows=last_rows
+        args, "rand v. original", last_steps=last_rows
     )
     assert original == mut_mut, inspector.report(
-        args, "orginal v. mut_mut", last_rows=last_rows
+        args, "orginal v. mut_mut", last_steps=last_rows
     )
 
     expected_mut = abi_strat.mutate_for_roundtrip(rand)
     assert expected_mut == mut, inspector.report(
-        args, "expected_mut v. mut", last_rows=last_rows
+        args, "expected_mut v. mut", last_steps=last_rows
     )

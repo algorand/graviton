@@ -874,7 +874,7 @@ class DryRunInspector:
         *,
         scratch_verbose: bool = False,
         scratch_before_stack: bool = True,
-        last_rows: int = 100,
+        last_steps: int = 100,
     ):
         """Produce a string that when printed shows the evolution of a dry run.
 
@@ -942,8 +942,8 @@ class DryRunInspector:
             for i in range(len(rows)):
                 rows[i][-1], rows[i][-2] = rows[i][-2], rows[i][-1]
 
-        if last_rows >= 0:
-            rows = rows[-last_rows:]
+        if last_steps >= 0:
+            rows = rows[-last_steps:]
         table = tabulate(rows, headers=headers, tablefmt="presto")
         return table
 
@@ -952,14 +952,14 @@ class DryRunInspector:
         args: Sequence[Union[str, int]],
         msg: str = "Dry Run Inspector Report",
         row: int = 0,
-        last_rows: int = 100,
+        last_steps: int = 100,
     ) -> str:
         bbr = self.black_box_results
         return f"""===============
     <<<<<<<<<<<{msg}>>>>>>>>>>>
     ===============
     App Trace:
-    {self.tabulate(-1, last_rows=last_rows)}
+    {self.tabulate(-1, last_steps=last_steps)}
     ===============
     MODE: {self.mode}
     TOTAL COST: {self.cost()}
