@@ -69,6 +69,7 @@ int 0x31
     insp_args_1_2 = Executor.dryrun_logicsig(ALGOD, source, ["1", "2"])
     assert insp_args_1_2.passed()
 
+
 v4_file = TESTS_DIR / "teal" / "lsig_factorizer_game_1_5_7_V4.teal"
 with open(v4_file, "r") as f:
     FACTORIZER_V4 = f.read()
