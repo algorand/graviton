@@ -57,24 +57,6 @@ def test_factorizer_game_2(p, q):
     ), inspector.report(args, f"last message failed for {p, q}")
 
 
-# TODO: Sort out how to use hypothesis.
-# I'm underwhelmed by hypothesis strategies.... maybe I should try using `assume()`
-# This example looks more promising: https://increment.com/testing/in-praise-of-property-based-testing/
-# (search for "What inputs are valid?")
-# INPUT_STRAT = st.integers(min_value=0, max_value=10)
-# @given(INPUT_STRAT, INPUT_STRAT)
-# def test_factorizer_game_3(p, q):
-#     note(f"(p, q) = {(p, q)}")
-#     args = (p, q)
-#     inspector = Executor.dryrun_logicsig(ALGOD, TEAL, args)
-#     assert inspector.last_message() == (
-#         "PASS" if set(args) == {5, 7} else "REJECT"
-#     ), inspector.report(args, "last message unexpected")
-
-
-# Migrate and evolve the Mixin Docs Tests:
-
-
 def test_logic_sig():
     source = """
 arg 0
