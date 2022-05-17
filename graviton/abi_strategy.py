@@ -116,9 +116,7 @@ class ABIStrategy:
 
     def mutate_for_roundtrip(self, py_abi_instance: PY_TYPES) -> PY_TYPES:
         def not_implemented(_):
-            raise NotImplementedError(
-                f"Currently cannot get a random sample for {self.abi_type}"
-            )
+            raise NotImplementedError(f"Currently cannot handle type {self.abi_type}")
 
         def unexpected_type(_):
             raise ValueError(f"Unexpected abi_type {self.abi_type}")

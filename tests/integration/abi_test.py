@@ -144,18 +144,21 @@ decoded = {decoded}
 GAI_ISSUE_2050 = "https://github.com/algorand/go-algorand-internal/issues/2050"
 
 BAD_TEALS = {
-    "/Users/zeph/github/algorand/graviton/tests/teal/roundtrip/app_roundtrip_().teal": GAI_ISSUE_2050,
+    "()": GAI_ISSUE_2050,
 }
 
 
 @pytest.mark.parametrize("roundtrip_app", get_roundtrip_teals())
 def test_roundtrip_abi_strategy(roundtrip_app):
     filename = str(roundtrip_app)
-    if filename in BAD_TEALS:
-        print(f"Skipping {filename} because of {BAD_TEALS[filename]}")
+    abi_str, _, abi_instance, abi_strat = process_filename(filename)
+
+    if abi_str in BAD_TEALS:
+        print(
+            f"Skipping encoding roundtrip test of '{abi_str}' because of {BAD_TEALS[abi_str]}"
+        )
         return
 
-    abi_str, _, abi_instance, abi_strat = process_filename(filename)
     rand = abi_strat.get_random()
 
     algod = get_algod()
