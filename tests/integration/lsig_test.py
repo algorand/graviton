@@ -1,9 +1,6 @@
 from itertools import product
 from pathlib import Path
 
-# TODO: Sort out how to use hypothesis.
-# from hypothesis import given, note, strategies as st
-
 import pytest
 
 
