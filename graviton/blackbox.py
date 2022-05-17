@@ -782,10 +782,10 @@ class DryRunInspector:
             return None
 
         res = self.dig(DRProp.lastLog)
-        if not self.abi_type or self.__dict__["suppress_abi"]:
+        if not self.abi_type or self.suppress_abi:
             return res
 
-        if self.__dict__["has_abi_prefix"]:
+        if self.has_abi_prefix:
             res = res[8:]  # skip the first 8 hex char's == first 4 bytes
         return self.abi_type.decode(bytes.fromhex(res))
 
