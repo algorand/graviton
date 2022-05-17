@@ -17,7 +17,6 @@ setup(
         "development": [
             "black==22.3.0",
             "flake8==4.0.1",
-            "hypothesis==6.41.0",
             "mypy==0.950",
             "pytest==7.1.1",
             "pytest-xdist==2.5.0",
