@@ -30,15 +30,10 @@ ln -s /path/to/algorand/sandbox/ sandbox
 mklink sandbox \path\to\algorand\sandbox
 ```
 
-### Start and Test the Sandbox
+<!-- TODO: Re-do this using the docker image as in PyTEAL  -->
+### Test the Sandbox
 
-If your sandbox isn't already running, you can start the sandbox with a command such as
-
-```sh
-make local-sandbox-up SANDBOX_ENV=dev
-```
-
-To test that the sandbox is running properly, use the following:
+With your sandbox running to test that the sandbox is running properly, use the following:
 
 ```sh
 make local-sandbox-test
@@ -66,7 +61,7 @@ make notebooks-test
 
 ## Ensuring that all is Copacetic Before Pushing to Github
 
-To test in your local environment that everything is looking good before pushing to Github, it is recommended that you run `make pre-commit-check`
+To test in your local environment that everything is looking good before pushing to Github, it is recommended that you run `make all-tests`
 
 If you would like to simulate the github actions locally, you'll need to install [nektos act](https://github.com/nektos/act/wiki/Installation). On Mac OS with [Docker](https://docs.docker.com/desktop/mac/install/) previously installed you can use `brew install act`; on the other hand, on Linux and Windows follow the installation instructions in the nextos repo link above.
 

@@ -25,6 +25,13 @@ unit-test:
 
 build-and-test: pip-development lint unit-test
 
+blackbox-smoke-prefix:
+	echo "hello blackbox!"
+	pwd
+	ls -l
+	ls -l sandbox
+	cd sandbox && docker-compose ps
+
 NUM_PROCS = auto
 VERBOSITY = -sv
 integration-test:
@@ -44,6 +51,14 @@ local-project-build:
 
 local-blackbox: integration-testq
 
+# assumes a symbolic link: sandbox -> /cloned/repo/algorand/sandbox
+local-sandbox-test:
+	./sandbox/sandbox test
+
+local-blackbox-smoke: blackbox-smoke-prefix local-sandbox-test
+
+local-blackbox: local-blackbox-smoke integration-test
+
 NOTEBOOK = notebooks/quadratic_factoring_game.ipynb
 # assumes already ran `make pip-notebooks`
 local-notebook: 
@@ -54,5 +69,11 @@ local-gh-simulate:
 	act
 
 ###### Github Actions Only ######
+
+gh-sandbox-test:
+	# relax exit code condition because indexer returns 500 when last-round = 0
+	script -e -c "bash -x ./sandbox/sandbox test" || echo "finished ./sandbox test"
+
+gh-blackbox-smoke: blackbox-smoke-prefix gh-sandbox-test
 
 gh-blackbox: integration-test notebooks-test
