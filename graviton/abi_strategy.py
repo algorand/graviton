@@ -6,7 +6,7 @@ TODO: Leverage Hypothesis!
 from collections import OrderedDict
 import random
 import string
-from typing import Callable, List, Optional, Union, cast
+from typing import Callable, Dict, List, Optional, Union, cast
 
 from algosdk import abi, encoding
 
@@ -105,7 +105,7 @@ class ABIStrategy:
 
     def map(
         self,
-        waterfall: OrderedDict[abi.ABIType, Callable[..., PY_TYPES]],
+        waterfall: Dict[abi.ABIType, Callable[..., PY_TYPES]],
         *args,
         **kwargs,
     ) -> PY_TYPES:
