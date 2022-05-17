@@ -3,7 +3,7 @@ import pytest
 
 from algosdk import abi
 
-from graviton.blackbox import DryRunExecutor, DryRunEncoder, DryRunInspector
+from graviton.blackbox import DryRunExecutor, DryRunEncoder
 from graviton.abi_strategy import ABIStrategy
 
 from tests.clients import get_algod
@@ -111,7 +111,7 @@ def process_filename(filename):
 
     abi_instance = abi.ABIType.from_string(abi_str)
     abi_strat = ABIStrategy(abi_instance, length)
-    return length, abi_str, abi_instance, abi_strat
+    return abi_str, length, abi_instance, abi_strat
 
 
 def get_roundtrip_teals():
@@ -119,10 +119,10 @@ def get_roundtrip_teals():
 
 
 @pytest.mark.parametrize("roundtrip_app", get_roundtrip_teals())
-def test_abi_strategy_get_random(roundtrip_app):
+def test_unit_abi_strategy_get_random(roundtrip_app):
     filename = str(roundtrip_app)
 
-    length, abi_str, abi_instance, abi_strat = process_filename(filename)
+    abi_str, length, abi_instance, abi_strat = process_filename(filename)
     rand = abi_strat.get_random()
     encoded = DryRunEncoder.encode_args([rand], abi_types=[abi_instance])
     decoded = abi_instance.decode(encoded[0])
@@ -135,7 +135,71 @@ abi_str = {abi_str}
 length = {length}
 abi_instance = {abi_instance}
 rand = {rand}
-encoded = {encoded}
+encoded = {encoded[0]}
 decoded = {decoded}
 """
+    )
+
+
+GAI_ISSUE_2050 = "https://github.com/algorand/go-algorand-internal/issues/2050"
+
+BAD_TEALS = {
+    "/Users/zeph/github/algorand/graviton/tests/teal/roundtrip/app_roundtrip_().teal": GAI_ISSUE_2050,
+}
+
+
+@pytest.mark.parametrize("roundtrip_app", get_roundtrip_teals())
+def test_roundtrip_abi_strategy(roundtrip_app):
+    filename = str(roundtrip_app)
+    if filename in BAD_TEALS:
+        print(f"Skipping {filename} because of {BAD_TEALS[filename]}")
+        return
+
+    abi_str, _, abi_instance, abi_strat = process_filename(filename)
+    rand = abi_strat.get_random()
+
+    algod = get_algod()
+    args = (rand,)
+    abi_arg_types = (abi_instance,)
+    abi_out_type = abi.TupleType([abi_instance] * 3)
+
+    with open(filename) as f:
+        roundtrip_teal = f.read()
+
+    inspector = DryRunExecutor.dryrun_app(
+        algod, roundtrip_teal, args, abi_arg_types, abi_out_type
+    )
+
+    cost = inspector.cost()
+    passed = inspector.passed()
+    original, comp, comp_comp = inspector.last_log()
+
+    print(
+        f"""
+roundtrip_app = {roundtrip_app}
+cost = {cost}
+abi_str = {abi_str}
+abi_instance = {abi_instance}
+rand = {rand}
+original = {original}
+comp = {comp}
+comp_comp = {comp_comp}
+"""
+    )
+
+    last_rows = 2
+
+    assert passed == (cost <= 700), inspector.report(
+        args, f"passed={passed} contradicted cost={cost}", last_rows=last_rows
+    )
+    assert rand == original, inspector.report(
+        args, "rand v. original", last_rows=last_rows
+    )
+    assert original == comp_comp, inspector.report(
+        args, "orginal v. comp_comp", last_rows=last_rows
+    )
+
+    expected_comp = abi_strat.mutate_for_roundtrip(rand)
+    assert expected_comp == comp, inspector.report(
+        args, "expected_comp v. comp", last_rows=last_rows
     )

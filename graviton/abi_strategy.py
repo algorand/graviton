@@ -3,16 +3,19 @@ Inspired by Hypothesis' Strategies.
 
 TODO: Leverage Hypothesis!
 """
+from collections import OrderedDict
 import random
 import string
-from typing import List, Optional, Union, cast
+from typing import Callable, List, Optional, Union, cast
 
 from algosdk import abi, encoding
-from numpy import isin
+
+PY_TYPES = Union[bool, int, list, str, bytes]
 
 
 class ABIStrategy:
     DEFAULT_DYNAMIC_ARRAY_LENGTH = 3
+    STRING_CHARS = string.digits + string.ascii_letters + string.punctuation
 
     seeded_randomness: bool = False
     random_seed: int
@@ -96,6 +99,74 @@ class ABIStrategy:
             ]
 
         if isinstance(self.abi_type, abi.StringType):
-            return "".join(random.choice(string.printable) for _ in dynamic_range)
+            return "".join(random.choice(self.STRING_CHARS) for _ in dynamic_range)
 
         raise ValueError(f"Unexpected abi_type {self.abi_type}")
+
+    def map(
+        self,
+        waterfall: OrderedDict[abi.ABIType, Callable[..., PY_TYPES]],
+        *args,
+        **kwargs,
+    ) -> PY_TYPES:
+        for abi_type, call in waterfall.items():
+            if isinstance(self.abi_type, abi_type):
+                return call(*args, **kwargs)
+        return waterfall["DEFAULT"](*args, **kwargs)
+
+    def mutate_for_roundtrip(self, py_abi_instance: PY_TYPES) -> PY_TYPES:
+        def not_implemented(_):
+            raise NotImplementedError(
+                f"Currently cannot get a random sample for {self.abi_type}"
+            )
+
+        def unexpected_type(_):
+            raise ValueError(f"Unexpected abi_type {self.abi_type}")
+
+        def address_logic(x):
+            y = encoding.decode_address(x)
+            return encoding.encode_address(
+                bytearray(
+                    ABIStrategy(
+                        abi.ArrayStaticType(abi.ByteType(), len(y))
+                    ).mutate_for_roundtrip(y)
+                )
+            )
+
+        waterfall = OrderedDict(
+            [
+                (abi.UfixedType, not_implemented),
+                (abi.BoolType, lambda x: not x),
+                (abi.UintType, lambda x: (1 << self.abi_type.bit_size) - 1 - x),
+                (
+                    abi.ByteType,
+                    lambda x: ABIStrategy(abi.UintType(8)).mutate_for_roundtrip(x),
+                ),
+                (
+                    abi.TupleType,
+                    lambda x: [
+                        ABIStrategy(child_type).mutate_for_roundtrip(x[i])
+                        for i, child_type in enumerate(self.abi_type.child_types)
+                    ],
+                ),
+                (
+                    abi.ArrayStaticType,
+                    lambda x: [
+                        ABIStrategy(self.abi_type.child_type).mutate_for_roundtrip(y)
+                        for y in x
+                    ],
+                ),
+                (abi.AddressType, address_logic),
+                (
+                    abi.ArrayDynamicType,
+                    lambda x: [
+                        ABIStrategy(self.abi_type.child_type).mutate_for_roundtrip(y)
+                        for y in x
+                    ],
+                ),
+                (abi.StringType, lambda x: "".join(reversed(x))),
+                ("DEFAULT", unexpected_type),
+            ]
+        )
+
+        return self.map(waterfall, py_abi_instance)

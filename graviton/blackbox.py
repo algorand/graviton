@@ -871,8 +871,10 @@ class DryRunInspector:
     def tabulate(
         self,
         col_max: int,
+        *,
         scratch_verbose: bool = False,
         scratch_before_stack: bool = True,
+        last_rows: int = 100,
     ):
         """Produce a string that when printed shows the evolution of a dry run.
 
@@ -940,6 +942,8 @@ class DryRunInspector:
             for i in range(len(rows)):
                 rows[i][-1], rows[i][-2] = rows[i][-2], rows[i][-1]
 
+        if last_rows >= 0:
+            rows = rows[-last_rows:]
         table = tabulate(rows, headers=headers, tablefmt="presto")
         return table
 
@@ -948,13 +952,14 @@ class DryRunInspector:
         args: Sequence[Union[str, int]],
         msg: str = "Dry Run Inspector Report",
         row: int = 0,
+        last_rows: int = 100,
     ) -> str:
         bbr = self.black_box_results
         return f"""===============
     <<<<<<<<<<<{msg}>>>>>>>>>>>
     ===============
     App Trace:
-    {self.tabulate(-1)}
+    {self.tabulate(-1, last_rows=last_rows)}
     ===============
     MODE: {self.mode}
     TOTAL COST: {self.cost()}
