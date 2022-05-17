@@ -175,7 +175,7 @@ def test_roundtrip_abi_strategy(roundtrip_app):
 
     cost = inspector.cost()
     passed = inspector.passed()
-    original, comp, comp_comp = inspector.last_log()
+    original, mut, mut_mut = inspector.last_log()
 
     print(
         f"""
@@ -185,8 +185,8 @@ abi_str = {abi_str}
 abi_instance = {abi_instance}
 rand = {rand}
 original = {original}
-comp = {comp}
-comp_comp = {comp_comp}
+mut = {mut}
+mut_mut = {mut_mut}
 """
     )
 
@@ -198,11 +198,11 @@ comp_comp = {comp_comp}
     assert rand == original, inspector.report(
         args, "rand v. original", last_rows=last_rows
     )
-    assert original == comp_comp, inspector.report(
-        args, "orginal v. comp_comp", last_rows=last_rows
+    assert original == mut_mut, inspector.report(
+        args, "orginal v. mut_mut", last_rows=last_rows
     )
 
-    expected_comp = abi_strat.mutate_for_roundtrip(rand)
-    assert expected_comp == comp, inspector.report(
-        args, "expected_comp v. comp", last_rows=last_rows
+    expected_mut = abi_strat.mutate_for_roundtrip(rand)
+    assert expected_mut == mut, inspector.report(
+        args, "expected_mut v. mut", last_rows=last_rows
     )
