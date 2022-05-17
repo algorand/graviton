@@ -15,9 +15,8 @@ ALGOD = get_algod()
 TESTS_DIR = Path.cwd() / "tests"
 
 
-@pytest.mark.parametrize("suffix", ("V1", "V2", "V3", "V4"))
-def test_factorizer_game_version_report(suffix):
-    filebase = f"lsig_factorizer_game_1_5_7_{suffix}"
+def test_factorizer_game_report():
+    filebase = "lsig_factorizer_game_1_5_7"
     path = TESTS_DIR / "teal"
     tealpath = path / f"{filebase}.teal"
     with open(tealpath, "r") as f:
@@ -32,26 +31,6 @@ def test_factorizer_game_version_report(suffix):
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
         f.write(Inspector.csv_report(inputs, dryrun_results))
-
-
-v1_file = TESTS_DIR / "teal" / "lsig_factorizer_game_1_5_7_V1.teal"
-with open(v1_file, "r") as f:
-    FACTORIZER_V1 = f.read()
-
-
-@pytest.mark.parametrize("p, q", product(range(20), range(20)))
-def test_factorizer_game_2(p, q):
-    """
-    The original test asserted that the last message was "REJECT"
-    when not "PASS". But in fact, there were cases -such as (19, 6)-
-    which resulted in the unexpected "- would result negative".
-    To pass in CI, let's force this test to pass.
-    """
-    args = (p, q)
-    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_V1, args)
-    assert inspector.last_message() in (
-        "PASS" if set(args) == {5, 7} else "REJECT" + "- would result negative"
-    ), inspector.report(args, f"last message failed for {p, q}")
 
 
 def test_logic_sig():
@@ -70,9 +49,9 @@ int 0x31
     assert insp_args_1_2.passed()
 
 
-v4_file = TESTS_DIR / "teal" / "lsig_factorizer_game_1_5_7_V4.teal"
-with open(v4_file, "r") as f:
-    FACTORIZER_V4 = f.read()
+lsig_file = TESTS_DIR / "teal" / "lsig_factorizer_game_1_5_7.teal"
+with open(lsig_file, "r") as f:
+    FACTORIZER_TEAL = f.read()
 
 
 def poly_4(x):
@@ -90,7 +69,7 @@ def payment_amount(p, q):
 @pytest.mark.parametrize("p, q", product(range(20), range(20)))
 def test_factorizer_game_3_stateless(p, q):
     args = (p, q)
-    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_V4, args)
+    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_TEAL, args)
     slots = inspector.final_scratch()
     assert slots.get(3, 0) == expected_prize_before_dupe_constraint(
         p, q
@@ -101,7 +80,7 @@ def test_factorizer_game_3_stateless(p, q):
 def test_factorizer_game_4_payout(p, q):
     args = (p, q)
     eprize = expected_prize_before_dupe_constraint(p, q)
-    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_V4, args, amt=eprize)
+    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_TEAL, args, amt=eprize)
     assert inspector.final_scratch().get(3, 0) == eprize, inspector.report(
         args, f"final scratch slot #3 {p, q}"
     )
