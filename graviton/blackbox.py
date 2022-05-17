@@ -330,7 +330,7 @@ class DryRunEncoder:
         cls, arg: Union[bytes, int, str], abi_type: Optional[abi.ABIType], msg: str = ""
     ) -> Optional[bytes]:
         """
-        When have an `abi_type` is epresent, attempt to encode `arg` accordingly (returning `bytes`)
+        When have an `abi_type` is present, attempt to encode `arg` accordingly (returning `bytes`)
         ELSE: assert the type is one of `(bytes, int, str)` returning `None`
         """
         if abi_type:
