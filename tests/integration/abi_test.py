@@ -1,3 +1,19 @@
+"""
+Note on test-case generation for this file (as of 5/18/2022):
+
+* test cases for `test_unit_abi_strategy_get_random()` and `test_roundtrip_abi_strategy()` depend
+    on a fixtures directory
+* the fixtures directory is defined by the constant ROUNDTRIP (currently this is ./tests/teal/roundtrip )
+* all the files with name ending in ".teal" are considered
+* such files are expected to have a name of the form "*_arc-4-abi-type-string_<dynamic-int>.teal" where the last 
+    token "_<dynamic-length>" is optional
+* the tests are generated using `pytest` in the 
+    [pyteal repo](https://github.com/algorand/pyteal/blob/c9c01d744e76158dc6a03c79a694352ff1d6707b/tests/integration/abi_roundtrip_test.py)
+* in that repo, run the command `pytest tests/integration/abi_roundtrip_test.py::test_pure_compilation`
+* then copy the contents of the generated directory "./tests/integration/generated/roundtrip/" into the ROUNDTRIP directory
+"""
+
+
 from pathlib import Path
 import pytest
 
