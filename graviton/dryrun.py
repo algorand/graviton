@@ -1,10 +1,10 @@
 import base64
 import binascii
-from dataclasses import dataclass
+from contextlib import redirect_stdout
+import io
 import string
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
-from algosdk.constants import payment_txn, appcall_txn
 from algosdk.future import transaction
 from algosdk.encoding import encode_address, msgpack_encode
 from algosdk.v2client.models import (
@@ -14,35 +14,15 @@ from algosdk.v2client.models import (
     ApplicationParams,
     ApplicationStateSchema,
     Account,
-    TealKeyValue,
 )
 
+from . import models
 
-ZERO_ADDRESS = encode_address(bytes(32))
 PRINTABLE = frozenset(string.printable)
 
-
-@dataclass
-class LSig:
-    """Logic Sig program parameters"""
-
-    args: List[bytes] = None
-
-
-@dataclass
-class App:
-    """Application program parameters"""
-
-    creator: str = ZERO_ADDRESS
-    round: int = None
-    app_idx: int = 0
-    on_complete: int = 0
-    args: List[bytes] = None
-    accounts: List[Union[str, Account]] = None
-    global_state: List[TealKeyValue] = None
-
-
 # ### LIGHTWEIGHT ASSERTIONS FOR RE-USE ### #
+
+
 def _msg_if(msg):
     return "" if msg is None else f": {msg}"
 
@@ -221,417 +201,97 @@ def assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=None
         _fail(msg)
 
 
-class DryrunTestCaseMixin:
-    """
-    Mixin class for unittest.TestCase
-
-    Expects self.algo_client to be initialized in TestCase.setUp
-    """
-
-    def assertPass(
-        self,
-        prog_drr_txns,
-        lsig=None,
-        app=None,
-        sender=ZERO_ADDRESS,
-        txn_index=None,
-        msg=None,
-    ):
-        """
-        Asserts that all programs pass.
-        By default it uses logic sig mode with args passed in lsig object.
-        If app is set then application call is made
-
-        Args:
-            prog_drr_txns (bytes, str, dict, list): program to run, dryrun response object or list of transactions
-            lsig (dict, LSig): logic sig program additional parameters
-            app (dict, App): app program additional parameters
-            sender (str): txn sender
-            txn_index (int): txn result index to assert in
-
-        Raises:
-            unittest.TestCase.failureException: if not passed
-            TypeError: program is not bytes or str
-        """
-        txns_res = self._checked_request(prog_drr_txns, lsig, app, sender)
-        assert_pass(txn_index, msg, txns_res)
-
-    def assertReject(
-        self,
-        prog_drr_txns,
-        lsig=None,
-        app=None,
-        sender=ZERO_ADDRESS,
-        txn_index=None,
-        msg=None,
-    ):
-        """
-        Asserts any program is rejected.
-        By default it uses logic sig mode with args passed in lsig object.
-        If app is set then application call is made
-
-        Args:
-            prog_drr_txns (bytes, str, dict, list): program to run, dryrun response object or list of transactions
-            lsig (dict, LSig): logic sig program additional parameters
-            app (dict, App): app program additional parameters
-            sender (str): txn sender
-            txn_index (int): txn result index to assert in
-
-        Raises:
-            unittest.TestCase.failureException: if not passed
-            TypeError: program is not bytes or str
-        """
-        txns_res = self._checked_request(prog_drr_txns, lsig, app, sender)
-        assert_reject(txn_index, msg, txns_res)
-
-    def assertStatus(
-        self,
-        prog_drr_txns,
-        status,
-        lsig=None,
-        app=None,
-        sender=ZERO_ADDRESS,
-        txn_index=None,
-        msg=None,
-    ):
-        """
-        Asserts that program completes with the status.
-        By default it uses logic sig mode with args passed in lsig object.
-        If app is set then application call is made
-
-        Args:
-            prog_drr_txns (bytes, str, dict, list): program to run, dryrun response object or list of transactions
-            status (str): status to assert
-            lsig (dict, LSig): logic sig program additional parameters
-            app (dict, App): app program additional parameters
-            sender (str): txn sender
-            txn_index (int): txn result index to assert in
-
-        Raises:
-            unittest.TestCase.failureException (AssetionException): if not passed
-            TypeError: program is not bytes or str
-        """
-        txns_res = self._checked_request(prog_drr_txns, lsig, app, sender)
-        assert_status(status, txn_index, msg, txns_res)
-
-    def assertNoError(
-        self,
-        prog_drr_txns,
-        lsig=None,
-        app=None,
-        sender=ZERO_ADDRESS,
-        txn_index=None,
-        msg=None,
-    ):
-        """
-        Asserts that there are no errors.
-        for example, compilation errors or application state initialization errors.
-        By default it uses logic sig mode with args passed in lsig object.
-        If app is set then application call is made
-
-        Args:
-            prog_drr_txns (bytes, str, dict, list): program to run, dryrun response object or list of transactions
-            lsig (dict, LSig): logic sig program additional parameters
-            app (dict, App): app program additional parameters
-            sender (str): txn sender
-            txn_index (int): txn result index to assert in
-
-        Raises:
-            unittest.TestCase.failureException (AssetionException): if not passed
-            TypeError: program is not bytes or str
-        """
-        drr = self._dryrun_request(prog_drr_txns, lsig, app, sender)
-        assert_no_error(drr, txn_index=txn_index, msg=msg)
-
-    def assertError(
-        self,
-        prog_drr_txns,
-        contains=None,
-        lsig=None,
-        app=None,
-        sender=ZERO_ADDRESS,
-        txn_index=None,
-        msg=None,
-    ):
-        """
-        Asserts that there are no errors.
-        for example, compilation errors or application state initialization errors.
-        By default it uses logic sig mode with args passed in lsig object.
-        If app is set then application call is made
-
-        Args:
-            prog_drr_txns (bytes, str, dict, list): program to run, dryrun response object or list of transactions
-            lsig (dict, LSig): logic sig program additional parameters
-            app (dict, App): app program additional parameters
-            sender (str): txn sender
-            txn_index (int): txn result index to assert in
-
-        Raises:
-            unittest.TestCase.failureException (AssetionException): if not passed
-            TypeError: program is not bytes or str
-        """
-
-        drr = self._dryrun_request(prog_drr_txns, lsig, app, sender)
-        assert_error(drr, contains=contains, txn_index=txn_index, msg=msg)
-
-    def assertGlobalStateContains(
-        self,
-        prog_drr_txns,
-        delta_value,
-        app=None,
-        sender=ZERO_ADDRESS,
-        txn_index=None,
-        msg=None,
-    ):
-        """
-        Asserts that execution of the program has this global delta value
-
-        Args:
-            prog_drr_txns (bytes, str, dict, list): program to run, dryrun response object or list of transactions
-            delta_value (dict): value to assert
-
-        Raises:
-            unittest.TestCase.failureException: if not passed
-            TypeError: program is not bytes or str
-        """
-
-        txns_res = self._checked_request(
-            prog_drr_txns, lsig=None, app=app, sender=sender
-        )
-        assert_global_state_contains(delta_value, txn_index, txns_res, msg=msg)
-
-    def assertLocalStateContains(
-        self,
-        prog_drr_txns,
-        addr,
-        delta_value,
-        app=None,
-        sender=ZERO_ADDRESS,
-        txn_index=None,
-        msg=None,
-    ):
-        """
-        Asserts that execution of the program has this global delta value
-
-        Args:
-            prog_drr_txns (bytes, str, dict, list): program to run, dryrun response object or list of transactions
-            addr (str): account
-            delta_value (dict): value to assert
-
-        Raises:
-            unittest.TestCase.failureException: if not passed
-            TypeError: program is not bytes or str
-        """
-
-        txns_res = self._checked_request(
-            prog_drr_txns, lsig=None, app=app, sender=sender
-        )
-        assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=msg)
-
-    def dryrun_request(self, program, lsig=None, app=None, sender=ZERO_ADDRESS):
-        """
-        Helper function for creation DryrunRequest and making the REST request
-        from program source or compiled bytes
-
-        Args:
-            program (bytes, str): program to use as a source
-            lsig (dict, LSig): logic sig program additional parameters
-            app (dict, App): app program additional parameters
-            sender (str): txn sender
-
-        Returns:
-            dict: dryrun response object
-
-        Raises:
-            TypeError: program is not bytes or str
-        """
-        drr = DryRunHelper.build_dryrun_request(program, lsig, app, sender)
-        return self.algo_client.dryrun(drr)
-
-    def dryrun_request_from_txn(self, txns, app):
-        """
-        Helper function for creation DryrunRequest and making the REST request
-
-        Args:
-            txns (list): list of transaction to run as a group
-            app (dict, App): app program additional parameters. Only app.round and app.accounts are used.
-
-        Returns:
-            dict: dryrun response object
-
-        Raises:
-            TypeError: program is not bytes or str
-        """
-
-        if app is not None:
-            if not isinstance(app, App) and not isinstance(app, dict):
-                raise ValueError("app must be a dict or App")
-            if isinstance(app, dict):
-                app = App(**app)
-
-        rnd = None
-        accounts = None
-        apps = []
-        if app is not None:
-            if app.round is not None:
-                rnd = app.round
-            if app.accounts is not None:
-                accounts = app.accounts
-                for acc in accounts:
-                    if acc.created_apps:
-                        apps.extend(acc.created_apps)
-
-        drr = DryrunRequest(
-            txns=txns,
-            accounts=accounts,
-            round=rnd,
-            apps=apps,
-        )
-        return self.algo_client.dryrun(drr)
-
-    @staticmethod
-    def default_address():
-        """Helper function returning default zero addr"""
-        return ZERO_ADDRESS
-
-    def _dryrun_request(self, prog_drr_txns, lsig, app, sender):
-        """
-        Helper function to make a dryrun request
-        """
-        if isinstance(prog_drr_txns, dict):
-            drr = prog_drr_txns
-        elif isinstance(prog_drr_txns, list):
-            drr = self.dryrun_request_from_txn(prog_drr_txns, app)
-        else:
-            drr = self.dryrun_request(prog_drr_txns, lsig, app, sender)
-        return drr
-
-    def _checked_request(self, prog_drr_txns, lsig=None, app=None, sender=ZERO_ADDRESS):
-        """
-        Helper function to make a dryrun request and perform basic validation
-        """
-        drr = self._dryrun_request(prog_drr_txns, lsig, app, sender)
-        if drr["error"]:
-            _fail(f"error in dryrun response: {drr['error']}")
-
-        if not drr["txns"]:
-            _fail("empty response from dryrun")
-
-        return drr["txns"]
-
-
 class DryRunHelper:
     """Utility functions for dryrun"""
 
     @classmethod
     def singleton_logicsig_request(
-        cls, program: str, args: List[bytes], sender=ZERO_ADDRESS
+        cls, program: str, args: List[bytes], txn_params: Dict[str, Any]
     ):
-        return cls.build_dryrun_request(program, lsig=LSig(args=args), sender=sender)
+        return cls.dryrun_request(program, models.LSig(args=args), txn_params)
 
     @classmethod
     def singleton_app_request(
-        cls, program: str, args: List[bytes], sender=ZERO_ADDRESS
+        cls, program: str, args: List[Union[bytes, str]], txn_params: Dict[str, Any]
     ):
-        return cls.build_dryrun_request(program, app=App(args=args), sender=sender)
+        return cls.dryrun_request(program, models.App(args=args), txn_params)
 
     @classmethod
-    def build_dryrun_request(cls, program, lsig=None, app=None, sender=ZERO_ADDRESS):
+    def _txn_params_with_defaults(cls, txn_params: dict, for_app: bool) -> dict:
         """
-        Helper function for creation DryrunRequest object from a program.
-        By default it uses logic sig mode
-        and if app_idx / on_complete are set then application call is made
+        Fill `txn_params` with required fields (without modifying input)
 
-        Args:
-            program (bytes, string): program to use as a source
-            lsig (dict, LSig): logic sig program additional parameters
-            app (dict, App): app program additional parameters
+        Universal:
+            * sender (str): address of the sender
+            * sp (SuggestedParams): suggested params from algod
 
-        Returns:
-            DryrunRequest: dryrun request object
+        Non-Payement (for app):
+            * index (int): index of the application to call; 0 if creating a new application
+            * on_complete (OnComplete): intEnum representing what app should do on completion
 
-        Raises:
-            TypeError: program is not bytes or str
-            ValueError: both lsig and app parameters provided or unknown type
+        Payment (for logic sig):
+            * receiver (str): address of the receiver
+            * amt (int): amount in microAlgos to be sent
         """
+        txn_params = {**txn_params}
 
-        if lsig is not None and app is not None:
-            raise ValueError("both lsig and app not supported")
+        if "sender" not in txn_params:
+            txn_params["sender"] = encode_address(bytes(32))
 
-        if app and not isinstance(app, (App, dict)):
-            raise ValueError("app must be a dict or App")
-
-        if lsig and not isinstance(lsig, (LSig, dict)):
-            raise ValueError("lsig must be a dict or LSig")
-
-        if not isinstance(program, (bytes, str)):
-            raise TypeError("program must be bytes or str")
-
-        run_mode = cls._get_run_mode(app)
-
-        app_or_lsig = (
-            cls._prepare_lsig(lsig) if run_mode == "lsig" else cls._prepare_app(app)
-        )
-
-        del app
-        del lsig
-
-        txn = (
-            cls.sample_txn(sender, payment_txn)
-            if run_mode == "lsig"
-            else cls.sample_txn(sender, appcall_txn)
-        )
-
-        if isinstance(program, str):
-            return (
-                cls._prepare_lsig_source_request(program, app_or_lsig, run_mode, txn)
-                if run_mode == "lsig"
-                else cls._prepare_app_source_request(
-                    program, app_or_lsig, sender, run_mode, txn
-                )
+        if "sp" not in txn_params:
+            txn_params["sp"] = transaction.SuggestedParams(
+                int(1000), int(1), int(100), "", flat_fee=True
             )
 
-        # in case of bytes:
-        sources = []
-        apps = []
-        accounts = []
-        rnd = None
+        if for_app:
+            if "index" not in txn_params:
+                txn_params["index"] = 0
 
-        if run_mode != "lsig":
-            txns = [cls._build_appcall_signed_txn(txn, app_or_lsig)]
-            application = cls.sample_app(sender, app_or_lsig, program)
-            apps = [application]
-            accounts = app_or_lsig.accounts
-            rnd = app_or_lsig.round
+            if "on_complete" not in txn_params:
+                txn_params["on_complete"] = transaction.OnComplete.NoOpOC
         else:
-            txns = [cls._build_logicsig_txn(program, txn, app_or_lsig)]
+            if "receiver" not in txn_params:
+                txn_params["receiver"] = encode_address(bytes(32))
 
-        return DryrunRequest(
-            txns=txns,
-            sources=sources,
-            apps=apps,
-            accounts=accounts,
-            round=rnd,
-        )
+            if "amt" not in txn_params:
+                txn_params["amt"] = 0
+
+        return txn_params
 
     @classmethod
-    def _get_run_mode(cls, app):
-        run_mode = "lsig"
-        if app is not None:
-            on_complete = (
-                app.get("on_complete") if isinstance(app, dict) else app.on_complete
-            )
-            run_mode = (
-                "clearp"
-                if on_complete == transaction.OnComplete.ClearStateOC
-                else "approv"
-            )
-        return run_mode
+    def dryrun_request(cls, program, lsig_or_app, txn_params):
+        assert isinstance(
+            lsig_or_app, (models.LSig, models.App)
+        ), f"Cannot handle {lsig_or_app} of type {type(lsig_or_app)}"
+        is_app = isinstance(lsig_or_app, models.App)
+
+        txn_params = cls._txn_params_with_defaults(txn_params, for_app=is_app)
+
+        if is_app:
+            return cls._app_request(program, lsig_or_app, txn_params)
+
+        return cls._lsig_request(program, lsig_or_app, txn_params)
+
+    @classmethod
+    def _app_request(cls, program, app, txn_params):
+        """TODO: ought to be able to stop delegating at this point"""
+        run_mode = models.get_run_mode(app)
+        enriched = cls._prepare_app(app)
+        txn = transaction.ApplicationCallTxn(**txn_params)
+        return cls._prepare_app_source_request(program, enriched, run_mode, txn)
+
+    @classmethod
+    def _lsig_request(cls, program, lsig, txn_params):
+        """TODO: ought to be able to stop delegating at this point"""
+        enriched = cls._prepare_lsig(lsig)
+        txn = transaction.PaymentTxn(**txn_params)
+        return cls._prepare_lsig_source_request(program, enriched, txn)
 
     @classmethod
     def _prepare_app(cls, app):
+        # TODO: This code is smelly. Make it less so.
         if isinstance(app, dict):
-            app = App(**app)
+            app = models.App(**app)
 
         if app.app_idx is None:
             app.app_idx = 0
@@ -640,13 +300,8 @@ class DryRunHelper:
             accounts = []
             for acc in app.accounts:
                 if isinstance(acc, str):
-                    accounts.append(
-                        Account(
-                            address=acc,
-                        )
-                    )
-                else:
-                    accounts.append(acc)
+                    acc = Account(address=acc)
+                accounts.append(acc)
             app.accounts = accounts
 
         return app
@@ -654,15 +309,14 @@ class DryRunHelper:
     @classmethod
     def _prepare_lsig(cls, lsig):
         if lsig is None:
-            lsig = LSig()
+            lsig = models.LSig()
         elif isinstance(lsig, dict):
-            lsig = LSig(**lsig)
-
+            lsig = models.LSig(**lsig)
         return lsig
 
     @classmethod
-    def _prepare_lsig_source_request(cls, program, lsig, run_mode, txn):
-        source = DryrunSource(field_name=run_mode, source=program, txn_index=0)
+    def _prepare_lsig_source_request(cls, program, lsig, txn):
+        source = DryrunSource(field_name="lsig", source=program, txn_index=0)
         apps = []
         accounts = []
         rnd = None
@@ -677,7 +331,8 @@ class DryRunHelper:
         )
 
     @classmethod
-    def _prepare_app_source_request(cls, program, app, sender, run_mode, txn):
+    def _prepare_app_source_request(cls, program, app, run_mode, txn):
+        sender = txn.sender
         source = DryrunSource(field_name=run_mode, source=program, txn_index=0)
         txns = [cls._build_appcall_signed_txn(txn, app)]
         application = cls.sample_app(sender, app)
@@ -717,20 +372,6 @@ class DryRunHelper:
         if app.accounts is not None:
             txn.accounts = [a.address for a in app.accounts]
         return transaction.SignedTransaction(txn, None)
-
-    @classmethod
-    def sample_txn(cls, sender, txn_type):
-        """
-        Helper function for creation Transaction for dryrun
-        """
-        sp = transaction.SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
-        if txn_type == payment_txn:
-            txn = transaction.Transaction(sender, sp, None, None, payment_txn, None)
-        elif txn_type == appcall_txn:
-            txn = transaction.ApplicationCallTxn(sender, sp, 0, 0)
-        else:
-            raise ValueError("unsupported src object")
-        return txn
 
     @staticmethod
     def sample_app(sender, app, program=None):
@@ -795,42 +436,45 @@ class DryRunHelper:
         return " ".join(parts)
 
     @classmethod
-    def pprint(cls, drr):
+    def pprint(cls, drr) -> str:
         """Helper function to pretty print dryrun response"""
-        if "error" in drr and drr["error"]:
-            print("error:", drr["error"])
-        if "txns" not in drr or not isinstance(drr["txns"], list):
-            return
-
-        for idx, txn_res in enumerate(drr["txns"]):
-            msgs = []
-            trace = []
-            try:
-                msgs = txn_res["app-call-messages"]
-                trace = txn_res["app-call-trace"]
-            except KeyError:
-                try:
-                    msgs = txn_res["logic-sig-messages"]
-                    trace = txn_res["logic-sig-trace"]
-                except KeyError:
-                    pass
-            if msgs:
-                print(f"txn[{idx}] messages:")
-                for msg in msgs:
-                    print(msg)
-            if trace:
-                print(f"txn[{idx}] trace:")
-                for item in trace:
-                    dis = txn_res["disassembly"][item["line"]]
-                    stack = cls._format_stack(item["stack"])
-                    line = "{:4d}".format(item["line"])
-                    pc = "{:04d}".format(item["pc"])
-                    disasm = "{:25}".format(dis)
-                    stack_line = "{}".format(stack)
-                    result = f"{line} ({pc}): {disasm} [{stack_line}]"
-                    if "error" in item:
-                        result += f" error: {item['error']}"
-                    print(result)
+        f = io.StringIO()
+        with redirect_stdout(f):
+            if "error" in drr and drr["error"]:
+                print("error:", drr["error"])
+            if "txns" in drr and isinstance(drr["txns"], list):
+                for idx, txn_res in enumerate(drr["txns"]):
+                    msgs = []
+                    trace = []
+                    try:
+                        msgs = txn_res["app-call-messages"]
+                        trace = txn_res["app-call-trace"]
+                    except KeyError:
+                        try:
+                            msgs = txn_res["logic-sig-messages"]
+                            trace = txn_res["logic-sig-trace"]
+                        except KeyError:
+                            pass
+                    if msgs:
+                        print(f"txn[{idx}] messages:")
+                        for msg in msgs:
+                            print(msg)
+                    if trace:
+                        print(f"txn[{idx}] trace:")
+                        for item in trace:
+                            dis = txn_res["disassembly"][item["line"]]
+                            stack = cls._format_stack(item["stack"])
+                            line = "{:4d}".format(item["line"])
+                            pc = "{:04d}".format(item["pc"])
+                            disasm = "{:25}".format(dis)
+                            stack_line = "{}".format(stack)
+                            result = f"{line} ({pc}): {disasm} [{stack_line}]"
+                            if "error" in item:
+                                result += f" error: {item['error']}"
+                            print(result)
+        out = f.getvalue()
+        print(out)
+        return out
 
     @staticmethod
     def find_error(drr, txn_index=None):

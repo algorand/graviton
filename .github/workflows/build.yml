@@ -74,5 +74,7 @@ jobs:
           config: ${{ env.SANDBOX_CONFIG }}
       - name: Setup integration test environment
         run: make pip-development unit-test
-      - name: Run integration tests
+      - name: Setup Jupyter notebooks environment
+        run: make pip-notebooks
+      - name: Run integration tests and Jupyter notebooks
         run: make gh-blackbox

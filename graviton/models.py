@@ -1,0 +1,40 @@
+from dataclasses import dataclass
+from typing import List, Optional, Union
+
+from algosdk.encoding import encode_address
+from algosdk.future import transaction
+from algosdk.v2client.models import Account, TealKeyValue
+
+ZERO_ADDRESS = encode_address(bytes(32))
+
+
+def get_run_mode(app):
+    run_mode = "lsig"
+    if app is not None:
+        on_complete = (
+            app.get("on_complete") if isinstance(app, dict) else app.on_complete
+        )
+        run_mode = (
+            "clearp" if on_complete == transaction.OnComplete.ClearStateOC else "approv"
+        )
+    return run_mode
+
+
+@dataclass
+class LSig:
+    """Logic Sig program parameters"""
+
+    args: Optional[List[bytes]] = None
+
+
+@dataclass
+class App:
+    """Application program parameters"""
+
+    creator: str = ZERO_ADDRESS
+    round: Optional[int] = None
+    app_idx: int = 0
+    on_complete: int = 0
+    args: Optional[List[Union[bytes, str]]] = None
+    accounts: Optional[List[Union[str, Account]]] = None
+    global_state: Optional[List[TealKeyValue]] = None

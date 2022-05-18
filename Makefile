@@ -6,13 +6,19 @@ pip:
 pip-development: pip
 	pip install -e.[development]
 
-flake8:
-	flake8 graviton tests
+pip-notebooks: pip-development
+	pip install -e.[notebooks]
 
 black:
 	black --check .
 
-lint: black flake8
+flake8:
+	flake8 graviton tests
+
+mypy:
+	mypy .
+
+lint: black flake8 mypy
 
 unit-test:
 	pytest -sv tests/unit
@@ -26,10 +32,15 @@ blackbox-smoke-prefix:
 	ls -l sandbox
 	cd sandbox && docker-compose ps
 
+NUM_PROCS = auto
+VERBOSITY = -sv
 integration-test:
-	pytest -sv tests/integration
+	pytest -n $(NUM_PROCS) --durations=10 $(VERBOSITY) tests/integration
 
-all-tests: lint unit-test integration-test
+notebooks-test:
+	pytest --nbmake -n $(NUM_PROCS) notebooks
+
+all-tests: lint unit-test integration-test notebooks-test
 
 ###### Local Only ######
 
@@ -46,6 +57,11 @@ local-blackbox-smoke: blackbox-smoke-prefix local-sandbox-test
 
 local-blackbox: local-blackbox-smoke integration-test
 
+NOTEBOOK = notebooks/quadratic_factoring_game.ipynb
+# assumes already ran `make pip-notebooks`
+local-notebook: 
+	 jupyter retro $(NOTEBOOK)
+
 # assumes act is installed, e.g. via `brew install act`:
 local-gh-simulate:
 	act
@@ -58,4 +74,4 @@ gh-sandbox-test:
 
 gh-blackbox-smoke: blackbox-smoke-prefix gh-sandbox-test
 
-gh-blackbox: gh-blackbox-smoke integration-test
+gh-blackbox: integration-test notebooks-test

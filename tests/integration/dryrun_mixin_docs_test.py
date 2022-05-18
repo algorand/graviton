@@ -5,7 +5,6 @@ import base64
 from tabulate import tabulate
 import unittest
 
-from algosdk.constants import PAYMENT_TXN, APPCALL_TXN
 from algosdk.future import transaction
 from algosdk.encoding import decode_address, checksum
 from algosdk.v2client.models import (
@@ -17,7 +16,10 @@ from algosdk.v2client.models import (
     TealKeyValue,
     TealValue,
 )
-from graviton.dryrun import DryrunTestCaseMixin, DryRunHelper
+
+from graviton.deprecated_dryrun import DeprecatedDryRun, make_deprecated_dryrun
+from graviton.deprecated_dryrun_mixin import DryrunTestCaseMixin
+from graviton.dryrun import DryRunHelper
 
 from tests.clients import get_algod
 
@@ -53,6 +55,7 @@ class ExampleTestCase(DryrunTestCaseMixin, unittest.TestCase):
 
     def test_logic_sig(self):
         """Shows how to test logic sig with parameters
+        https://github.com/algorand/docs/blob/bbd379df193399f82686e9f6d5c2bcb9d676d2d7/docs/features/asc1/teal_test.md#testing-logicsig-with-arguments
 
         This example demonstrates how to pass LogicSig parameters
             - they need to be a list of bytes items in args key of lsig parameter to any assert function.
@@ -69,7 +72,9 @@ int 0x31
         self.assertReject(source)
         self.assertPass(source, lsig=dict(args=[b"1", b"2"]))
 
-        drr = self.dryrun_request(source, lsig=dict(args=[b"\x31", b"2"]))
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+            source, lsig=dict(args=[b"\x31", b"2"])
+        )
         self.assertPass(drr)
 
     def test_logic_sig_ex(self):
@@ -80,7 +85,9 @@ btoi
 int 0x31
 ==
 """
-        drr = self.dryrun_request(source, lsig=dict(args=[b"\x31", b"2"]))
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+            source, lsig=dict(args=[b"\x31", b"2"])
+        )
         self.assertPass(drr)
 
     def test_app_global_state(self):
@@ -144,34 +151,25 @@ int 0
 return
 """
         self.assertReject(source, app=dict(app_idx=0))
-        self.assertReject(
-            source,
-            app=dict(
-                app_idx=1,
-                args=[b"\x01", b"\xFF", b"\x01\x00", b"\x01\xFF"],
-            ),
-        )
-        self.assertPass(
-            source,
-            app=dict(
-                app_idx=0,
-                args=[b"\x01", b"\xFF", b"\x01\x00", b"\x01\xFF"],
-            ),
-        )
+
+        args = [b"\x01", b"\xFF", b"\x01\x00", b"\x01\xFF"]
+        self.assertReject(source, app=dict(app_idx=1, args=args))
+
+        bad_init = dict(app_idx=0, args=args)
+        self.assertPass(source, app=bad_init)
 
         sender = "42NJMHTPFVPXVSDGA6JGKUV6TARV5UZTMPFIREMLXHETRKIVW34QFSDFRE"
-        drr = self.dryrun_request(
-            source,
-            sender=sender,
-            app=dict(
-                app_idx=0,
-                args=[
-                    (0x01).to_bytes(1, byteorder="big"),
-                    (0xFF).to_bytes(1, byteorder="big"),
-                    (0x0100).to_bytes(2, byteorder="big"),
-                    (0x01FF).to_bytes(2, byteorder="big"),
-                ],
-            ),
+        bytes_args_app = dict(
+            app_idx=0,
+            args=[
+                (0x01).to_bytes(1, byteorder="big"),
+                (0xFF).to_bytes(1, byteorder="big"),
+                (0x0100).to_bytes(2, byteorder="big"),
+                (0x01FF).to_bytes(2, byteorder="big"),
+            ],
+        )
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+            source, sender=sender, app=bytes_args_app
         )
         self.assertPass(drr)
 
@@ -313,11 +311,15 @@ failed:
 int 0
 return
 """
-        drr = self.dryrun_request(source, app=dict(app_idx=1))
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+            source, app=dict(app_idx=1)
+        )
         self.assertReject(drr)
         self.assertError(drr, "invalid ApplicationArgs index 0")
 
-        drr = self.dryrun_request(source, app=dict(app_idx=1, args=[b"vote"]))
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+            source, app=dict(app_idx=1, args=[b"vote"])
+        )
         self.assertReject(drr)
         self.assertNoError(drr)
 
@@ -347,7 +349,7 @@ return
 
         accounts = [creator_data]
 
-        drr = self.dryrun_request(
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
             source,
             app=dict(
                 app_idx=1,
@@ -367,7 +369,7 @@ return
         )
 
         accounts = [creator_data, sender_data]
-        drr = self.dryrun_request(
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
             source,
             sender=sender,
             app=dict(
@@ -381,7 +383,7 @@ return
         self.assertError(drr, "invalid ApplicationArgs index 1")
 
         accounts = [creator_data, sender_data]
-        drr = self.dryrun_request(
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
             source,
             sender=sender,
             app=dict(
@@ -474,13 +476,19 @@ byte {"0x" + proof.hex()}
         app = base64.b64decode(app_compiled["result"])
 
         # create transactions
-        txn1 = DryRunHelper.sample_txn(logic_hash, PAYMENT_TXN)
+        txn1 = transaction.PaymentTxn(
+            **DeprecatedDryRun.deprecated_txn_params(logic_hash, is_app=False)
+        )
         txn1.note = proof
         logicsig = transaction.LogicSig(logic, None)
         stxn1 = transaction.LogicSigTransaction(txn1, logicsig)
 
         app_idx = 1
-        txn2 = DryRunHelper.sample_txn(self.default_address(), APPCALL_TXN)
+        txn2 = transaction.ApplicationCallTxn(
+            **DeprecatedDryRun.deprecated_txn_params(
+                self.default_address(), is_app=True
+            )
+        )
         txn2.index = app_idx
         txn2.app_args = args
         stxn2 = transaction.SignedTransaction(txn2, None)
@@ -503,7 +511,7 @@ byte {"0x" + proof.hex()}
             ],
         )
 
-        drr = self.dryrun_request_from_txn(
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_txn_dryrun(
             [stxn1, stxn2], app=dict(accounts=[creator_data])
         )
         self.assertPass(drr)
@@ -511,7 +519,7 @@ byte {"0x" + proof.hex()}
         # now check the verification logic
         # wrong creator
         txn1.sender = creator
-        drr = self.dryrun_request_from_txn(
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_txn_dryrun(
             [stxn1, stxn2], app=dict(accounts=[creator_data])
         )
         self.assertPass(drr, txn_index=0)
@@ -521,7 +529,7 @@ byte {"0x" + proof.hex()}
         # wrong proof
         txn1.sender = logic_hash
         txn1.note = b"wrong"
-        drr = self.dryrun_request_from_txn(
+        drr = make_deprecated_dryrun(self.algo_client).deprecated_txn_dryrun(
             [stxn1, stxn2], app=dict(accounts=[creator_data])
         )
         self.assertReject(drr, txn_index=0)
@@ -572,26 +580,38 @@ retsub"""
         finalgood_args = None
         for i in range(max_arg_before_overflow):
             finalgood_args = {"args": [tb(i)]}
-            lsig_dr = self.dryrun_request(lsig_src, lsig=finalgood_args)
+            lsig_dr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+                lsig_src, lsig=finalgood_args
+            )
             self.assertPass(lsig_dr, msg=f"i={i}")
-            app_dr = self.dryrun_request(app_src, app=finalgood_args)
+            app_dr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+                app_src, app=finalgood_args
+            )
             self.assertPass(app_dr, msg=f"i={i}")
 
         print(f"n={1+max_arg_before_overflow} was TOO BIG:")
         toobig_args = {"args": [tb(1 + max_arg_before_overflow)]}
         self.assertError(lsig_src, "overflow", lsig=toobig_args)
-        lsig_dr = self.dryrun_request(lsig_src, lsig=toobig_args)
+        lsig_dr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+            lsig_src, lsig=toobig_args
+        )
         DryRunHelper.pprint(lsig_dr)
 
         self.assertError(app_src, "overflow", app=toobig_args)
-        app_dr = self.dryrun_request(app_src, app=toobig_args)
+        app_dr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+            app_src, app=toobig_args
+        )
         DryRunHelper.pprint(app_dr)
 
         print("\n" * 3, f"BUT...  n={1+max_arg_before_overflow} is JUST FINE:")
-        lsig_dr = self.dryrun_request(lsig_src, lsig=finalgood_args)
+        lsig_dr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+            lsig_src, lsig=finalgood_args
+        )
         DryRunHelper.pprint(lsig_dr)
 
-        app_dr = self.dryrun_request(app_src, app=finalgood_args)
+        app_dr = make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+            app_src, app=finalgood_args
+        )
         DryRunHelper.pprint(app_dr)
 
         print("FINISHED logic sig", "\n" * 3, "BEGIN app")
@@ -599,9 +619,9 @@ retsub"""
         print("HOW ABOUT costs?")
 
         def get_cost(i):
-            return self.dryrun_request(app_src, app={"args": [tb(i)]})["txns"][0][
-                "cost"
-            ]
+            return make_deprecated_dryrun(self.algo_client).deprecated_source_dryrun(
+                app_src, app={"args": [tb(i)]}
+            )["txns"][0]["cost"]
 
         print(
             tabulate([(i, get_cost(i)) for i in range(45)], headers=["n", "Cost(n)"]),

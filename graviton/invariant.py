@@ -1,5 +1,5 @@
 from inspect import signature
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import cast, Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from graviton.blackbox import (
     DryRunInspector,
@@ -16,7 +16,7 @@ class Invariant:
         self,
         predicate: Union[Dict[Tuple, Union[str, int]], Callable],
         enforce: bool = False,
-        name: str = None,
+        name: Optional[str] = None,
     ):
         self.definition = predicate
         self.predicate, self._expected = self.prepare_predicate(predicate)
@@ -26,7 +26,9 @@ class Invariant:
     def __repr__(self):
         return f"Invariant({self.definition})"[:100]
 
-    def __call__(self, args: list, actual: Union[str, int]) -> Tuple[bool, str]:
+    def __call__(
+        self, args: Sequence[Union[str, int]], actual: Union[str, int]
+    ) -> Tuple[bool, str]:
         invariant = self.predicate(args, actual)
         msg = ""
         if not invariant:
@@ -36,13 +38,13 @@ class Invariant:
 
         return invariant, msg
 
-    def expected(self, args: list) -> Union[str, int]:
+    def expected(self, args: Sequence[Union[str, int]]) -> Union[str, int]:
         return self._expected(args)
 
     def validates(
         self,
         dr_property: DryRunProperty,
-        inputs: List[list],
+        inputs: List[Sequence[Union[str, int]]],
         inspectors: List[DryRunInspector],
     ):
         N = len(inputs)
@@ -93,11 +95,13 @@ class Invariant:
     @classmethod
     def inputs_and_invariants(
         cls,
-        scenario: Dict[str, Union[list, dict]],
+        scenario: Dict[str, Any],
         mode: ExecutionMode,
         raw_predicates: bool = False,
-    ) -> Tuple[List[tuple], Dict[DryRunProperty, Any]]:
+    ) -> Tuple[List[Sequence[Union[str, int]]], Dict[DryRunProperty, Any]]:
         """
+        TODO: Do we really need this, or does this just overcomplicate?
+
         Validate that a Blackbox Test Scenario has been properly constructed, and return back
         its components which consist of **inputs** and _optional_ **invariants**.
 
@@ -108,7 +112,7 @@ class Invariant:
             "invariants":   Dict[DryRuninvariantType, ...an invariant...]
         }
 
-        Each invariants is a map from a _dryrun property_ to assert about
+        Each invariant is a map from a _dryrun property_ to assert about
         to the actual invariant. Actual invariants can be:
         * simple python types - these are useful in the case of _constant_ invariants.
             For example, if you want to assert that the `maxStackHeight` is 3, just use `3`.
@@ -129,20 +133,15 @@ class Invariant:
             scenario, dict
         ), f"a Blackbox Scenario should be a dict but got a {type(scenario)}"
 
-        inputs = scenario.get("inputs")
-        # TODO: we can be more flexible here and allow arbitrary iterable `args`. Because
-        # invariants are allowed to be dicts, and therefore each `args` needs to be
-        # hashable in that case, we are restricting to tuples currently.
-        # However, this function could be friendlier and just _convert_ each of the
-        # `args` to a tuple, thus eliminating any downstream issues.
+        inputs = cast(List[Sequence[Union[str, int]]], scenario.get("inputs"))
         assert (
             inputs
             and isinstance(inputs, list)
             and all(isinstance(args, tuple) for args in inputs)
         ), "need a list of inputs with at least one args and all args must be tuples"
 
-        invariants = {}
-        predicates = scenario.get("invariants", {})
+        invariants: Dict[DryRunProperty, Any] = {}
+        predicates = cast(Dict[DryRunProperty, Any], scenario.get("invariants", {}))
         if predicates:
             assert isinstance(predicates, dict), "invariants must be a dict"
 
@@ -150,6 +149,6 @@ class Invariant:
                 assert isinstance(key, DryRunProperty) and mode_has_property(
                     mode, key
                 ), f"each key must be a DryRunProperty's appropriate to {mode}. This is not the case for key {key}"
-                invariants[key] = Invariant(predicate, name=key)
+                invariants[key] = Invariant(predicate, name=str(key))
 
-        return inputs, predicates if raw_predicates else invariants
+        return inputs, predicates if raw_predicates else invariants  # type: ignore

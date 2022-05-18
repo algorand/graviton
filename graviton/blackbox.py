@@ -3,18 +3,26 @@ import csv
 from dataclasses import dataclass
 from enum import Enum, auto
 import io
+
 from tabulate import tabulate
-from typing import Any, Dict, Sequence, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union, cast
 
 from algosdk import abi
 from algosdk.v2client.algod import AlgodClient
+from algosdk.v2client.models import DryrunRequest
+from algosdk.future.transaction import (
+    OnComplete,
+    StateSchema,
+    SuggestedParams,
+)
 
 from graviton.dryrun import (
-    ZERO_ADDRESS,
     assert_error,
     assert_no_error,
     DryRunHelper,
 )
+
+from graviton.models import ZERO_ADDRESS
 
 
 class ExecutionMode(Enum):
@@ -35,13 +43,14 @@ class DryRunProperty(Enum):
     errorMessage = auto()
     globalStateHas = auto()
     localStateHas = auto()
+    lastMessage = auto()
 
 
 DRProp = DryRunProperty
 
 
 def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> bool:
-    missing = {
+    missing: Dict[ExecutionMode, set] = {
         ExecutionMode.Signature: {
             DryRunProperty.cost,
             DryRunProperty.lastLog,
@@ -58,7 +67,7 @@ def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> 
 class TealVal:
     i: int = 0
     b: str = ""
-    is_b: bool = None
+    is_b: Optional[bool] = None
     hide_empty: bool = True
 
     @classmethod
@@ -91,8 +100,8 @@ class BlackboxResults:
     program_counters: List[int]
     teal_line_numbers: List[int]
     teal_source_lines: List[str]
-    stack_evolution: List[list]
-    scratch_evolution: List[dict]
+    stack_evolution: List[str]
+    scratch_evolution: List[List[str]]
     final_scratch_state: Dict[int, TealVal]
     slots_used: List[int]
     raw_stacks: List[list]
@@ -127,16 +136,16 @@ class BlackboxResults:
         ), f"mismatch of lengths in tls v. stacks ({N} v. {len(stacks)})"
 
         # process scratch var's
-        scratches = [
+        _scr1 = [
             [TealVal.from_scratch(s) for s in x]
             for x in [t.get("scratch", []) for t in trace]
         ]
-        scratches = [
+        _scr2 = [
             {i: s for i, s in enumerate(scratch) if not s.is_empty()}
-            for scratch in scratches
+            for scratch in _scr1
         ]
-        slots_used = sorted(set().union(*(s.keys() for s in scratches)))
-        final_scratch_state = scratches[-1]
+        slots_used = sorted(set().union(*(s.keys() for s in _scr2)))
+        final_scratch_state = _scr2[-1]
         if not scratch_verbose:
 
             def compute_delta(prev, curr):
@@ -146,9 +155,9 @@ class BlackboxResults:
                     return {k: curr[k] for k in new_keys}
                 return {k: v for k, v in curr.items() if prev[k] != v}
 
-            scratch_deltas = [scratches[0]]
-            for i in range(1, len(scratches)):
-                scratch_deltas.append(compute_delta(scratches[i - 1], scratches[i]))
+            scratch_deltas: List[Dict[int, TealVal]] = [_scr2[0]]
+            for i in range(1, len(_scr2)):
+                scratch_deltas.append(compute_delta(_scr2[i - 1], _scr2[i]))
 
             scratches = [
                 [f"{i}{scratch_colon}{v}" for i, v in scratch.items()]
@@ -160,7 +169,7 @@ class BlackboxResults:
                     f"{i}{scratch_colon}{scratch[i]}" if i in scratch else ""
                     for i in slots_used
                 ]
-                for scratch in scratches
+                for scratch in _scr2
             ]
 
         assert N == len(
@@ -214,7 +223,7 @@ class BlackboxResults:
     def final_scratch(
         self, with_formatting: bool = False
     ) -> Dict[Union[int, str], Union[int, str]]:
-        unformatted = {
+        unformatted: Dict[Union[int, str], Union[int, str]] = {
             i: str(s) if s.is_b else s.i for i, s in self.final_scratch_state.items()
         }
         if not with_formatting:
@@ -224,12 +233,12 @@ class BlackboxResults:
     def slots(self) -> List[int]:
         return self.slots_used
 
-    def final_as_row(self) -> Dict[str, Union[str, int]]:
+    def final_as_row(self) -> dict:
         return {
             "steps": self.steps(),
-            " top_of_stack": self.final_stack_top(),
+            " top_of_stack": self.final_stack_top() or "",
             "max_stack_height": self.max_stack_height(),
-            **self.final_scratch(with_formatting=True),
+            **self.final_scratch(with_formatting=True),  # type: ignore
         }
 
 
@@ -241,7 +250,7 @@ class DryRunEncoder:
         cls,
         args: Sequence[Union[bytes, str, int]],
         abi_types: List[Optional[abi.ABIType]] = None,
-    ) -> List[str]:
+    ) -> List[Union[bytes, str]]:
         """
         Encoding convention for Black Box Testing.
 
@@ -278,38 +287,62 @@ class DryRunEncoder:
         * Encodes them into hex str's
         """
         cls._partial_encode_assert(out, None)
-        return cls._to_bytes(out).hex()
+        return cast(bytes, cls._to_bytes(out)).hex()
 
     @classmethod
-    def _to_bytes(cls, x, only_ints=False):
-        is_int = isinstance(x, int)
-        if only_ints and not is_int:
+    def _to_bytes(
+        cls, x: Union[int, str, bytes], only_attempt_int_conversion=False
+    ) -> Union[int, str, bytes]:
+        """
+        NOTE: When only_attempt_int_conversion=False the output is guaranteed to be `bytes` (when no error)
+        """
+        if isinstance(x, bytes):
             return x
-        return x.to_bytes(8, "big") if is_int else bytes(x, "utf-8")
+
+        is_int = isinstance(x, int)
+        if only_attempt_int_conversion and not is_int:
+            return x
+
+        return (
+            cast(int, x).to_bytes(8, "big") if is_int else bytes(cast(str, x), "utf-8")
+        )
 
     @classmethod
-    def _encode_arg(cls, arg, idx, abi_type: Optional[abi.ABIType]) -> Optional[bytes]:
+    def _encode_arg(
+        cls, arg: Union[bytes, int, str], idx: int, abi_type: Optional[abi.ABIType]
+    ) -> Union[str, bytes]:
         partial = cls._partial_encode_assert(
-            arg, abi_type, f"problem encoding arg ({arg}) at index ({idx})"
+            arg, abi_type, f"problem encoding arg ({arg!r}) at index ({idx})"
         )
         if partial is not None:
-            return partial
-        return cls._to_bytes(arg, only_ints=True)
+            return cast(bytes, partial)
+
+        # BELOW:
+        # bytes -> bytes
+        # int -> bytes
+        # str -> str
+        return cast(
+            Union[str, bytes], cls._to_bytes(arg, only_attempt_int_conversion=True)
+        )
 
     @classmethod
     def _partial_encode_assert(
-        cls, arg: Any, abi_type: Optional[abi.ABIType], msg: str = ""
+        cls, arg: Union[bytes, int, str], abi_type: Optional[abi.ABIType], msg: str = ""
     ) -> Optional[bytes]:
+        """
+        When have an `abi_type` is present, attempt to encode `arg` accordingly (returning `bytes`)
+        ELSE: assert the type is one of `(bytes, int, str)` returning `None`
+        """
         if abi_type:
             try:
                 return abi_type.encode(arg)
             except Exception as e:
                 raise AssertionError(
-                    f"{msg +': ' if msg else ''}can't handle arg [{arg}] of type {type(arg)} and abi-type {abi_type}: {e}"
+                    f"{msg +': ' if msg else ''}can't handle arg [{arg!r}] of type {type(arg)} and abi-type {abi_type}: {e}"
                 )
         assert isinstance(
             arg, (bytes, int, str)
-        ), f"{msg +': ' if msg else ''}can't handle arg [{arg}] of type {type(arg)}"
+        ), f"{msg +': ' if msg else ''}can't handle arg [{arg!r}] of type {type(arg)}"
         if isinstance(arg, int):
             assert arg >= 0, f"can't handle negative arguments but was given {arg}"
         return None
@@ -323,15 +356,33 @@ class DryRunExecutor:
        * `abi_return_type` is given the `DryRunInspector`'s resulting from execution for ABI-decoding into Python
     """
 
+    SUGGESTED_PARAMS = SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
+
     @classmethod
     def dryrun_app(
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[Union[str, int]],
+        args: Sequence[Union[bytes, str, int]],
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
-        sender: str = ZERO_ADDRESS,
+        *,
+        sender: str = None,
+        sp: SuggestedParams = None,
+        index: int = None,
+        on_complete: OnComplete = None,
+        local_schema: StateSchema = None,
+        global_schema: StateSchema = None,
+        approval_program: str = None,
+        clear_program: str = None,
+        app_args: Sequence[Union[str, int]] = None,
+        accounts: List[str] = None,
+        foreign_apps: List[str] = None,
+        foreign_assets: List[str] = None,
+        note: str = None,
+        lease: str = None,
+        rekey_to: str = None,
+        extra_pages: int = None,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
             algod,
@@ -340,7 +391,24 @@ class DryRunExecutor:
             ExecutionMode.Application,
             abi_argument_types=abi_argument_types,
             abi_return_type=abi_return_type,
-            sender=sender,
+            txn_params=cls.transaction_params(
+                sender=ZERO_ADDRESS if sender is None else sender,
+                sp=cls.SUGGESTED_PARAMS if sp is None else sp,
+                note=note,
+                lease=lease,
+                rekey_to=rekey_to,
+                index=0 if index is None else index,
+                on_complete=OnComplete.NoOpOC if on_complete is None else on_complete,
+                local_schema=local_schema,
+                global_schema=global_schema,
+                approval_program=approval_program,
+                clear_program=clear_program,
+                app_args=app_args,
+                accounts=accounts,
+                foreign_apps=foreign_apps,
+                foreign_assets=foreign_assets,
+                extra_pages=extra_pages,
+            ),
         )
 
     @classmethod
@@ -348,10 +416,18 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[Union[str, int]],
+        args: Sequence[Union[bytes, str, int]],
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
+        *,
         sender: str = ZERO_ADDRESS,
+        sp: SuggestedParams = None,
+        receiver: str = None,
+        amt: int = None,
+        close_remainder_to: str = None,
+        note: str = None,
+        lease: str = None,
+        rekey_to: str = None,
     ) -> "DryRunInspector":
         return cls.execute_one_dryrun(
             algod,
@@ -360,7 +436,16 @@ class DryRunExecutor:
             ExecutionMode.Signature,
             abi_argument_types=abi_argument_types,
             abi_return_type=abi_return_type,
-            sender=sender,
+            txn_params=cls.transaction_params(
+                sender=ZERO_ADDRESS if sender is None else sender,
+                sp=cls.SUGGESTED_PARAMS if sp is None else sp,
+                note=note,
+                lease=lease,
+                rekey_to=rekey_to,
+                receiver=ZERO_ADDRESS if receiver is None else receiver,
+                amt=0 if amt is None else amt,
+                close_remainder_to=close_remainder_to,
+            ),
         )
 
     @classmethod
@@ -371,16 +456,15 @@ class DryRunExecutor:
         inputs: List[Sequence[Union[str, int]]],
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
-        sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
+        # TODO: handle txn_params
         return cls._map(
             cls.dryrun_app,
             algod,
             teal,
-            inputs,
             abi_argument_types,
+            inputs,
             abi_return_type,
-            sender,
         )
 
     @classmethod
@@ -391,22 +475,30 @@ class DryRunExecutor:
         inputs: List[Sequence[Union[str, int]]],
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
-        sender: str = ZERO_ADDRESS,
     ) -> List["DryRunInspector"]:
+        # TODO: handle txn_params
         return cls._map(
             cls.dryrun_logicsig,
             algod,
             teal,
-            inputs,
             abi_argument_types,
+            inputs,
             abi_return_type,
-            sender,
         )
 
     @classmethod
-    def _map(cls, f, algod, teal, inps, abi_types, abi_ret_type, sndr):
+    def _map(cls, f, algod, teal, abi_types, inps, abi_ret_type):
         return list(
-            map(lambda args: f(algod, teal, args, abi_types, abi_ret_type, sndr), inps)
+            map(
+                lambda args: f(
+                    algod=algod,
+                    teal=teal,
+                    args=args,
+                    abi_argument_types=abi_types,
+                    abi_return_type=abi_ret_type,
+                ),
+                inps,
+            )
         )
 
     @classmethod
@@ -414,29 +506,80 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[Union[str, int]],
+        args: Sequence[Union[bytes, int, str]],
         mode: ExecutionMode,
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
-        sender: str = ZERO_ADDRESS,
+        txn_params: dict = {},
     ) -> "DryRunInspector":
         assert (
             len(ExecutionMode) == 2
         ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
-
         args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
+
+        builder: Callable[[str, List[Union[bytes, str]], Dict[str, Any]], DryrunRequest]
         builder = (
-            DryRunHelper.singleton_app_request
+            DryRunHelper.singleton_app_request  # type: ignore
             if is_app
             else DryRunHelper.singleton_logicsig_request
         )
-        dryrun_req = builder(teal, args, sender=sender)
+        dryrun_req = builder(teal, args, txn_params)
         dryrun_resp = algod.dryrun(dryrun_req)
         return DryRunInspector.from_single_response(
             dryrun_resp, abi_type=abi_return_type
         )
+
+    @classmethod
+    def transaction_params(
+        cls,
+        *,
+        # generic:
+        sender: str = None,
+        sp: SuggestedParams = None,
+        note: str = None,
+        lease: str = None,
+        rekey_to: str = None,
+        # payments:
+        receiver: str = None,
+        amt: int = None,
+        close_remainder_to: str = None,
+        # apps:
+        index: int = None,
+        on_complete: OnComplete = None,
+        local_schema: StateSchema = None,
+        global_schema: StateSchema = None,
+        approval_program: str = None,
+        clear_program: str = None,
+        app_args: Sequence[Union[str, int]] = None,
+        accounts: List[str] = None,
+        foreign_apps: List[str] = None,
+        foreign_assets: List[str] = None,
+        extra_pages: int = None,
+    ) -> Dict[str, Any]:
+        params = dict(
+            sender=sender,
+            sp=sp,
+            note=note,
+            lease=lease,
+            rekey_to=rekey_to,
+            receiver=receiver,
+            amt=amt,
+            close_remainder_to=close_remainder_to,
+            index=index,
+            on_complete=on_complete,
+            local_schema=local_schema,
+            global_schema=global_schema,
+            approval_program=approval_program,
+            clear_program=clear_program,
+            app_args=app_args,
+            accounts=accounts,
+            foreign_apps=foreign_apps,
+            foreign_assets=foreign_assets,
+            extra_pages=extra_pages,
+        )
+        return {k: v for k, v in params.items() if v is not None}
 
 
 class DryRunInspector:
@@ -515,9 +658,11 @@ class DryRunInspector:
         self.abi_type = abi_type
 
         # config options:
+        self.suppress_abi: bool
+        self.has_abi_prefix: bool
         self.config(suppress_abi=False, has_abi_prefix=bool(self.abi_type))
 
-    def config(self, **kwargs: Dict[str, bool]):
+    def config(self, **kwargs: bool):
         bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS
         if bad_keys:
             raise ValueError(f"unknown config options: {bad_keys}")
@@ -615,6 +760,9 @@ class DryRunInspector:
             _, msg = assert_no_error(self.parent_dryrun_response, enforce=False)
             # when there was no error, we return None, else return its msg
             return msg if msg else None
+
+        if dr_property == DryRunProperty.lastMessage:
+            return self.last_message()
 
         raise Exception(f"Unknown assert_type {dr_property}")
 
@@ -723,8 +871,10 @@ class DryRunInspector:
     def tabulate(
         self,
         col_max: int,
+        *,
         scratch_verbose: bool = False,
         scratch_before_stack: bool = True,
+        last_steps: int = 100,
     ):
         """Produce a string that when printed shows the evolution of a dry run.
 
@@ -792,16 +942,24 @@ class DryRunInspector:
             for i in range(len(rows)):
                 rows[i][-1], rows[i][-2] = rows[i][-2], rows[i][-1]
 
+        if last_steps >= 0:
+            rows = rows[-last_steps:]
         table = tabulate(rows, headers=headers, tablefmt="presto")
         return table
 
-    def report(self, args: Sequence[Union[str, int]], msg: str, row: int = 0) -> str:
+    def report(
+        self,
+        args: Sequence[Union[str, int]],
+        msg: str = "Dry Run Inspector Report",
+        row: int = 0,
+        last_steps: int = 100,
+    ) -> str:
         bbr = self.black_box_results
         return f"""===============
     <<<<<<<<<<<{msg}>>>>>>>>>>>
     ===============
     App Trace:
-    {self.tabulate(-1)}
+    {self.tabulate(-1, last_steps=last_steps)}
     ===============
     MODE: {self.mode}
     TOTAL COST: {self.cost()}
@@ -834,7 +992,7 @@ class DryRunInspector:
 
     def csv_row(
         self, row_num: int, args: Sequence[Union[int, str]]
-    ) -> Dict[str, Union[str, int]]:
+    ) -> Dict[str, Union[str, int, None]]:
         return {
             " Run": row_num,
             " cost": self.cost(),
@@ -847,7 +1005,12 @@ class DryRunInspector:
         }
 
     @classmethod
-    def csv_report(cls, inputs: List[tuple], dr_resps: List["DryRunInspector"]) -> str:
+    def csv_report(
+        cls,
+        inputs: List[Sequence[Union[str, int]]],
+        dr_resps: List["DryRunInspector"],
+        txns: List[Dict[str, Any]] = None,
+    ) -> str:
         """Produce a Comma Separated Values report string capturing important statistics
         for a sequence of dry runs.
 
@@ -881,14 +1044,25 @@ class DryRunInspector:
         assert N == len(
             dr_resps
         ), f"cannot produce CSV with unmatching size of inputs ({len(inputs)}) v. drresps ({len(dr_resps)})"
+        if txns:
+            assert N == len(
+                txns
+            ), f"cannot produce CSV with unmatching size of inputs ({len(inputs)}) v. txns ({len(txns)})"
 
-        dr_resps = [resp.csv_row(i + 1, inputs[i]) for i, resp in enumerate(dr_resps)]
+        _drrs = [resp.csv_row(i + 1, inputs[i]) for i, resp in enumerate(dr_resps)]
+
+        def row(i):
+            return {**_drrs[i], **(txns[i] if txns else {})}
+
+        def row_columns(i):
+            return row(i).keys()
+
         with io.StringIO() as csv_str:
-            fields = sorted(set().union(*(txn.keys() for txn in dr_resps)))
+            fields = sorted(set().union(*(row_columns(i) for i in range(N))))
             writer = csv.DictWriter(csv_str, fieldnames=fields)
             writer.writeheader()
-            for txn in dr_resps:
-                writer.writerow(txn)
+            for i in range(N):
+                writer.writerow(row(i))
 
             return csv_str.getvalue()
 

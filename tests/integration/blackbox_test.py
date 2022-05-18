@@ -6,7 +6,7 @@ from graviton.blackbox import (
     DryRunEncoder as Encoder,
     DryRunExecutor as Executor,
     DryRunProperty as DRProp,
-    DryRunInspector as DRR,
+    DryRunInspector as Inspector,
     ExecutionMode,
     mode_has_property,
 )
@@ -15,15 +15,6 @@ from graviton.invariant import Invariant
 from tests.clients import get_algod
 
 TESTS_DIR = Path.cwd() / "tests"
-
-
-def test_algod():
-    algod = get_algod()
-    url = algod.algod_address
-    print(f"algod.url: {url}")
-    status = algod.status()
-    print(f"algod.status(): {status}")
-    assert status, "somehow got nothing out of Algod's status"
 
 
 def fac_with_overflow(n):
@@ -102,10 +93,10 @@ load 1""",
         )
     )
 
-    assert isinstance(app_res, DRR)
-    assert isinstance(app_log_res, DRR)
-    assert isinstance(lsig_res, DRR)
-    assert isinstance(bad_lsig_res, DRR)
+    assert isinstance(app_res, Inspector)
+    assert isinstance(app_log_res, Inspector)
+    assert isinstance(lsig_res, Inspector)
+    assert isinstance(bad_lsig_res, Inspector)
 
     assert app_res.mode == ExecutionMode.Application
     assert app_log_res.mode == ExecutionMode.Application
@@ -351,7 +342,7 @@ def test_app_with_report(filebase: str):
 
     # 0. Validate that the scenarios are well defined:
     inputs, invariants = Invariant.inputs_and_invariants(
-        scenario, mode, raw_predicates=True
+        scenario, mode, raw_predicates=True  # type: ignore
     )
 
     algod = get_algod()
@@ -371,12 +362,12 @@ def test_app_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun responses:
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)  # type: ignore
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(DRR.csv_report(inputs, dryrun_results))
+        f.write(Inspector.csv_report(inputs, dryrun_results))
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
@@ -543,7 +534,7 @@ def test_logicsig_with_report(filebase: str):
 
     # 0. Validate that the scenarios are well defined:
     inputs, invariants = Invariant.inputs_and_invariants(
-        scenario, mode, raw_predicates=True
+        scenario, mode, raw_predicates=True  # type: ignore
     )
 
     algod = get_algod()
@@ -563,12 +554,12 @@ def test_logicsig_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun resonses:
-    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)  # type: ignore
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(DRR.csv_report(inputs, dryrun_results))
+        f.write(Inspector.csv_report(inputs, dryrun_results))
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
