@@ -19,7 +19,7 @@ import pytest
 
 from algosdk import abi
 
-from graviton.blackbox import DryRunExecutor, DryRunEncoder
+from graviton.blackbox import ABIContractExecutor, DryRunExecutor, DryRunEncoder
 from graviton.abi_strategy import ABIStrategy
 
 from tests.clients import get_algod
@@ -222,3 +222,17 @@ mut_mut = {mut_mut}
     assert expected_mut == mut, inspector.report(
         args, "expected_mut v. mut", last_steps=last_rows
     )
+
+
+ROUTER = Path.cwd() / "tests" / "teal" / "router"
+
+
+def test_abi_methods():
+    with open(ROUTER / "questionable.json") as f:
+        contract = f.read()
+
+    with open(ROUTER / "questionable.teal") as f:
+        teal = f.read()
+
+    ace = ABIContractExecutor(teal, contract)
+    x = 42

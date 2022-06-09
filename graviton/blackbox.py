@@ -582,6 +582,12 @@ class DryRunExecutor:
         return {k: v for k, v in params.items() if v is not None}
 
 
+class ABIContractExecutor:
+    def __init__(self, teal: str, contract: str):
+        self.program = teal
+        self.contract: abi.Contract = abi.Contract.from_json(contract)
+
+
 class DryRunInspector:
     """Methods to extract information from a single dry run transaction.
 

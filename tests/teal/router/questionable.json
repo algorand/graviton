@@ -1,0 +1,192 @@
+{
+  "name": "ASimpleQuestionablyRobustContract",
+  "methods": [
+    {
+      "name": "add",
+      "args": [
+        {
+          "type": "uint64",
+          "name": "a"
+        },
+        {
+          "type": "uint64",
+          "name": "b"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
+      "name": "sub",
+      "args": [
+        {
+          "type": "uint64",
+          "name": "a"
+        },
+        {
+          "type": "uint64",
+          "name": "b"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
+      "name": "mul",
+      "args": [
+        {
+          "type": "uint64",
+          "name": "a"
+        },
+        {
+          "type": "uint64",
+          "name": "b"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
+      "name": "div",
+      "args": [
+        {
+          "type": "uint64",
+          "name": "a"
+        },
+        {
+          "type": "uint64",
+          "name": "b"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
+      "name": "mod",
+      "args": [
+        {
+          "type": "uint64",
+          "name": "a"
+        },
+        {
+          "type": "uint64",
+          "name": "b"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
+      "name": "all_laid_to_args",
+      "args": [
+        {
+          "type": "uint64",
+          "name": "_a"
+        },
+        {
+          "type": "uint64",
+          "name": "_b"
+        },
+        {
+          "type": "uint64",
+          "name": "_c"
+        },
+        {
+          "type": "uint64",
+          "name": "_d"
+        },
+        {
+          "type": "uint64",
+          "name": "_e"
+        },
+        {
+          "type": "uint64",
+          "name": "_f"
+        },
+        {
+          "type": "uint64",
+          "name": "_g"
+        },
+        {
+          "type": "uint64",
+          "name": "_h"
+        },
+        {
+          "type": "uint64",
+          "name": "_i"
+        },
+        {
+          "type": "uint64",
+          "name": "_j"
+        },
+        {
+          "type": "uint64",
+          "name": "_k"
+        },
+        {
+          "type": "uint64",
+          "name": "_l"
+        },
+        {
+          "type": "uint64",
+          "name": "_m"
+        },
+        {
+          "type": "uint64",
+          "name": "_n"
+        },
+        {
+          "type": "uint64",
+          "name": "_o"
+        },
+        {
+          "type": "uint64",
+          "name": "_p"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
+      "name": "empty_return_subroutine",
+      "args": [],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "log_1",
+      "args": [],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
+      "name": "log_creation",
+      "args": [],
+      "returns": {
+        "type": "string"
+      }
+    },
+    {
+      "name": "approve_if_odd",
+      "args": [
+        {
+          "type": "uint32",
+          "name": "condition_encoding"
+        }
+      ],
+      "returns": {
+        "type": "void"
+      }
+    }
+  ],
+  "desc": null,
+  "networks": {}
+}
