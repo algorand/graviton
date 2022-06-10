@@ -18,9 +18,15 @@ from pathlib import Path
 import pytest
 
 from algosdk import abi
+from algosdk.future.transaction import OnComplete
 
-from graviton.blackbox import ABIContractExecutor, DryRunExecutor, DryRunEncoder
-from graviton.abi_strategy import ABIStrategy
+from graviton.blackbox import (
+    ABIContractExecutor,
+    DryRunExecutor as DRE,
+    DryRunEncoder,
+    DryRunProperty as DRProp,
+)
+from graviton.abi_strategy import RandomABIStrategy
 
 from tests.clients import get_algod
 
@@ -84,7 +90,7 @@ def test_dynamic_array_sum():
     args = ("ignored", [1, 2, 3, 4, 5])
     abi_arg_types = (None, abi.ArrayDynamicType(abi.UintType(64)))
     abi_out_type = abi.UintType(64)
-    inspector = DryRunExecutor.dryrun_app(
+    inspector = DRE.dryrun_app(
         algod, DYNAMIC_ARRAY_SUM_TEAL, args, abi_arg_types, abi_out_type
     )
     # with default config:
@@ -126,7 +132,7 @@ def process_filename(filename):
         abi_str = abi_info[0]
 
     abi_instance = abi.ABIType.from_string(abi_str)
-    abi_strat = ABIStrategy(abi_instance, length)
+    abi_strat = RandomABIStrategy(abi_instance, length)
     return abi_str, length, abi_instance, abi_strat
 
 
@@ -139,7 +145,7 @@ def test_unit_abi_strategy_get_random(roundtrip_app):
     filename = str(roundtrip_app)
 
     abi_str, length, abi_instance, abi_strat = process_filename(filename)
-    rand = abi_strat.get_random()
+    rand = abi_strat.get()
     encoded = DryRunEncoder.encode_args([rand], abi_types=[abi_instance])
     decoded = abi_instance.decode(encoded[0])
     assert decoded == rand
@@ -175,7 +181,7 @@ def test_roundtrip_abi_strategy(roundtrip_app):
         )
         return
 
-    rand = abi_strat.get_random()
+    rand = abi_strat.get()
 
     algod = get_algod()
     args = (rand,)
@@ -185,9 +191,7 @@ def test_roundtrip_abi_strategy(roundtrip_app):
     with open(filename) as f:
         roundtrip_teal = f.read()
 
-    inspector = DryRunExecutor.dryrun_app(
-        algod, roundtrip_teal, args, abi_arg_types, abi_out_type
-    )
+    inspector = DRE.dryrun_app(algod, roundtrip_teal, args, abi_arg_types, abi_out_type)
 
     cost = inspector.cost()
     passed = inspector.passed()
@@ -226,13 +230,74 @@ mut_mut = {mut_mut}
 
 ROUTER = Path.cwd() / "tests" / "teal" / "router"
 
+QUESTIONABLE_CONTRACT = None
+with open(ROUTER / "questionable.json") as f:
+    QUESTIONABLE_CONTRACT = f.read()
 
-def test_abi_methods():
-    with open(ROUTER / "questionable.json") as f:
-        contract = f.read()
+QUESTIONABLE_TEAL = None
+with open(ROUTER / "questionable.teal") as f:
+    QUESTIONABLE_TEAL = f.read()
 
-    with open(ROUTER / "questionable.teal") as f:
-        teal = f.read()
+QUESTIONABLE_ACE = ABIContractExecutor(
+    QUESTIONABLE_TEAL, QUESTIONABLE_CONTRACT, argument_strategy=RandomABIStrategy
+)
 
-    ace = ABIContractExecutor(teal, contract)
+QUESTIONABLE_CASES = [
+    # LEGEND:
+    # * 0: method name when `str` or bare app call when `None`
+    # * 1: `OnComplete` values to test (`None` is the same as `[(OnComplete.NoOpOc)]`)
+    # * 2: invariants being asserted `dict[DRProp, Callable]`
+    ("add", None, {DRProp.lastLog: lambda args: args[0] + args[1]}),
+    (
+        "sub",
+        None,
+        {
+            DRProp.lastLog: lambda args, actual: True
+            if args[0] < args[1]
+            else actual == args[0] - args[1]
+        },
+    ),
+    ("mul", None, {DRProp.lastLog: lambda args: args[0] * args[1]}),
+    ("div", None, {DRProp.lastLog: lambda args: args[0] // args[1]}),
+    ("mod", None, {DRProp.lastLog: lambda args: args[0] % args[1]}),
+    ("all_laid_to_args", None, {DRProp.lastLog: lambda args: sum(args)}),
+    (
+        "empty_return_subroutine",
+        {DRProp.lastLog: "appear in both approval and clear state"},
+    ),
+    ("log_1", {DRProp.lastLog: lambda args: 1}),
+    ("log_creation", {DRProp.lastLog: lambda args: "logging creation"}),
+    ("approve_if_odd", {DRProp.lastLog: lambda args: args[0] + args[1]}),
+    (
+        OnComplete.CloseOutOC,
+        None,
+    ),  # TODO - does this make sense here? or in the "opposites" case?
+    (OnComplete.ClearStateOC, {DRProp.passed: True}),
+    (OnComplete.DeleteApplicationOC, None),
+    (OnComplete.NoOpOC, None),
+    (
+        OnComplete.OptInOC,
+        {DRProp.passed: True, DRProp.lastLog: "optin call"},
+    ),
+    (OnComplete.UpdateApplicationOC, None),
+]
+# TODO: for some cases will need to somehow nudge gravition-dry-run to set ApplicationID == 0
+# TODO: need to test the clear program as well!
+
+DRY_RUNS_PER_TEST = 7
+
+
+@pytest.mark.parametrize("method", QUESTIONABLE_CASES)
+def test_method_or_barecall_positive(method):
+    """
+    Test the _positive_ version of a case. In other words, ensure that for the given:
+        * method or bare call
+        * OnComplete value
+        * number of arguments
+    that the app call succeeds with the given
+    """
+    ace = QUESTIONABLE_ACE
+    # method = ace.contract.get_method_by_name(method)
+    inputs = ace.generate_inputs(method, DRY_RUNS_PER_TEST)
+
     x = 42
