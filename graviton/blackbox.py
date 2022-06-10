@@ -5,7 +5,18 @@ from enum import Enum, auto
 import io
 
 from tabulate import tabulate
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Final,
+    List,
+    Optional,
+    Sequence,
+    Type,
+    Union,
+    cast,
+)
 
 from algosdk import abi
 from algosdk.v2client.algod import AlgodClient
@@ -15,6 +26,7 @@ from algosdk.future.transaction import (
     StateSchema,
     SuggestedParams,
 )
+from graviton.abi_strategy import PY_TYPES, ABIStrategy, RandomABIStrategy
 
 from graviton.dryrun import (
     assert_error,
@@ -248,7 +260,7 @@ class DryRunEncoder:
     @classmethod
     def encode_args(
         cls,
-        args: Sequence[Union[bytes, str, int]],
+        args: Sequence[PY_TYPES],
         abi_types: List[Optional[abi.ABIType]] = None,
     ) -> List[Union[bytes, str]]:
         """
@@ -309,7 +321,7 @@ class DryRunEncoder:
 
     @classmethod
     def _encode_arg(
-        cls, arg: Union[bytes, int, str], idx: int, abi_type: Optional[abi.ABIType]
+        cls, arg: PY_TYPES, idx: int, abi_type: Optional[abi.ABIType]
     ) -> Union[str, bytes]:
         partial = cls._partial_encode_assert(
             arg, abi_type, f"problem encoding arg ({arg!r}) at index ({idx})"
@@ -322,12 +334,15 @@ class DryRunEncoder:
         # int -> bytes
         # str -> str
         return cast(
-            Union[str, bytes], cls._to_bytes(arg, only_attempt_int_conversion=True)
+            Union[str, bytes],
+            cls._to_bytes(
+                cast(Union[int, str, bytes], arg), only_attempt_int_conversion=True
+            ),
         )
 
     @classmethod
     def _partial_encode_assert(
-        cls, arg: Union[bytes, int, str], abi_type: Optional[abi.ABIType], msg: str = ""
+        cls, arg: PY_TYPES, abi_type: Optional[abi.ABIType], msg: str = ""
     ) -> Optional[bytes]:
         """
         When have an `abi_type` is present, attempt to encode `arg` accordingly (returning `bytes`)
@@ -356,6 +371,15 @@ class DryRunExecutor:
        * `abi_return_type` is given the `DryRunInspector`'s resulting from execution for ABI-decoding into Python
     """
 
+    # `CREATION_APP_CALL` and `EXISTING_APP_CALL` are enum-like constants used to denote whether a dry run
+    # execution will simulate calling during on-creation vs pre-existance.
+    # In the default case that a dry run is executed without a provided application id (aka `index`), the `index`
+    # supplied will be:
+    # * `EXISTING_APP_CALL` in the case of `is_app_create == False`
+    # * `CREATION_APP_CALL` in the case of `is_app_create == True`
+    CREATION_APP_CALL: Final[int] = 0
+    EXISTING_APP_CALL: Final[int] = 42
+
     SUGGESTED_PARAMS = SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
 
     @classmethod
@@ -363,14 +387,15 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[Union[bytes, str, int]],
+        args: Sequence[PY_TYPES],
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
+        is_app_create: bool = False,
+        on_complete: OnComplete = OnComplete.NoOpOC,
         *,
         sender: str = None,
         sp: SuggestedParams = None,
         index: int = None,
-        on_complete: OnComplete = None,
         local_schema: StateSchema = None,
         global_schema: StateSchema = None,
         approval_program: str = None,
@@ -397,8 +422,12 @@ class DryRunExecutor:
                 note=note,
                 lease=lease,
                 rekey_to=rekey_to,
-                index=0 if index is None else index,
-                on_complete=OnComplete.NoOpOC if on_complete is None else on_complete,
+                index=(
+                    (cls.CREATION_APP_CALL if is_app_create else cls.EXISTING_APP_CALL)
+                    if index is None
+                    else index
+                ),
+                on_complete=on_complete,
                 local_schema=local_schema,
                 global_schema=global_schema,
                 approval_program=approval_program,
@@ -453,18 +482,26 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        inputs: List[Sequence[Union[str, int]]],
+        inputs: List[Sequence[PY_TYPES]],
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
+        is_app_create: bool = True,
+        on_complete: OnComplete = OnComplete.NoOpOC,
     ) -> List["DryRunInspector"]:
         # TODO: handle txn_params
-        return cls._map(
-            cls.dryrun_app,
-            algod,
-            teal,
-            abi_argument_types,
-            inputs,
-            abi_return_type,
+        return list(
+            map(
+                lambda args: cls.dryrun_app(
+                    algod=algod,
+                    teal=teal,
+                    args=args,
+                    abi_argument_types=abi_argument_types,
+                    abi_return_type=abi_return_type,
+                    is_app_create=is_app_create,
+                    on_complete=on_complete,
+                ),
+                inputs,
+            )
         )
 
     @classmethod
@@ -477,27 +514,16 @@ class DryRunExecutor:
         abi_return_type: abi.ABIType = None,
     ) -> List["DryRunInspector"]:
         # TODO: handle txn_params
-        return cls._map(
-            cls.dryrun_logicsig,
-            algod,
-            teal,
-            abi_argument_types,
-            inputs,
-            abi_return_type,
-        )
-
-    @classmethod
-    def _map(cls, f, algod, teal, abi_types, inps, abi_ret_type):
         return list(
             map(
-                lambda args: f(
+                lambda args: cls.dryrun_logicsig(
                     algod=algod,
                     teal=teal,
                     args=args,
-                    abi_argument_types=abi_types,
-                    abi_return_type=abi_ret_type,
+                    abi_argument_types=abi_argument_types,
+                    abi_return_type=abi_return_type,
                 ),
-                inps,
+                inputs,
             )
         )
 
@@ -506,7 +532,7 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[Union[bytes, int, str]],
+        args: Sequence[PY_TYPES],
         mode: ExecutionMode,
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
@@ -558,6 +584,9 @@ class DryRunExecutor:
         foreign_assets: List[str] = None,
         extra_pages: int = None,
     ) -> Dict[str, Any]:
+        """
+        Returns a `dict` with keys the same as method params, after removing all `None` values
+        """
         params = dict(
             sender=sender,
             sp=sp,
@@ -583,9 +612,89 @@ class DryRunExecutor:
 
 
 class ABIContractExecutor:
-    def __init__(self, teal: str, contract: str):
+    """Execute an ABI Contract via Dry Run"""
+
+    def __init__(
+        self,
+        teal: str,
+        contract: str,
+        argument_strategy: Optional[Type[ABIStrategy]] = RandomABIStrategy,
+        dry_runs: int = 1,
+    ):
         self.program = teal
         self.contract: abi.Contract = abi.Contract.from_json(contract)
+        self.argument_strategy: Optional[Type[ABIStrategy]] = argument_strategy
+        self.dry_runs = dry_runs
+
+    def argument_types(self, method: Optional[str] = None) -> List[abi.ABIType]:
+        if not method:
+            return []
+
+        # the method selector is not abi-encoded, hence its abi-type is set to None
+        return [None] + [
+            arg.type for arg in self.contract.get_method_by_name(method).args
+        ]
+
+    def return_type(self, method: Optional[str] = None) -> Optional[abi.ABIType]:
+        if not method:
+            return None
+
+        return_type = self.contract.get_method_by_name(method).returns().type
+        if return_type == abi.Returns.VOID:
+            return None
+
+        return return_type
+
+    def generate_inputs(self, method: Optional[str]) -> List[Sequence[PY_TYPES]]:
+        assert (
+            self.argument_strategy
+        ), "cannot generate inputs without an argument_strategy"
+
+        if not method:
+            # bare calls receive no arguments
+            return [tuple() for _ in range(self.dry_runs)]
+
+        selector = self.contract.get_method_by_name(method).get_selector()
+        arg_types = self.argument_types(method)
+
+        def gen_args():
+            return tuple(
+                [selector]
+                + [self.argument_strategy(arg_type).get() for arg_type in arg_types]
+            )
+
+        return [gen_args() for _ in range(self.dry_runs)]
+
+    def dry_run(
+        self,
+        algod: AlgodClient,
+        method: Optional[str] = None,
+        on_complete: OnComplete = OnComplete.NoOpOC,
+        inputs: Optional[List[Sequence[PY_TYPES]]] = None,
+    ) -> List["DryRunInspector"]:
+        """ARC-4 Compliant Dry Run"""
+        arg_types = self.argument_types(method)
+        return_type = self.return_type(method)
+
+        if inputs is None:
+            inputs = self.generate_inputs(method)
+        else:
+            processed: List[Sequence[PY_TYPES]] = []
+            selector = self.contract.get_method_by_name(method).get_selector()
+            for i, args in enumerate(inputs):
+                assert (
+                    len(args) == len(arg_types) - 1
+                ), f"length mismatch for args=inputs[{i}]: Should be {len(arg_types) - 1} to accomodate selector + method params, but was {len(args)}"
+                processed.append(tuple([selector] + list(args)))
+            inputs = processed
+
+        return DryRunExecutor.dryrun_app_on_sequence(
+            algod,
+            self.program,
+            inputs,
+            abi_argument_types=arg_types,
+            abi_return_type=return_type,
+        )
 
 
 class DryRunInspector:
