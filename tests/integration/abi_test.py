@@ -13,7 +13,7 @@ Note on test-case generation for this file (as of 5/18/2022):
 * then copy the contents of the generated directory "./tests/integration/generated/roundtrip/" into the ROUNDTRIP directory
 """
 
-
+from itertools import product
 from pathlib import Path
 import pytest
 from typing import Any, Dict, List, Optional, Tuple
@@ -265,39 +265,68 @@ QUESTIONABLE_CASES: List[
     # * @2 - invariants: dict[DRProp, Any]
     #   these are being asserted after being processed into actual Invariant's
     #
-    ("add", None, {DRProp.lastLog: lambda args: args[1] + args[2]}),
+    (
+        "add",
+        None,
+        {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] + args[2]},
+    ),
     (
         "sub",
         None,
         {
+            DRProp.passed: lambda args: args[1] >= args[2],
             DRProp.lastLog: lambda args, actual: True
             if args[1] < args[2]
-            else actual == args[1] - args[2]
+            else actual == args[1] - args[2],
         },
     ),
-    ("mul", None, {DRProp.lastLog: lambda args: args[1] * args[2]}),
-    ("div", None, {DRProp.lastLog: lambda args: args[1] // args[2]}),
-    ("mod", None, {DRProp.lastLog: lambda args: args[1] % args[2]}),
-    ("all_laid_to_args", None, {DRProp.lastLog: lambda args: sum(args[1:])}),
+    (
+        "mul",
+        None,
+        {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] * args[2]},
+    ),
+    (
+        "div",
+        None,
+        {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] // args[2]},
+    ),
+    (
+        "mod",
+        None,
+        {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] % args[2]},
+    ),
+    (
+        "all_laid_to_args",
+        None,
+        {DRProp.passed: True, DRProp.lastLog: lambda args: sum(args[1:])},
+    ),
     (
         "empty_return_subroutine",
         [(False, OnComplete.NoOpOC), (False, OnComplete.OptInOC)],
-        {DRProp.lastLog: DryRunEncoder.hex("appear in both approval and clear state")},
+        {
+            DRProp.passed: True,
+            DRProp.lastLog: DryRunEncoder.hex(
+                "appear in both approval and clear state"
+            ),
+        },
     ),
     (
         "log_1",
         [(False, OnComplete.NoOpOC), (False, OnComplete.OptInOC)],
-        {DRProp.lastLog: 1},
+        {DRProp.passed: True, DRProp.lastLog: 1},
     ),
     (
         "log_creation",
         [(True, OnComplete.NoOpOC)],
-        {DRProp.lastLog: "logging creation"},
+        {DRProp.passed: True, DRProp.lastLog: "logging creation"},
     ),
     (
         "approve_if_odd",
         [],  # this should only appear in the clear-state program
-        {DRProp.lastLog: "THIS MAKES ABSOLUTELY NO SENSE ... SHOULD NEVER GET HERE!!!"},
+        {
+            DRProp.passed: True,
+            DRProp.lastLog: "THIS MAKES ABSOLUTELY NO SENSE ... SHOULD NEVER GET HERE!!!",
+        },
     ),
     (
         None,
@@ -350,5 +379,14 @@ def test_method_or_barecall_negative(method, call_types, invariants):
     """
     ace = QUESTIONABLE_ACE
     algod = get_algod()
-    _ = ace
-    _ = algod
+
+    if call_types is None:
+        call_types = [(False, OnComplete.NoOpOC)]
+
+    # iac_n_oc --> (is_app_create, on_complete)
+    call_types_negation = [
+        iac_n_oc
+        for iac_n_oc in product((True, False), OnComplete)
+        if iac_n_oc not in call_types
+    ]
+    x = 42
