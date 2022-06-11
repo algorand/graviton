@@ -1,6 +1,16 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## `v0.4.0` (_aka_ 🐕)
+
+### Added
+
+* ABI Contract / Router / Execution functionality
+
+### Fixed
+
+* A bug that made all app calls run as if during creation
+
 ## `v0.3.0` (_aka_ 🐈)
 
 ### Added
@@ -13,7 +23,7 @@
 
 ### Added
 
-* ABI Functionality
+* ABI Functionality (types only)
 
 ## `v0.1.2`
 

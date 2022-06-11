@@ -398,11 +398,11 @@ class DryRunExecutor:
     """
 
     # `CREATION_APP_CALL` and `EXISTING_APP_CALL` are enum-like constants used to denote whether a dry run
-    # execution will simulate calling during on-creation vs pre-existance.
+    # execution will simulate calling during on-creation vs post-creation.
     # In the default case that a dry run is executed without a provided application id (aka `index`), the `index`
     # supplied will be:
-    # * `EXISTING_APP_CALL` in the case of `is_app_create == False`
     # * `CREATION_APP_CALL` in the case of `is_app_create == True`
+    # * `EXISTING_APP_CALL` in the case of `is_app_create == False`
     CREATION_APP_CALL: Final[int] = 0
     EXISTING_APP_CALL: Final[int] = 42
 
