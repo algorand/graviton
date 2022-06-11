@@ -383,7 +383,7 @@ def test_app_with_report(filebase: str):
         print(
             f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant}>>"
         )
-        invariant.validates(dr_property, inputs, dryrun_results)
+        invariant.validates(dr_property, dryrun_results)
 
 
 # NOTE: logic sig dry runs are missing some information when compared with app dry runs.
@@ -575,4 +575,4 @@ def test_logicsig_with_report(filebase: str):
         print(
             f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant}>>"
         )
-        invariant.validates(dr_property, inputs, dryrun_results)
+        invariant.validates(dr_property, dryrun_results)

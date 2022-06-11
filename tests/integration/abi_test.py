@@ -16,6 +16,7 @@ Note on test-case generation for this file (as of 5/18/2022):
 
 from pathlib import Path
 import pytest
+from typing import Any, Dict, List, Optional, Tuple
 
 from algosdk import abi
 from algosdk.future.transaction import OnComplete
@@ -26,7 +27,8 @@ from graviton.blackbox import (
     DryRunEncoder,
     DryRunProperty as DRProp,
 )
-from graviton.abi_strategy import RandomABIStrategy
+from graviton.abi_strategy import RandomABIStrategy, RandomABIStrategyHalfSized
+from graviton.invariant import Invariant
 
 from tests.clients import get_algod
 
@@ -228,7 +230,11 @@ mut_mut = {mut_mut}
     )
 
 
+# --- ABI Router Dry Run Testing --- #
+
 ROUTER = Path.cwd() / "tests" / "teal" / "router"
+NUM_ROUTER_DRYRUNS = 7
+
 
 QUESTIONABLE_CONTRACT = None
 with open(ROUTER / "questionable.json") as f:
@@ -239,65 +245,110 @@ with open(ROUTER / "questionable.teal") as f:
     QUESTIONABLE_TEAL = f.read()
 
 QUESTIONABLE_ACE = ABIContractExecutor(
-    QUESTIONABLE_TEAL, QUESTIONABLE_CONTRACT, argument_strategy=RandomABIStrategy
+    QUESTIONABLE_TEAL,
+    QUESTIONABLE_CONTRACT,
+    argument_strategy=RandomABIStrategyHalfSized,
+    dry_runs=NUM_ROUTER_DRYRUNS,
 )
 
-QUESTIONABLE_CASES = [
+QUESTIONABLE_CASES: List[
+    Tuple[Optional[str], Optional[List[Tuple[bool, OnComplete]]], Dict[DRProp, Any]]
+] = [
     # LEGEND:
-    # * 0: method name when `str` or bare app call when `None`
-    # * 1: `OnComplete` values to test (`None` is the same as `[(OnComplete.NoOpOc)]`)
-    # * 2: invariants being asserted `dict[DRProp, Callable]`
-    ("add", None, {DRProp.lastLog: lambda args: args[0] + args[1]}),
+    #
+    # * @0 - method: str | None
+    #   method name when `str` or bare app call when `None`
+    #
+    # * @1 - call_types:  ...tuple[bool, OncComplete] | None
+    #   [(is_app_create, `OnComplete`), ...] contexts to test (`None` is short-hand for `[(False, OnComplete.NoOpOC)]`)
+    #
+    # * @2 - invariants: dict[DRProp, Any]
+    #   these are being asserted after being processed into actual Invariant's
+    #
+    ("add", None, {DRProp.lastLog: lambda args: args[1] + args[2]}),
     (
         "sub",
         None,
         {
             DRProp.lastLog: lambda args, actual: True
-            if args[0] < args[1]
-            else actual == args[0] - args[1]
+            if args[1] < args[2]
+            else actual == args[1] - args[2]
         },
     ),
-    ("mul", None, {DRProp.lastLog: lambda args: args[0] * args[1]}),
-    ("div", None, {DRProp.lastLog: lambda args: args[0] // args[1]}),
-    ("mod", None, {DRProp.lastLog: lambda args: args[0] % args[1]}),
-    ("all_laid_to_args", None, {DRProp.lastLog: lambda args: sum(args)}),
+    ("mul", None, {DRProp.lastLog: lambda args: args[1] * args[2]}),
+    ("div", None, {DRProp.lastLog: lambda args: args[1] // args[2]}),
+    ("mod", None, {DRProp.lastLog: lambda args: args[1] % args[2]}),
+    ("all_laid_to_args", None, {DRProp.lastLog: lambda args: sum(args[1:])}),
     (
         "empty_return_subroutine",
-        {DRProp.lastLog: "appear in both approval and clear state"},
+        [(False, OnComplete.NoOpOC), (False, OnComplete.OptInOC)],
+        {DRProp.lastLog: DryRunEncoder.hex("appear in both approval and clear state")},
     ),
-    ("log_1", {DRProp.lastLog: lambda args: 1}),
-    ("log_creation", {DRProp.lastLog: lambda args: "logging creation"}),
-    ("approve_if_odd", {DRProp.lastLog: lambda args: args[0] + args[1]}),
     (
-        OnComplete.CloseOutOC,
+        "log_1",
+        [(False, OnComplete.NoOpOC), (False, OnComplete.OptInOC)],
+        {DRProp.lastLog: 1},
+    ),
+    (
+        "log_creation",
+        [(True, OnComplete.NoOpOC)],
+        {DRProp.lastLog: "logging creation"},
+    ),
+    (
+        "approve_if_odd",
+        [],  # this should only appear in the clear-state program
+        {DRProp.lastLog: "THIS MAKES ABSOLUTELY NO SENSE ... SHOULD NEVER GET HERE!!!"},
+    ),
+    (
         None,
-    ),  # TODO - does this make sense here? or in the "opposites" case?
-    (OnComplete.ClearStateOC, {DRProp.passed: True}),
-    (OnComplete.DeleteApplicationOC, None),
-    (OnComplete.NoOpOC, None),
-    (
-        OnComplete.OptInOC,
-        {DRProp.passed: True, DRProp.lastLog: "optin call"},
+        [(False, OnComplete.OptInOC)],
+        {DRProp.passed: True, DRProp.lastLog: DryRunEncoder.hex("optin call")},
     ),
-    (OnComplete.UpdateApplicationOC, None),
 ]
-# TODO: for some cases will need to somehow nudge gravition-dry-run to set ApplicationID == 0
+
 # TODO: need to test the clear program as well!
 
-DRY_RUNS_PER_TEST = 7
 
-
-@pytest.mark.parametrize("method", QUESTIONABLE_CASES)
-def test_method_or_barecall_positive(method):
+@pytest.mark.parametrize("method, call_types, invariants", QUESTIONABLE_CASES)
+def test_method_or_barecall_positive(method, call_types, invariants):
     """
     Test the _positive_ version of a case. In other words, ensure that for the given:
         * method or bare call
         * OnComplete value
         * number of arguments
-    that the app call succeeds with the given
+    that the app call succeeds for the given invariants
     """
     ace = QUESTIONABLE_ACE
-    # method = ace.contract.get_method_by_name(method)
-    inputs = ace.generate_inputs(method, DRY_RUNS_PER_TEST)
+    algod = get_algod()
 
-    x = 42
+    if call_types is None:
+        call_types = [(False, OnComplete.NoOpOC)]
+
+    if not call_types:
+        return
+
+    invariants = Invariant.as_invariants(invariants)
+    for is_app_create, on_complete in call_types:
+        inspectors = ace.dry_run(
+            algod,
+            method=method,
+            is_app_create=is_app_create,
+            on_complete=on_complete,
+        )
+        for dr_property, invariant in invariants.items():
+            invariant.validates(dr_property, inspectors)
+
+
+@pytest.mark.parametrize("method, call_types, invariants", QUESTIONABLE_CASES)
+def test_method_or_barecall_negative(method, call_types, invariants):
+    """
+    Test the _negative_ version of a case. In other words, ensure that for the given:
+        * method or bare call
+        * OnComplete value
+        * number of arguments
+    explore the space _OUTSIDE_ of each constraint and assert that the app call FAILS!!!
+    """
+    ace = QUESTIONABLE_ACE
+    algod = get_algod()
+    _ = ace
+    _ = algod

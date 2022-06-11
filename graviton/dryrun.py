@@ -214,7 +214,13 @@ class DryRunHelper:
     def singleton_app_request(
         cls, program: str, args: List[Union[bytes, str]], txn_params: Dict[str, Any]
     ):
-        return cls.dryrun_request(program, models.App(args=args), txn_params)
+        creator = txn_params.get("sender")
+        app_idx = txn_params.get("index")
+        on_complete = txn_params.get("on_complete")
+        app = models.App.factory(
+            creator=creator, app_idx=app_idx, on_complete=on_complete, args=args
+        )
+        return cls.dryrun_request(program, app, txn_params)
 
     @classmethod
     def _txn_params_with_defaults(cls, txn_params: dict, for_app: bool) -> dict:

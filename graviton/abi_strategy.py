@@ -7,11 +7,11 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 import random
 import string
-from typing import Callable, Dict, List, Optional, Union, cast
+from typing import Callable, Dict, List, Optional, Sequence, Union, cast
 
 from algosdk import abi, encoding
 
-PY_TYPES = Union[bool, int, list, str, bytes]
+PY_TYPES = Union[bool, int, Sequence, str, bytes]
 
 
 class ABIStrategy(ABC):
@@ -187,3 +187,20 @@ class RandomABIStrategy(ABIStrategy):
         )
 
         return self.map(waterfall, py_abi_instance)
+
+
+class RandomABIStrategyHalfSized(RandomABIStrategy):
+    def __init__(
+        self,
+        abi_instance: abi.ABIType,
+        dynamic_length: Optional[int] = None,
+    ):
+        super().__init__(abi_instance, dynamic_length=dynamic_length)
+
+    def get(self) -> PY_TYPES:
+        full_random = super().get()
+
+        if not isinstance(self.abi_type, abi.UintType):
+            return full_random
+
+        return full_random % (1 << (self.abi_type.bit_size // 2))

@@ -292,7 +292,7 @@ return
 main_l19:
 txn OnCompletion
 int NoOp
-==
+==                      // I believe there ahould be an assertion here to ensure that this is actually a NoOp
 txn ApplicationID
 int 0
 !=
