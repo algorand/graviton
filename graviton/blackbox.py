@@ -708,13 +708,48 @@ class ABIContractExecutor:
 
         return [gen_args() for _ in range(self.dry_runs)]
 
-    def dry_run(
+    def validate_inputs(self, method: str, inputs: List[Sequence[PY_TYPES]]):
+        arg_types = self.argument_types(method)
+        selector = self.contract.get_method_by_name(method).get_selector()
+        for i, args in enumerate(inputs):
+            error = self._validate_args(selector, args, arg_types)
+            assert not error, f"inputs is invalid at index {i}: {error}"
+
+    @classmethod
+    def _validate_args(
+        cls,
+        method_selector: Optional[str],
+        args: Sequence[PY_TYPES],
+        arg_types: List[abi.ABIType],
+    ) -> Optional[str]:
+        if not isinstance(args, tuple):
+            return f"expected tuple for args but got {type(args)}"
+
+        if not method_selector:  # bare app call case
+            if args:
+                return (
+                    f"an ARC-4 bare app call should receive no arguments but got {args}"
+                )
+            return None
+
+        a_len, t_len = len(args), len(arg_types)
+        if not a_len == t_len:
+            return f"length mismatch between args ({a_len}) and arg_types ({t_len})"
+
+        if args[0] != method_selector:
+            return f"first argument should be method selector {method_selector} but was {args[0]}"
+
+        return None
+
+    def dry_run_on_sequence(
         self,
         algod: AlgodClient,
         method: Optional[str] = None,
         is_app_create: bool = False,
         on_complete: OnComplete = OnComplete.NoOpOC,
         inputs: Optional[List[Sequence[PY_TYPES]]] = None,
+        *,
+        provided_input_has_selector: bool = True,
     ) -> List["DryRunInspector"]:
         """ARC-4 Compliant Dry Run"""
         # TODO: handle txn_params
@@ -724,15 +759,6 @@ class ABIContractExecutor:
 
         if inputs is None:
             inputs = self.generate_inputs(method)
-        else:
-            processed: List[Sequence[PY_TYPES]] = []
-            selector = self.contract.get_method_by_name(method).get_selector()
-            for i, args in enumerate(inputs):
-                assert len(args) == len(
-                    arg_types
-                ), f"length mismatch for args=inputs[{i}]: Should be {len(arg_types)} but was {len(args)}"
-                processed.append(tuple([selector] + list(args)))
-            inputs = processed
 
         return DryRunExecutor.dryrun_app_on_sequence(
             algod,
@@ -943,16 +969,23 @@ class DryRunInspector:
             return self.extracts["status"] == "REJECT"
 
         if dr_property == DryRunProperty.error:
+            """
+            * when `contains` kwarg is NOT provided
+                - asserts that there was an error
+            * when `contains` kwarg IS provided
+                - asserts that there was an error AND that it's message includes `contains`'s value
+            """
             contains = kwargs.get("contains")
             ok, msg = assert_error(
                 self.parent_dryrun_response, contains=contains, enforce=False
             )
-            # when there WAS an error, we return its msg, else False
             return ok
 
         if dr_property == DryRunProperty.errorMessage:
+            """
+            * when there was no error, we return None, else return its msg
+            """
             _, msg = assert_no_error(self.parent_dryrun_response, enforce=False)
-            # when there was no error, we return None, else return its msg
             return msg if msg else None
 
         if dr_property == DryRunProperty.lastMessage:
