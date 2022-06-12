@@ -708,7 +708,13 @@ class ABIContractExecutor:
 
         return [gen_args() for _ in range(self.dry_runs)]
 
-    def validate_inputs(self, method: str, inputs: List[Sequence[PY_TYPES]]):
+    def validate_inputs(self, method: Optional[str], inputs: List[Sequence[PY_TYPES]]):
+        if not method:
+            assert not any(
+                inputs
+            ), f"bare app calls require args to be empty but inputs={inputs}"
+            return
+
         arg_types = self.argument_types(method)
         selector = self.contract.get_method_by_name(method).get_selector()
         for i, args in enumerate(inputs):
@@ -749,16 +755,24 @@ class ABIContractExecutor:
         on_complete: OnComplete = OnComplete.NoOpOC,
         inputs: Optional[List[Sequence[PY_TYPES]]] = None,
         *,
-        provided_input_has_selector: bool = True,
+        arg_types: Optional[List[abi.ABIType]] = None,
+        return_type: Optional[abi.ABIType] = None,
+        validate_inputs: bool = True,
     ) -> List["DryRunInspector"]:
         """ARC-4 Compliant Dry Run"""
         # TODO: handle txn_params
 
-        arg_types = self.argument_types(method)
-        return_type = self.return_type(method)
+        if not arg_types:
+            arg_types = self.argument_types(method)
+
+        if not return_type:
+            return_type = self.return_type(method)
 
         if inputs is None:
             inputs = self.generate_inputs(method)
+
+        if validate_inputs:
+            self.validate_inputs(method, inputs)
 
         return DryRunExecutor.dryrun_app_on_sequence(
             algod,

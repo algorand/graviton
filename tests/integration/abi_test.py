@@ -405,6 +405,16 @@ def test_method_or_barecall_negative(method, call_types, _):
         if iac_n_oc not in call_types
     ]
     good_inputs = ace.generate_inputs(method)
+    good_arg_types = ace.argument_types(method)
+
+    def msg():
+        return f"""
+TEST CASE:
+method={method}
+is_app_create={is_app_create}
+on_complete={on_complete!r}
+dr_prop={dr_prop}
+invariant={invariant}"""
 
     # I. explore all UNEXPECTED (is_app_create, on_complete) combos
     for is_app_create, on_complete in call_types_negation:
@@ -416,11 +426,43 @@ def test_method_or_barecall_negative(method, call_types, _):
             inputs=good_inputs,
         )
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-            msg = f"""
-TEST CASE:
-method={method}
-is_app_create={is_app_create}
-on_complete={on_complete!r}
-dr_prop={dr_prop}
-invariant={invariant}"""
-            invariant.validates(dr_prop, inspectors, msg=msg)
+            invariant.validates(dr_prop, inspectors, msg=msg())
+
+    # II. explore changing the number of args over the "good" call_types
+    if good_inputs and good_inputs[0]:
+        extra_arg = [args + (args[-1],) for args in good_inputs]
+        extra_arg_types = good_arg_types + [good_arg_types[-1]]
+
+        missing_arg = [args[:-1] for args in good_inputs]
+        missing_arg_types = good_arg_types[:-1]
+    else:
+        extra_arg = ["testing" for _ in good_inputs]
+        extra_arg_types = [abi.StringType()]
+
+        missing_arg = None
+
+    for is_app_create, on_complete in call_types:
+        inspectors = ace.dry_run_on_sequence(
+            algod,
+            method=method,
+            is_app_create=is_app_create,
+            on_complete=on_complete,
+            inputs=extra_arg,
+            validate_inputs=False,
+            arg_types=extra_arg_types,
+        )
+        for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
+            invariant.validates(dr_prop, inspectors, msg=msg())
+
+        if missing_arg:
+            inspectors = ace.dry_run_on_sequence(
+                algod,
+                method=method,
+                is_app_create=is_app_create,
+                on_complete=on_complete,
+                inputs=missing_arg,
+                validate_inputs=False,
+                arg_types=missing_arg_types,
+            )
+            for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
+                invariant.validates(dr_prop, inspectors, msg=msg())
