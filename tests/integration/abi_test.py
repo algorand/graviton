@@ -302,7 +302,11 @@ QUESTIONABLE_CASES: List[
     ),
     (
         "empty_return_subroutine",
-        [(False, OnComplete.NoOpOC), (False, OnComplete.OptInOC)],
+        [
+            (False, OnComplete.NoOpOC),
+            (False, OnComplete.OptInOC),
+            (True, OnComplete.OptInOC),
+        ],
         {
             DRProp.passed: True,
             DRProp.lastLog: DryRunEncoder.hex(
@@ -321,8 +325,8 @@ QUESTIONABLE_CASES: List[
         {DRProp.passed: True, DRProp.lastLog: "logging creation"},
     ),
     (
-        "approve_if_odd",
-        [],  # this should only appear in the clear-state program
+        "approve_if_odd",  # this should only appear in the clear-state program
+        [],
         {
             DRProp.passed: True,
             DRProp.lastLog: "THIS MAKES ABSOLUTELY NO SENSE ... SHOULD NEVER GET HERE!!!",
@@ -358,7 +362,7 @@ def test_method_or_barecall_positive(method, call_types, invariants):
 
     invariants = Invariant.as_invariants(invariants)
     for is_app_create, on_complete in call_types:
-        inspectors = ace.dry_run(
+        inspectors = ace.dry_run_on_sequence(
             algod,
             method=method,
             is_app_create=is_app_create,
@@ -368,8 +372,19 @@ def test_method_or_barecall_positive(method, call_types, invariants):
             invariant.validates(dr_property, inspectors)
 
 
-@pytest.mark.parametrize("method, call_types, invariants", QUESTIONABLE_CASES)
-def test_method_or_barecall_negative(method, call_types, invariants):
+NEGATIVE_INVARIANTS = Invariant.as_invariants(
+    {
+        DRProp.rejected: True,
+        DRProp.error: True,
+        DRProp.errorMessage: lambda _, actual: (
+            ("assert failed" in actual) or ("err opcode" in actual)
+        ),
+    }
+)
+
+
+@pytest.mark.parametrize("method, call_types, _", QUESTIONABLE_CASES)
+def test_method_or_barecall_negative(method, call_types, _):
     """
     Test the _negative_ version of a case. In other words, ensure that for the given:
         * method or bare call
@@ -389,4 +404,23 @@ def test_method_or_barecall_negative(method, call_types, invariants):
         for iac_n_oc in product((True, False), OnComplete)
         if iac_n_oc not in call_types
     ]
-    x = 42
+    good_inputs = ace.generate_inputs(method)
+
+    # I. explore all UNEXPECTED (is_app_create, on_complete) combos
+    for is_app_create, on_complete in call_types_negation:
+        inspectors = ace.dry_run_on_sequence(
+            algod,
+            method=method,
+            is_app_create=is_app_create,
+            on_complete=on_complete,
+            inputs=good_inputs,
+        )
+        for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
+            msg = f"""
+TEST CASE:
+method={method}
+is_app_create={is_app_create}
+on_complete={on_complete!r}
+dr_prop={dr_prop}
+invariant={invariant}"""
+            invariant.validates(dr_prop, inspectors, msg=msg)
