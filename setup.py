@@ -11,7 +11,7 @@ setup(
     long_description=long_description,
     author="Algorand",
     author_email="pypiservice@algorand.com",
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=[
         "py-algorand-sdk @ git+https://github.com/algorand/py-algorand-sdk@get-method-by-name",
         "tabulate==0.8.9",

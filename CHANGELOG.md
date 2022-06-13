@@ -12,6 +12,10 @@
 * A bug that made all app calls run as if during creation
 * Addressed [Issue #5](https://github.com/algorand/graviton/issues/5): Better assertion message for invariant predicates of 2 variables
 
+### Upgraded
+
+* Minimum python is bumped up to 3.9 (previously 3.8)
+
 ## `v0.3.0` (_aka_ 🐈)
 
 ### Added
