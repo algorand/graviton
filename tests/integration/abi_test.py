@@ -394,9 +394,6 @@ NEGATIVE_INVARIANTS = Invariant.as_invariants(
 )
 
 
-temporarily_skip_iia = True
-
-
 @pytest.mark.parametrize("method, call_types, _", QUESTIONABLE_CASES)
 def test_method_or_barecall_negative(method, call_types, _):
     """
@@ -473,12 +470,11 @@ invariant={invariant}"""
 
     for is_app_create, on_complete in call_types:
         scenario = "II(a). adding an extra duplicate argument"
-        if not temporarily_skip_iia:
-            inspectors = dry_runner(
-                inputs=extra_arg, validate_inputs=False, arg_types=extra_arg_types
-            )
-            for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-                invariant.validates(dr_prop, inspectors, msg=msg())
+        inspectors = dry_runner(
+            inputs=extra_arg, validate_inputs=False, arg_types=extra_arg_types
+        )
+        for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
+            invariant.validates(dr_prop, inspectors, msg=msg())
 
         if missing_arg:
             scenario = "II(b). removing the final argument"
