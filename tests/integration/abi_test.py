@@ -13,9 +13,11 @@ Note on test-case generation for this file (as of 5/18/2022):
 * then copy the contents of the generated directory "./tests/integration/generated/roundtrip/" into the ROUNDTRIP directory
 """
 
+import inspect
 from itertools import product
 from pathlib import Path
 import pytest
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from algosdk import abi
@@ -349,7 +351,7 @@ def test_method_or_barecall_positive(method, call_types, invariants):
         * method or bare call
         * OnComplete value
         * number of arguments
-    that the app call succeeds for the given invariants
+    that the app call succeeds according to the provided _invariants success definition_
     """
     ace = QUESTIONABLE_ACE
     algod = get_algod()
@@ -372,12 +374,20 @@ def test_method_or_barecall_positive(method, call_types, invariants):
             invariant.validates(dr_property, inspectors)
 
 
+# cf. https://death.andgravity.com/f-re for an explanation of verbose regex'es
+EXPECTED_ERR_PATTERN = r"""
+    assert\ failed                              # pyteal generated assert's ok
+|   err\ opcode                                 # pyteal generated err's ok
+|   invalid\ ApplicationArgs\ index             # failing because an app arg wasn't provided
+|   extract\ range\ beyond\ length\ of\ string  # failing because couldn't extract from jammed in tuple
+"""
+
 NEGATIVE_INVARIANTS = Invariant.as_invariants(
     {
         DRProp.rejected: True,
         DRProp.error: True,
         DRProp.errorMessage: lambda _, actual: (
-            ("assert failed" in actual) or ("err opcode" in actual)
+            bool(re.search(EXPECTED_ERR_PATTERN, actual, re.VERBOSE))
         ),
     }
 )
@@ -407,62 +417,68 @@ def test_method_or_barecall_negative(method, call_types, _):
     good_inputs = ace.generate_inputs(method)
     good_arg_types = ace.argument_types(method)
 
+    def dry_runner(**kwargs):
+        inputs = kwargs.get("inputs")
+        assert inputs
+
+        validate_inputs = kwargs.get("validate_inputs", True)
+        arg_types = kwargs.get("arg_types")
+
+        return ace.dry_run_on_sequence(
+            algod,
+            method=method,
+            is_app_create=is_app_create,
+            on_complete=on_complete,
+            inputs=inputs,
+            validate_inputs=validate_inputs,
+            arg_types=arg_types,
+        )
+
     def msg():
         return f"""
 TEST CASE:
+test_function={inspect.stack()[1][3]}
+scenario={scenario}
 method={method}
 is_app_create={is_app_create}
 on_complete={on_complete!r}
 dr_prop={dr_prop}
 invariant={invariant}"""
 
-    # I. explore all UNEXPECTED (is_app_create, on_complete) combos
+    scenario = "I. explore all UNEXPECTED (is_app_create, on_complete) combos"
     for is_app_create, on_complete in call_types_negation:
-        inspectors = ace.dry_run_on_sequence(
-            algod,
-            method=method,
-            is_app_create=is_app_create,
-            on_complete=on_complete,
-            inputs=good_inputs,
-        )
+        inspectors = dry_runner(inputs=good_inputs)
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
             invariant.validates(dr_prop, inspectors, msg=msg())
 
-    # II. explore changing the number of args over the "good" call_types
+    # II. explore changing the number of args over the 'good' call_types
     if good_inputs and good_inputs[0]:
         extra_arg = [args + (args[-1],) for args in good_inputs]
         extra_arg_types = good_arg_types + [good_arg_types[-1]]
 
         missing_arg = [args[:-1] for args in good_inputs]
         missing_arg_types = good_arg_types[:-1]
+        if not missing_arg[0]:
+            # skip this, as this becomes a bare app call case which is tested elsewhere
+            missing_arg = None
     else:
-        extra_arg = ["testing" for _ in good_inputs]
+        extra_arg = [("testing",) for _ in good_inputs]
         extra_arg_types = [abi.StringType()]
 
         missing_arg = None
 
     for is_app_create, on_complete in call_types:
-        inspectors = ace.dry_run_on_sequence(
-            algod,
-            method=method,
-            is_app_create=is_app_create,
-            on_complete=on_complete,
-            inputs=extra_arg,
-            validate_inputs=False,
-            arg_types=extra_arg_types,
+        scenario = "II(a). adding an extra duplicate argument"
+        inspectors = dry_runner(
+            inputs=extra_arg, validate_inputs=False, arg_types=extra_arg_types
         )
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
             invariant.validates(dr_prop, inspectors, msg=msg())
 
         if missing_arg:
-            inspectors = ace.dry_run_on_sequence(
-                algod,
-                method=method,
-                is_app_create=is_app_create,
-                on_complete=on_complete,
-                inputs=missing_arg,
-                validate_inputs=False,
-                arg_types=missing_arg_types,
+            scenario = "II(b). removing the final argument"
+            inspectors = dry_runner(
+                inputs=missing_arg, validate_inputs=False, arg_types=missing_arg_types
             )
             for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
                 invariant.validates(dr_prop, inspectors, msg=msg())

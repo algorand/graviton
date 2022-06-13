@@ -33,7 +33,11 @@ class Invariant:
         self.name = name
 
     def __repr__(self):
-        return f"Invariant({self.definition})"[:100]
+        defn = self.definition
+        if callable(defn):
+            defn = getsource(defn)
+
+        return f"Invariant({defn})"
 
     def __call__(self, args: Sequence[PY_TYPES], actual: PY_TYPES) -> Tuple[bool, str]:
         invariant = self.predicate(args, actual)

@@ -762,10 +762,10 @@ class ABIContractExecutor:
         """ARC-4 Compliant Dry Run"""
         # TODO: handle txn_params
 
-        if not arg_types:
+        if arg_types is None:
             arg_types = self.argument_types(method)
 
-        if not return_type:
+        if return_type is None:
             return_type = self.return_type(method)
 
         if inputs is None:
