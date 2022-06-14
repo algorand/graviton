@@ -233,7 +233,7 @@ mut_mut = {mut_mut}
     )
 
 
-# --- ABI Router Dry Run Testing --- #
+# ---- ABI Router Dry Run Testing - SETUP ---- #
 
 ROUTER = Path.cwd() / "tests" / "teal" / "router"
 NUM_ROUTER_DRYRUNS = 7
@@ -247,6 +247,10 @@ QUESTIONABLE_TEAL = None
 with open(ROUTER / "questionable.teal") as f:
     QUESTIONABLE_TEAL = f.read()
 
+QUESTIONABLE_CLEAR_TEAL = None
+with open(ROUTER / "questionable_clear.teal") as f:
+    QUESTIONABLE_CLEAR_TEAL = f.read()
+
 QUESTIONABLE_ACE = ABIContractExecutor(
     QUESTIONABLE_TEAL,
     QUESTIONABLE_CONTRACT,
@@ -254,20 +258,28 @@ QUESTIONABLE_ACE = ABIContractExecutor(
     dry_runs=NUM_ROUTER_DRYRUNS,
 )
 
+QUESTIONABLE_CLEAR_ACE = ABIContractExecutor(
+    QUESTIONABLE_CLEAR_TEAL,
+    QUESTIONABLE_CONTRACT,  # weird, but the methods in the clear program do belong to the contract
+    argument_strategy=RandomABIStrategyHalfSized,
+    dry_runs=NUM_ROUTER_DRYRUNS,
+)
+
+
+# LEGEND FOR TEST CASES (*_CASES and *_CLEAR_CASES):
+#
+# * @0 - method: str | None
+#   method name when `str` or bare app call when `None`
+#
+# * @1 - call_types:  ...tuple[bool, OncComplete] | None
+#   [(is_app_create, `OnComplete`), ...] contexts to test (`None` is short-hand for `[(False, OnComplete.NoOpOC)]`)
+#
+# * @2 - invariants: dict[DRProp, Any]
+#   these are being asserted after being processed into actual Invariant's
+#
 QUESTIONABLE_CASES: List[
     Tuple[Optional[str], Optional[List[Tuple[bool, OnComplete]]], Dict[DRProp, Any]]
 ] = [
-    # LEGEND:
-    #
-    # * @0 - method: str | None
-    #   method name when `str` or bare app call when `None`
-    #
-    # * @1 - call_types:  ...tuple[bool, OncComplete] | None
-    #   [(is_app_create, `OnComplete`), ...] contexts to test (`None` is short-hand for `[(False, OnComplete.NoOpOC)]`)
-    #
-    # * @2 - invariants: dict[DRProp, Any]
-    #   these are being asserted after being processed into actual Invariant's
-    #
     (
         "add",
         None,
@@ -342,11 +354,82 @@ QUESTIONABLE_CASES: List[
     ),
 ]
 
-# TODO: need to test the clear program as well!
+QUESTIONABLE_CLEAR_CASES: List[
+    Tuple[Optional[str], Optional[List[Tuple[bool, OnComplete]]], Dict[DRProp, Any]]
+] = [
+    (
+        "add",
+        [],  # shouldn't appear in PyTEAL generated clear state program
+        {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] + args[2]},
+    ),
+    (
+        "sub",
+        [],  # shouldn't appear in PyTEAL generated clear state program
+        {
+            DRProp.passed: lambda args: args[1] >= args[2],
+            DRProp.lastLog: lambda args, actual: True
+            if args[1] < args[2]
+            else actual == args[1] - args[2],
+        },
+    ),
+    (
+        "mul",
+        [],  # shouldn't appear in PyTEAL generated clear state program
+        {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] * args[2]},
+    ),
+    (
+        "div",
+        [],  # shouldn't appear in PyTEAL generated clear state program
+        {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] // args[2]},
+    ),
+    (
+        "mod",
+        [],  # shouldn't appear in PyTEAL generated clear state program
+        {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] % args[2]},
+    ),
+    (
+        "all_laid_to_args",
+        [],  # shouldn't appear in PyTEAL generated clear state program
+        {DRProp.passed: True, DRProp.lastLog: lambda args: sum(args[1:])},
+    ),
+    (
+        "empty_return_subroutine",
+        [
+            (False, OnComplete.ClearStateOC),
+        ],
+        {
+            DRProp.passed: True,
+            DRProp.lastLog: DryRunEncoder.hex(
+                "appear in both approval and clear state"
+            ),
+        },
+    ),
+    (
+        "log_1",
+        [(False, OnComplete.ClearStateOC)],
+        {DRProp.passed: True, DRProp.lastLog: 1},
+    ),
+    (
+        "log_creation",
+        [],  # shouldn't appear in PyTEAL generated clear state program
+        {DRProp.passed: True, DRProp.lastLog: "logging creation"},
+    ),
+    (
+        "approve_if_odd",
+        [(False, OnComplete.ClearStateOC)],
+        {
+            DRProp.passed: lambda args: bool(args[1] % 2),
+        },
+    ),
+    (
+        None,
+        [(False, OnComplete.ClearStateOC)],
+        {DRProp.passed: True, DRProp.lastLog: None},
+    ),
+]
 
 
-@pytest.mark.parametrize("method, call_types, invariants", QUESTIONABLE_CASES)
-def test_method_or_barecall_positive(method, call_types, invariants):
+def method_or_barecall_positive_test_runner(ace, method, call_types, invariants):
     """
     Test the _positive_ version of a case. In other words, ensure that for the given:
         * method or bare call
@@ -354,7 +437,6 @@ def test_method_or_barecall_positive(method, call_types, invariants):
         * number of arguments
     that the app call succeeds according to the provided _invariants success definition_
     """
-    ace = QUESTIONABLE_ACE
     algod = get_algod()
 
     if call_types is None:
@@ -362,6 +444,16 @@ def test_method_or_barecall_positive(method, call_types, invariants):
 
     if not call_types:
         return
+
+    def msg():
+        return f"""
+TEST CASE:
+test_function={inspect.stack()[2][3]}
+method={method}
+is_app_create={is_app_create}
+on_complete={on_complete!r}
+dr_prop={dr_property}
+invariant={invariant}"""
 
     invariants = Invariant.as_invariants(invariants)
     for is_app_create, on_complete in call_types:
@@ -372,7 +464,7 @@ def test_method_or_barecall_positive(method, call_types, invariants):
             on_complete=on_complete,
         )
         for dr_property, invariant in invariants.items():
-            invariant.validates(dr_property, inspectors)
+            invariant.validates(dr_property, inspectors, msg=msg())
 
 
 # cf. https://death.andgravity.com/f-re for an explanation of verbose regex'es
@@ -394,8 +486,7 @@ NEGATIVE_INVARIANTS = Invariant.as_invariants(
 )
 
 
-@pytest.mark.parametrize("method, call_types, _", QUESTIONABLE_CASES)
-def test_method_or_barecall_negative(method, call_types, _):
+def method_or_barecall_negative_test_runner(ace, method, call_types):
     """
     Test the _negative_ version of a case. In other words, ensure that for the given:
         * method or bare call
@@ -403,7 +494,6 @@ def test_method_or_barecall_negative(method, call_types, _):
         * number of arguments
     explore the space _OUTSIDE_ of each constraint and assert that the app call FAILS!!!
     """
-    ace = QUESTIONABLE_ACE
     algod = get_algod()
 
     if call_types is None:
@@ -452,39 +542,7 @@ invariant={invariant}"""
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
             invariant.validates(dr_prop, inspectors, msg=msg())
 
-    # II. explore changing the number of args over the 'good' call_types
-    if good_inputs and good_inputs[0]:
-        extra_arg = [args + (args[-1],) for args in good_inputs]
-        extra_arg_types = good_arg_types + [good_arg_types[-1]]
-
-        missing_arg = [args[:-1] for args in good_inputs]
-        missing_arg_types = good_arg_types[:-1]
-        if not missing_arg[0]:
-            # skip this, as this becomes a bare app call case which is tested elsewhere
-            missing_arg = None
-    else:
-        extra_arg = [("testing",) for _ in good_inputs]
-        extra_arg_types = [abi.StringType()]
-
-        missing_arg = None
-
-    for is_app_create, on_complete in call_types:
-        scenario = "II(a). adding an extra duplicate argument"
-        inspectors = dry_runner(
-            inputs=extra_arg, validate_inputs=False, arg_types=extra_arg_types
-        )
-        for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-            invariant.validates(dr_prop, inspectors, msg=msg())
-
-        if missing_arg:
-            scenario = "II(b). removing the final argument"
-            inspectors = dry_runner(
-                inputs=missing_arg, validate_inputs=False, arg_types=missing_arg_types
-            )
-            for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-                invariant.validates(dr_prop, inspectors, msg=msg())
-
-    # III. explore changing method selector arg[0] by edit distance 1
+    # II. explore changing method selector arg[0] by edit distance 1
     if good_inputs and good_inputs[0]:
 
         def factory(action):
@@ -517,20 +575,63 @@ invariant={invariant}"""
     else:
         selectors_inserted = selectors_deleted = selectors_modded = None
 
-    scenario = "III(a). inserting an extra random byte into method selector"
+    scenario = "II(a). inserting an extra random byte into method selector"
     if selectors_inserted:
         inspectors = dry_runner(inputs=selectors_inserted, validate_inputs=False)
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
             invariant.validates(dr_prop, inspectors, msg=msg())
 
-    scenario = "III(b). removing a random byte from method selector"
+    scenario = "II(b). removing a random byte from method selector"
     if selectors_deleted:
         inspectors = dry_runner(inputs=selectors_deleted, validate_inputs=False)
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
             invariant.validates(dr_prop, inspectors, msg=msg())
 
-    scenario = "III(c). replacing a random byte in method selector"
+    scenario = "II(c). replacing a random byte in method selector"
     if selectors_modded:
         inspectors = dry_runner(inputs=selectors_modded, validate_inputs=False)
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
             invariant.validates(dr_prop, inspectors, msg=msg())
+
+    # III. explore changing the number of args over the 'good' call_types
+    # (extra args testing is omitted as this is prevented by SDK's cf. https://github.com/algorand/algorand-sdk-testing/issues/190)
+    if good_inputs and good_inputs[0]:
+        missing_arg = [args[:-1] for args in good_inputs]
+        missing_arg_types = good_arg_types[:-1]
+        if not missing_arg[0]:
+            # skip this, as this becomes a bare app call case which is tested elsewhere
+            return
+
+        for is_app_create, on_complete in call_types:
+            scenario = "III. removing the final argument"
+            inspectors = dry_runner(
+                inputs=missing_arg, validate_inputs=False, arg_types=missing_arg_types
+            )
+            for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
+                invariant.validates(dr_prop, inspectors, msg=msg())
+
+
+# ---- ABI Router Dry Run Testing - TESTS ---- #
+
+
+@pytest.mark.parametrize("method, call_types, invariants", QUESTIONABLE_CASES)
+def test_questionable_approval_method_or_barecall_positive(
+    method, call_types, invariants
+):
+    method_or_barecall_positive_test_runner(
+        QUESTIONABLE_ACE, method, call_types, invariants
+    )
+
+
+@pytest.mark.parametrize("method, call_types, invariants", QUESTIONABLE_CLEAR_CASES)
+def test_questionable_clear_method_or_barecall_positive(method, call_types, invariants):
+    method_or_barecall_positive_test_runner(
+        QUESTIONABLE_CLEAR_ACE, method, call_types, invariants
+    )
+
+
+@pytest.mark.parametrize("method, call_types, _", QUESTIONABLE_CASES)
+def test_questionable_approval_program_method_or_barecall_negative(
+    method, call_types, _
+):
+    method_or_barecall_negative_test_runner(QUESTIONABLE_ACE, method, call_types)

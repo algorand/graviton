@@ -16,10 +16,6 @@ PY_TYPES = Union[bool, int, Sequence, str, bytes]
 
 class ABIStrategy(ABC):
     @abstractmethod
-    def __init__(self, abi_instance: abi.ABIType, dynamic_length: Optional[int] = None):
-        pass
-
-    @abstractmethod
     def get(self) -> PY_TYPES:
         pass
 
