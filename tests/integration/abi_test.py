@@ -486,7 +486,9 @@ NEGATIVE_INVARIANTS = Invariant.as_invariants(
 )
 
 
-def method_or_barecall_negative_test_runner(ace, method, call_types):
+def method_or_barecall_negative_test_runner(
+    ace, method, call_types, is_clear_state_program
+):
     """
     Test the _negative_ version of a case. In other words, ensure that for the given:
         * method or bare call
@@ -507,6 +509,8 @@ def method_or_barecall_negative_test_runner(ace, method, call_types):
     ]
     good_inputs = ace.generate_inputs(method)
     good_arg_types = ace.argument_types(method)
+
+    is_app_create = on_complete = None
 
     def dry_runner(**kwargs):
         inputs = kwargs.get("inputs")
@@ -529,6 +533,7 @@ def method_or_barecall_negative_test_runner(ace, method, call_types):
         return f"""
 TEST CASE:
 test_function={inspect.stack()[1][3]}
+is_clear_state_program={is_clear_state_program}
 scenario={scenario}
 method={method}
 is_app_create={is_app_create}
@@ -536,11 +541,12 @@ on_complete={on_complete!r}
 dr_prop={dr_prop}
 invariant={invariant}"""
 
-    scenario = "I. explore all UNEXPECTED (is_app_create, on_complete) combos"
-    for is_app_create, on_complete in call_types_negation:
-        inspectors = dry_runner(inputs=good_inputs)
-        for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-            invariant.validates(dr_prop, inspectors, msg=msg())
+    if not is_clear_state_program:
+        scenario = "I. explore all UNEXPECTED (is_app_create, on_complete) combos"
+        for is_app_create, on_complete in call_types_negation:
+            inspectors = dry_runner(inputs=good_inputs)
+            for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
+                invariant.validates(dr_prop, inspectors, msg=msg())
 
     # II. explore changing method selector arg[0] by edit distance 1
     if good_inputs and good_inputs[0]:
@@ -634,4 +640,13 @@ def test_questionable_clear_method_or_barecall_positive(method, call_types, inva
 def test_questionable_approval_program_method_or_barecall_negative(
     method, call_types, _
 ):
-    method_or_barecall_negative_test_runner(QUESTIONABLE_ACE, method, call_types)
+    method_or_barecall_negative_test_runner(
+        QUESTIONABLE_ACE, method, call_types, is_clear_state_program=False
+    )
+
+
+@pytest.mark.parametrize("method, call_types, _", QUESTIONABLE_CLEAR_CASES)
+def test_questionable_clear_program_method_or_barecall_negative(method, call_types, _):
+    method_or_barecall_negative_test_runner(
+        QUESTIONABLE_ACE, method, call_types, is_clear_state_program=True
+    )
