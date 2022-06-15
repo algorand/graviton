@@ -251,6 +251,15 @@ QUESTIONABLE_CLEAR_TEAL = None
 with open(ROUTER / "questionable_clear.teal") as f:
     QUESTIONABLE_CLEAR_TEAL = f.read()
 
+YACC_TEAL = None
+with open(ROUTER / "yacc.teal") as f:
+    YACC_TEAL = f.read()
+
+YACC_CLEAR_TEAL = None
+with open(ROUTER / "yacc_clear.teal") as f:
+    YACC_CLEAR_TEAL = f.read()
+
+
 QUESTIONABLE_ACE = ABIContractExecutor(
     QUESTIONABLE_TEAL,
     QUESTIONABLE_CONTRACT,
@@ -261,6 +270,21 @@ QUESTIONABLE_ACE = ABIContractExecutor(
 QUESTIONABLE_CLEAR_ACE = ABIContractExecutor(
     QUESTIONABLE_CLEAR_TEAL,
     QUESTIONABLE_CONTRACT,  # weird, but the methods in the clear program do belong to the contract
+    argument_strategy=RandomABIStrategyHalfSized,
+    dry_runs=NUM_ROUTER_DRYRUNS,
+)
+
+
+YACC_ACE = ABIContractExecutor(
+    YACC_TEAL,
+    QUESTIONABLE_CONTRACT,  # same JSON contract as QUESTIONABLE
+    argument_strategy=RandomABIStrategyHalfSized,
+    dry_runs=NUM_ROUTER_DRYRUNS,
+)
+
+YACC_CLEAR_ACE = ABIContractExecutor(
+    YACC_CLEAR_TEAL,
+    QUESTIONABLE_CONTRACT,
     argument_strategy=RandomABIStrategyHalfSized,
     dry_runs=NUM_ROUTER_DRYRUNS,
 )
@@ -354,6 +378,9 @@ QUESTIONABLE_CASES: List[
     ),
 ]
 
+# strip out the bare calls for YACC ~ "yetAnotherContractConstructedFromRouter":
+YACC_CASES = [c for c in QUESTIONABLE_CASES if c[0]]
+
 QUESTIONABLE_CLEAR_CASES: List[
     Tuple[Optional[str], Optional[List[Tuple[bool, OnComplete]]], Dict[DRProp, Any]]
 ] = [
@@ -427,6 +454,10 @@ QUESTIONABLE_CLEAR_CASES: List[
         {DRProp.passed: True, DRProp.lastLog: None},
     ),
 ]
+
+# the YACC clear program accepts no bare calls!
+# strip out the bare calls for YACC ~ "yetAnotherContractConstructedFromRouter":
+YACC_CLEAR_CASES = [c for c in QUESTIONABLE_CLEAR_CASES if c[0]]
 
 
 def method_or_barecall_positive_test_runner(ace, method, call_types, invariants):
@@ -619,6 +650,8 @@ invariant={invariant}"""
 
 # ---- ABI Router Dry Run Testing - TESTS ---- #
 
+### QUESTIONABLE ###
+
 
 @pytest.mark.parametrize("method, call_types, invariants", QUESTIONABLE_CASES)
 def test_questionable_approval_method_or_barecall_positive(
@@ -649,4 +682,33 @@ def test_questionable_approval_program_method_or_barecall_negative(
 def test_questionable_clear_program_method_or_barecall_negative(method, call_types, _):
     method_or_barecall_negative_test_runner(
         QUESTIONABLE_ACE, method, call_types, is_clear_state_program=True
+    )
+
+
+### YACC (QUESTIONABLE Copy Pasta 🍝)###
+
+
+@pytest.mark.parametrize("method, call_types, invariants", YACC_CASES)
+def test_yacc_approval_method_or_barecall_positive(method, call_types, invariants):
+    method_or_barecall_positive_test_runner(YACC_ACE, method, call_types, invariants)
+
+
+@pytest.mark.parametrize("method, call_types, invariants", YACC_CLEAR_CASES)
+def test_yacc_clear_method_or_barecall_positive(method, call_types, invariants):
+    method_or_barecall_positive_test_runner(
+        YACC_CLEAR_ACE, method, call_types, invariants
+    )
+
+
+@pytest.mark.parametrize("method, call_types, _", YACC_CASES)
+def test_yacc_approval_program_method_or_barecall_negative(method, call_types, _):
+    method_or_barecall_negative_test_runner(
+        YACC_ACE, method, call_types, is_clear_state_program=False
+    )
+
+
+@pytest.mark.parametrize("method, call_types, _", YACC_CLEAR_CASES)
+def test_yacc_clear_program_method_or_barecall_negative(method, call_types, _):
+    method_or_barecall_negative_test_runner(
+        YACC_ACE, method, call_types, is_clear_state_program=True
     )
