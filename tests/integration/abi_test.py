@@ -650,7 +650,7 @@ invariant={invariant}"""
 
 # ---- ABI Router Dry Run Testing - TESTS ---- #
 
-### QUESTIONABLE ###
+# ## QUESTIONABLE ## #
 
 
 @pytest.mark.parametrize("method, call_types, invariants", QUESTIONABLE_CASES)
@@ -685,7 +685,7 @@ def test_questionable_clear_program_method_or_barecall_negative(method, call_typ
     )
 
 
-### YACC (QUESTIONABLE Copy Pasta 🍝)###
+# ## YACC (QUESTIONABLE Copy Pasta 🍝) ## #
 
 
 @pytest.mark.parametrize("method, call_types, invariants", YACC_CASES)
