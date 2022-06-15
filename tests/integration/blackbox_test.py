@@ -206,11 +206,7 @@ APP_SCENARIOS = {
         "inputs": [(i,) for i in range(100)],
         "invariants": {
             DRProp.cost: 14,
-            DRProp.lastLog: {
-                # since execution REJECTS for 0, expect last log for this case to be None
-                (i,): Encoder.hex(i * i) if i else None
-                for i in range(100)
-            },
+            DRProp.lastLog: {(i,): Encoder.hex(i * i) for i in range(100)},
             DRProp.finalScratch: lambda args: (
                 {0: args[0], 1: args[0] ** 2} if args[0] else {}
             ),
@@ -247,9 +243,7 @@ APP_SCENARIOS = {
         "inputs": [("xyzw", i) for i in range(100)],
         "invariants": {
             DRProp.cost: lambda args: 30 + 15 * args[1],
-            DRProp.lastLog: (
-                lambda args: Encoder.hex(args[0] * args[1]) if args[1] else None
-            ),
+            DRProp.lastLog: (lambda args: Encoder.hex(args[0] * args[1])),
             # due to dryrun 0-scratchvar artifact, special case for i == 0:
             DRProp.finalScratch: lambda args: (
                 {
@@ -308,7 +302,7 @@ APP_SCENARIOS = {
         "invariants": {
             DRProp.cost: lambda args: (fib_cost(args) if args[0] < 17 else 70_000),
             DRProp.lastLog: lambda args: (
-                Encoder.hex(fib(args[0])) if 0 < args[0] < 17 else None
+                Encoder.hex(fib(args[0])) if args[0] < 17 else None
             ),
             DRProp.finalScratch: lambda args, actual: (
                 actual == {0: args[0], 1: fib(args[0])}
