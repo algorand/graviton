@@ -11,7 +11,7 @@ def test_from_single_response_errors():
     }
 
     with pytest.raises(AssertionError) as ae:
-        DryRunInspector.from_single_response(error_resp)
+        DryRunInspector.from_single_response(error_resp, None, None)
 
     assert (
         ae.value.args[0]
@@ -25,7 +25,7 @@ def test_from_single_response_errors():
     }
 
     with pytest.raises(AssertionError) as ae:
-        DryRunInspector.from_single_response(no_txns_resp1)
+        DryRunInspector.from_single_response(no_txns_resp1, None, None)
 
     assert (
         ae.value.args[0]
@@ -38,7 +38,7 @@ def test_from_single_response_errors():
     }
 
     with pytest.raises(AssertionError) as ae:
-        DryRunInspector.from_single_response(no_txns_resp2)
+        DryRunInspector.from_single_response(no_txns_resp2, None, None)
 
     assert (
         ae.value.args[0]
@@ -48,7 +48,7 @@ def test_from_single_response_errors():
     too_many_txns_resp = {"protocol-version": "future", "txns": [1, 2, 3]}
 
     with pytest.raises(AssertionError) as ae:
-        DryRunInspector.from_single_response(too_many_txns_resp)
+        DryRunInspector.from_single_response(too_many_txns_resp, None, None)
 
     assert (
         ae.value.args[0]
@@ -62,7 +62,7 @@ def test_from_single_response_errors():
     }
 
     with pytest.raises(AssertionError) as ae:
-        DryRunInspector.from_single_response(too_many_txns_resp_w_err)
+        DryRunInspector.from_single_response(too_many_txns_resp_w_err, None, None)
 
     assert (
         ae.value.args[0]

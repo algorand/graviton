@@ -3,17 +3,27 @@ Inspired by Hypothesis' Strategies.
 
 TODO: Leverage Hypothesis!
 """
+from abc import ABC, abstractmethod
 from collections import OrderedDict
 import random
 import string
-from typing import Callable, Dict, List, Optional, Union, cast
+from typing import Callable, Dict, List, Optional, Sequence, Union, cast
 
 from algosdk import abi, encoding
 
-PY_TYPES = Union[bool, int, list, str, bytes]
+PY_TYPES = Union[bool, int, Sequence, str, bytes]
 
 
-class ABIStrategy:
+class ABIStrategy(ABC):
+    @abstractmethod
+    def get(self) -> PY_TYPES:
+        pass
+
+    def get_many(self, n: int) -> List[PY_TYPES]:
+        return [self.get() for _ in range(n)]
+
+
+class RandomABIStrategy(ABIStrategy):
     DEFAULT_DYNAMIC_ARRAY_LENGTH = 3
     STRING_CHARS = string.digits + string.ascii_letters + string.punctuation
 
@@ -46,7 +56,7 @@ class ABIStrategy:
         self.abi_type: abi.ABIType = abi_instance
         self.dynamic_length: Optional[int] = dynamic_length
 
-    def get_random(self) -> Union[bool, int, list, str, bytes]:
+    def get(self) -> PY_TYPES:
         if isinstance(self.abi_type, abi.UfixedType):
             raise NotImplementedError(
                 f"Currently cannot get a random sample for {self.abi_type}"
@@ -59,17 +69,17 @@ class ABIStrategy:
             return random.randint(0, (1 << self.abi_type.bit_size) - 1)
 
         if isinstance(self.abi_type, abi.ByteType):
-            return ABIStrategy(abi.UintType(8)).get_random()
+            return RandomABIStrategy(abi.UintType(8)).get()
 
         if isinstance(self.abi_type, abi.TupleType):
             return [
-                ABIStrategy(child_type).get_random()
+                RandomABIStrategy(child_type).get()
                 for child_type in self.abi_type.child_types
             ]
 
         if isinstance(self.abi_type, abi.ArrayStaticType):
             return [
-                ABIStrategy(self.abi_type.child_type).get_random()
+                RandomABIStrategy(self.abi_type.child_type).get()
                 for _ in range(self.abi_type.static_length)
             ]
 
@@ -78,11 +88,11 @@ class ABIStrategy:
                 bytearray(
                     cast(
                         List[int],
-                        ABIStrategy(
+                        RandomABIStrategy(
                             abi.ArrayStaticType(
                                 abi.ByteType(), self.abi_type.byte_len()
                             )
-                        ).get_random(),
+                        ).get(),
                     )
                 )
             )
@@ -94,8 +104,7 @@ class ABIStrategy:
         )
         if isinstance(self.abi_type, abi.ArrayDynamicType):
             return [
-                ABIStrategy(self.abi_type.child_type).get_random()
-                for _ in dynamic_range
+                RandomABIStrategy(self.abi_type.child_type).get() for _ in dynamic_range
             ]
 
         if isinstance(self.abi_type, abi.StringType):
@@ -125,7 +134,7 @@ class ABIStrategy:
             y = encoding.decode_address(x)
             return encoding.encode_address(
                 bytearray(
-                    ABIStrategy(
+                    RandomABIStrategy(
                         abi.ArrayStaticType(abi.ByteType(), len(y))
                     ).mutate_for_roundtrip(y)
                 )
@@ -138,19 +147,23 @@ class ABIStrategy:
                 (abi.UintType, lambda x: (1 << self.abi_type.bit_size) - 1 - x),
                 (
                     abi.ByteType,
-                    lambda x: ABIStrategy(abi.UintType(8)).mutate_for_roundtrip(x),
+                    lambda x: RandomABIStrategy(abi.UintType(8)).mutate_for_roundtrip(
+                        x
+                    ),
                 ),
                 (
                     abi.TupleType,
                     lambda x: [
-                        ABIStrategy(child_type).mutate_for_roundtrip(x[i])
+                        RandomABIStrategy(child_type).mutate_for_roundtrip(x[i])
                         for i, child_type in enumerate(self.abi_type.child_types)
                     ],
                 ),
                 (
                     abi.ArrayStaticType,
                     lambda x: [
-                        ABIStrategy(self.abi_type.child_type).mutate_for_roundtrip(y)
+                        RandomABIStrategy(
+                            self.abi_type.child_type
+                        ).mutate_for_roundtrip(y)
                         for y in x
                     ],
                 ),
@@ -158,7 +171,9 @@ class ABIStrategy:
                 (
                     abi.ArrayDynamicType,
                     lambda x: [
-                        ABIStrategy(self.abi_type.child_type).mutate_for_roundtrip(y)
+                        RandomABIStrategy(
+                            self.abi_type.child_type
+                        ).mutate_for_roundtrip(y)
                         for y in x
                     ],
                 ),
@@ -168,3 +183,20 @@ class ABIStrategy:
         )
 
         return self.map(waterfall, py_abi_instance)
+
+
+class RandomABIStrategyHalfSized(RandomABIStrategy):
+    def __init__(
+        self,
+        abi_instance: abi.ABIType,
+        dynamic_length: Optional[int] = None,
+    ):
+        super().__init__(abi_instance, dynamic_length=dynamic_length)
+
+    def get(self) -> PY_TYPES:
+        full_random = super().get()
+
+        if not isinstance(self.abi_type, abi.UintType):
+            return full_random
+
+        return full_random % (1 << (self.abi_type.bit_size // 2))

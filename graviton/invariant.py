@@ -1,6 +1,7 @@
-from inspect import signature
+from inspect import getsource, signature
 from typing import cast, Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+from graviton.abi_strategy import PY_TYPES
 from graviton.blackbox import (
     DryRunInspector,
     DryRunProperty,
@@ -9,12 +10,20 @@ from graviton.blackbox import (
 )
 
 
+INVARIANT_TYPE = Union[
+    PY_TYPES,
+    Dict[Sequence[PY_TYPES], PY_TYPES],
+    Callable[[PY_TYPES], PY_TYPES],
+    Callable[[PY_TYPES], bool],
+]
+
+
 class Invariant:
     """Enable asserting invariants on a sequence of dry run executions"""
 
     def __init__(
         self,
-        predicate: Union[Dict[Tuple, Union[str, int]], Callable],
+        predicate: INVARIANT_TYPE,
         enforce: bool = False,
         name: Optional[str] = None,
     ):
@@ -24,53 +33,66 @@ class Invariant:
         self.name = name
 
     def __repr__(self):
-        return f"Invariant({self.definition})"[:100]
+        defn = self.definition
+        if callable(defn):
+            defn = getsource(defn)
 
-    def __call__(
-        self, args: Sequence[Union[str, int]], actual: Union[str, int]
-    ) -> Tuple[bool, str]:
+        return f"Invariant({defn})"
+
+    def __call__(self, args: Sequence[PY_TYPES], actual: PY_TYPES) -> Tuple[bool, str]:
         invariant = self.predicate(args, actual)
         msg = ""
         if not invariant:
-            msg = f"Invariant for '{self.name}' failed for for args {args}: actual is [{actual}] BUT expected [{self.expected(args)}]"
+            expected = self.expected(args)
+            if callable(expected):
+                expected = getsource(expected)
+            msg = f"Invariant for '{self.name}' failed for for args {args!r}: actual is [{actual!r}] BUT expected [{expected!r}]"
             if self.enforce:
                 assert invariant, msg
 
         return invariant, msg
 
-    def expected(self, args: Sequence[Union[str, int]]) -> Union[str, int]:
+    def expected(self, args: Sequence[PY_TYPES]) -> PY_TYPES:
         return self._expected(args)
 
     def validates(
         self,
         dr_property: DryRunProperty,
-        inputs: List[Sequence[Union[str, int]]],
         inspectors: List[DryRunInspector],
+        *,
+        msg: str = "",
     ):
-        N = len(inputs)
-        assert N == len(
-            inspectors
-        ), f"inputs (len={N}) and dryrun responses (len={len(inspectors)}) must have the same length"
-
         assert isinstance(
             dr_property, DryRunProperty
         ), f"invariants types must be DryRunProperty's but got [{dr_property}] which is a {type(dr_property)}"
 
-        for i, args in enumerate(inputs):
-            res = inspectors[i]
-            actual = res.dig(dr_property)
-            ok, msg = self(args, actual)
-            assert ok, res.report(args, msg, row=i + 1)
+        for i, inspector in enumerate(inspectors):
+            actual = inspector.dig(dr_property)
+            ok, fail_msg = self(inspector.args, actual)
+            if msg:
+                fail_msg += f". invariant provided message:{msg}"
+            assert ok, inspector.report(msg=fail_msg, row=i + 1)
 
     @classmethod
-    def prepare_predicate(cls, predicate):
+    def prepare_predicate(
+        cls,
+        predicate: INVARIANT_TYPE,
+    ) -> Tuple[Callable[[Sequence[PY_TYPES], PY_TYPES], bool], Callable]:
+        # returns
+        # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
+        # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
         if isinstance(predicate, dict):
+            d_predicate = cast(Dict[PY_TYPES, PY_TYPES], predicate)
             return (
-                lambda args, actual: predicate[args] == actual,
-                lambda args: predicate[args],
+                lambda args, actual: d_predicate[args] == actual,
+                lambda args: d_predicate[args],
             )
 
-        if not isinstance(predicate, Callable):
+        # predicate = cast(Callable, predicate)
+        # returns
+        # * Callable[[Any], PY_TYPES], bool]
+        # * Callable[[Any], PY_TYPES]
+        if not callable(predicate):
             # constant function in this case:
             return lambda _, actual: predicate == actual, lambda _: predicate
 
@@ -85,12 +107,22 @@ class Invariant:
         assert N in (1, 2), f"predicate has the wrong number of paramters {N}"
 
         if N == 2:
-            return predicate, lambda _: predicate
+            c2_predicate = cast(
+                Callable[[Sequence[PY_TYPES], PY_TYPES], bool], predicate
+            )
+            # returns
+            # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
+            # * Callable[Any, Callable[[Sequence[PY_TYPES], PY_TYPES], bool]]
+            return c2_predicate, lambda _: c2_predicate
 
         # N == 1:
-        return lambda args, actual: predicate(args) == actual, lambda args: predicate(
+        c1_predicate = cast(Callable[[Sequence[PY_TYPES]], bool], predicate)
+        # returns
+        # * Callable[[Sequence[PY_TYPES]], bool]
+        # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
+        return lambda args, actual: c1_predicate(
             args
-        )
+        ) == actual, lambda args: c1_predicate(args)
 
     @classmethod
     def inputs_and_invariants(
@@ -140,15 +172,25 @@ class Invariant:
             and all(isinstance(args, tuple) for args in inputs)
         ), "need a list of inputs with at least one args and all args must be tuples"
 
-        invariants: Dict[DryRunProperty, Any] = {}
         predicates = cast(Dict[DryRunProperty, Any], scenario.get("invariants", {}))
         if predicates:
             assert isinstance(predicates, dict), "invariants must be a dict"
 
-            for key, predicate in predicates.items():
-                assert isinstance(key, DryRunProperty) and mode_has_property(
-                    mode, key
-                ), f"each key must be a DryRunProperty's appropriate to {mode}. This is not the case for key {key}"
-                invariants[key] = Invariant(predicate, name=str(key))
+        return inputs, predicates if raw_predicates else cls.as_invariants(
+            predicates, mode
+        )
 
-        return inputs, predicates if raw_predicates else invariants  # type: ignore
+    @classmethod
+    def as_invariants(
+        cls,
+        predicates: Dict[DryRunProperty, Any],
+        mode: ExecutionMode = ExecutionMode.Application,
+    ) -> Dict[DryRunProperty, "Invariant"]:
+        invariants: Dict[DryRunProperty, Any] = {}
+
+        for key, predicate in predicates.items():
+            assert isinstance(key, DryRunProperty) and mode_has_property(
+                mode, key
+            ), f"each key must be a DryRunProperty's appropriate to {mode}. This is not the case for key {key}"
+            invariants[key] = Invariant(predicate, name=str(key))
+        return invariants

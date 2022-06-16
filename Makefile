@@ -16,7 +16,7 @@ flake8:
 	flake8 graviton tests
 
 mypy:
-	mypy .
+	mypy --show-error-codes .
 
 lint: black flake8 mypy
 

@@ -5,7 +5,18 @@ from enum import Enum, auto
 import io
 
 from tabulate import tabulate
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Final,
+    List,
+    Optional,
+    Sequence,
+    Type,
+    Union,
+    cast,
+)
 
 from algosdk import abi
 from algosdk.v2client.algod import AlgodClient
@@ -16,6 +27,10 @@ from algosdk.future.transaction import (
     SuggestedParams,
 )
 
+from algosdk import atomic_transaction_composer as atc
+
+from graviton.abi_strategy import PY_TYPES, ABIStrategy, RandomABIStrategy
+
 from graviton.dryrun import (
     assert_error,
     assert_no_error,
@@ -23,6 +38,9 @@ from graviton.dryrun import (
 )
 
 from graviton.models import ZERO_ADDRESS
+
+
+MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
 
 
 class ExecutionMode(Enum):
@@ -248,7 +266,7 @@ class DryRunEncoder:
     @classmethod
     def encode_args(
         cls,
-        args: Sequence[Union[bytes, str, int]],
+        args: Sequence[PY_TYPES],
         abi_types: List[Optional[abi.ABIType]] = None,
     ) -> List[Union[bytes, str]]:
         """
@@ -263,15 +281,35 @@ class DryRunEncoder:
             abi_types (optional) - When present this list needs to be the same length as `args`.
                 When `None` is supplied as the abi_type, the corresponding element of `args` is not encoded.
         """
+        a_len = len(args)
         if abi_types:
-            a_len, t_len = len(args), len(abi_types)
+            t_len = len(abi_types)
             assert (
                 a_len == t_len
             ), f"mismatch between args (length={a_len}) and abi_types (length={t_len})"
-        return [
-            cls._encode_arg(a, i, abi_types[i] if abi_types else None)
+
+        if a_len <= MAX_APP_ARG_LIMIT:
+            return [
+                cls._encode_arg(a, i, abi_types[i] if abi_types else None)
+                for i, a in enumerate(args)
+            ]
+
+        assert (
+            abi_types
+        ), f"for non-ABI app calls, there is no specification for encoding more than {MAX_APP_ARG_LIMIT} arguments. But encountered an app call attempt with {a_len} arguments"
+
+        final_index = MAX_APP_ARG_LIMIT - 1
+        simple_15 = [
+            cls._encode_arg(a, i, abi_types[i])
             for i, a in enumerate(args)
+            if i < final_index
         ]
+        jammed_in = cls._encode_arg(
+            args[final_index:],
+            final_index,
+            abi_type=abi.TupleType(abi_types[final_index:]),
+        )
+        return simple_15 + [jammed_in]
 
     @classmethod
     def hex0x(cls, x) -> str:
@@ -309,7 +347,7 @@ class DryRunEncoder:
 
     @classmethod
     def _encode_arg(
-        cls, arg: Union[bytes, int, str], idx: int, abi_type: Optional[abi.ABIType]
+        cls, arg: PY_TYPES, idx: int, abi_type: Optional[abi.ABIType]
     ) -> Union[str, bytes]:
         partial = cls._partial_encode_assert(
             arg, abi_type, f"problem encoding arg ({arg!r}) at index ({idx})"
@@ -322,12 +360,15 @@ class DryRunEncoder:
         # int -> bytes
         # str -> str
         return cast(
-            Union[str, bytes], cls._to_bytes(arg, only_attempt_int_conversion=True)
+            Union[str, bytes],
+            cls._to_bytes(
+                cast(Union[int, str, bytes], arg), only_attempt_int_conversion=True
+            ),
         )
 
     @classmethod
     def _partial_encode_assert(
-        cls, arg: Union[bytes, int, str], abi_type: Optional[abi.ABIType], msg: str = ""
+        cls, arg: PY_TYPES, abi_type: Optional[abi.ABIType], msg: str = ""
     ) -> Optional[bytes]:
         """
         When have an `abi_type` is present, attempt to encode `arg` accordingly (returning `bytes`)
@@ -356,6 +397,15 @@ class DryRunExecutor:
        * `abi_return_type` is given the `DryRunInspector`'s resulting from execution for ABI-decoding into Python
     """
 
+    # `CREATION_APP_CALL` and `EXISTING_APP_CALL` are enum-like constants used to denote whether a dry run
+    # execution will simulate calling during on-creation vs post-creation.
+    # In the default case that a dry run is executed without a provided application id (aka `index`), the `index`
+    # supplied will be:
+    # * `CREATION_APP_CALL` in the case of `is_app_create == True`
+    # * `EXISTING_APP_CALL` in the case of `is_app_create == False`
+    CREATION_APP_CALL: Final[int] = 0
+    EXISTING_APP_CALL: Final[int] = 42
+
     SUGGESTED_PARAMS = SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
 
     @classmethod
@@ -363,14 +413,15 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[Union[bytes, str, int]],
+        args: Sequence[PY_TYPES],
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
+        is_app_create: bool = False,
+        on_complete: OnComplete = OnComplete.NoOpOC,
         *,
         sender: str = None,
         sp: SuggestedParams = None,
         index: int = None,
-        on_complete: OnComplete = None,
         local_schema: StateSchema = None,
         global_schema: StateSchema = None,
         approval_program: str = None,
@@ -384,6 +435,19 @@ class DryRunExecutor:
         rekey_to: str = None,
         extra_pages: int = None,
     ) -> "DryRunInspector":
+        """
+        Execute a dry run to simulate an app call using provided:
+
+            * algod
+            * teal program for the approval (or clear in the case `on_complete=OnComplete.ClearStateOC`)
+            * args - the application arguments as Python types
+            * abi_argument_types - ABI types of the arguments, in the case of an ABI method call
+            * abi_return_type - the ABI type returned, in the case of an ABI method call
+            * is_app_create to indicate whether or not to simulate an app create call
+            * on_complete - the OnComplete that should be provided in the app call transaction
+
+        Additional application call transaction parameters can be provided as well
+        """
         return cls.execute_one_dryrun(
             algod,
             teal,
@@ -397,8 +461,12 @@ class DryRunExecutor:
                 note=note,
                 lease=lease,
                 rekey_to=rekey_to,
-                index=0 if index is None else index,
-                on_complete=OnComplete.NoOpOC if on_complete is None else on_complete,
+                index=(
+                    (cls.CREATION_APP_CALL if is_app_create else cls.EXISTING_APP_CALL)
+                    if index is None
+                    else index
+                ),
+                on_complete=on_complete,
                 local_schema=local_schema,
                 global_schema=global_schema,
                 approval_program=approval_program,
@@ -453,18 +521,26 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        inputs: List[Sequence[Union[str, int]]],
+        inputs: List[Sequence[PY_TYPES]],
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
+        is_app_create: bool = False,
+        on_complete: OnComplete = OnComplete.NoOpOC,
     ) -> List["DryRunInspector"]:
         # TODO: handle txn_params
-        return cls._map(
-            cls.dryrun_app,
-            algod,
-            teal,
-            abi_argument_types,
-            inputs,
-            abi_return_type,
+        return list(
+            map(
+                lambda args: cls.dryrun_app(
+                    algod=algod,
+                    teal=teal,
+                    args=args,
+                    abi_argument_types=abi_argument_types,
+                    abi_return_type=abi_return_type,
+                    is_app_create=is_app_create,
+                    on_complete=on_complete,
+                ),
+                inputs,
+            )
         )
 
     @classmethod
@@ -477,27 +553,16 @@ class DryRunExecutor:
         abi_return_type: abi.ABIType = None,
     ) -> List["DryRunInspector"]:
         # TODO: handle txn_params
-        return cls._map(
-            cls.dryrun_logicsig,
-            algod,
-            teal,
-            abi_argument_types,
-            inputs,
-            abi_return_type,
-        )
-
-    @classmethod
-    def _map(cls, f, algod, teal, abi_types, inps, abi_ret_type):
         return list(
             map(
-                lambda args: f(
+                lambda args: cls.dryrun_logicsig(
                     algod=algod,
                     teal=teal,
                     args=args,
-                    abi_argument_types=abi_types,
-                    abi_return_type=abi_ret_type,
+                    abi_argument_types=abi_argument_types,
+                    abi_return_type=abi_return_type,
                 ),
-                inps,
+                inputs,
             )
         )
 
@@ -506,7 +571,7 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[Union[bytes, int, str]],
+        args: Sequence[PY_TYPES],
         mode: ExecutionMode,
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
@@ -517,7 +582,7 @@ class DryRunExecutor:
         ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
-        args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
+        encoded_args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
 
         builder: Callable[[str, List[Union[bytes, str]], Dict[str, Any]], DryrunRequest]
         builder = (
@@ -525,10 +590,10 @@ class DryRunExecutor:
             if is_app
             else DryRunHelper.singleton_logicsig_request
         )
-        dryrun_req = builder(teal, args, txn_params)
+        dryrun_req = builder(teal, encoded_args, txn_params)
         dryrun_resp = algod.dryrun(dryrun_req)
         return DryRunInspector.from_single_response(
-            dryrun_resp, abi_type=abi_return_type
+            dryrun_resp, args, encoded_args, abi_type=abi_return_type
         )
 
     @classmethod
@@ -558,6 +623,9 @@ class DryRunExecutor:
         foreign_assets: List[str] = None,
         extra_pages: int = None,
     ) -> Dict[str, Any]:
+        """
+        Returns a `dict` with keys the same as method params, after removing all `None` values
+        """
         params = dict(
             sender=sender,
             sp=sp,
@@ -580,6 +648,141 @@ class DryRunExecutor:
             extra_pages=extra_pages,
         )
         return {k: v for k, v in params.items() if v is not None}
+
+
+class ABIContractExecutor:
+    """Execute an ABI Contract via Dry Run"""
+
+    def __init__(
+        self,
+        teal: str,
+        contract: str,
+        argument_strategy: Optional[Type[ABIStrategy]] = RandomABIStrategy,
+        dry_runs: int = 1,
+    ):
+        self.program = teal
+        self.contract: abi.Contract = abi.Contract.from_json(contract)
+        self.argument_strategy: Optional[Type[ABIStrategy]] = argument_strategy
+        self.dry_runs = dry_runs
+
+    def argument_types(self, method: Optional[str] = None) -> List[abi.ABIType]:
+        if not method:
+            return []
+
+        # the method selector is not abi-encoded, hence its abi-type is set to None
+        return [None] + [
+            arg.type for arg in self.contract.get_method_by_name(method).args
+        ]
+
+    def return_type(self, method: Optional[str] = None) -> Optional[abi.ABIType]:
+        if not method:
+            return None
+
+        return_type = self.contract.get_method_by_name(method).returns.type
+        if return_type == abi.Returns.VOID:
+            return None
+
+        return return_type
+
+    def generate_inputs(self, method: Optional[str]) -> List[Sequence[PY_TYPES]]:
+        assert (
+            self.argument_strategy
+        ), "cannot generate inputs without an argument_strategy"
+
+        if not method:
+            # bare calls receive no arguments
+            return [tuple() for _ in range(self.dry_runs)]
+
+        selector = self.contract.get_method_by_name(method).get_selector()
+        arg_types = self.argument_types(method)
+
+        def gen_args():
+            return tuple(
+                [selector]
+                + [
+                    self.argument_strategy(arg_type).get()
+                    for arg_type in arg_types
+                    if arg_type
+                ]
+            )
+
+        return [gen_args() for _ in range(self.dry_runs)]
+
+    def validate_inputs(self, method: Optional[str], inputs: List[Sequence[PY_TYPES]]):
+        if not method:
+            assert not any(
+                inputs
+            ), f"bare app calls require args to be empty but inputs={inputs}"
+            return
+
+        arg_types = self.argument_types(method)
+        selector = self.contract.get_method_by_name(method).get_selector()
+        for i, args in enumerate(inputs):
+            error = self._validate_args(selector, args, arg_types)
+            assert not error, f"inputs is invalid at index {i}: {error}"
+
+    @classmethod
+    def _validate_args(
+        cls,
+        method_selector: Optional[str],
+        args: Sequence[PY_TYPES],
+        arg_types: List[abi.ABIType],
+    ) -> Optional[str]:
+        if not isinstance(args, tuple):
+            return f"expected tuple for args but got {type(args)}"
+
+        if not method_selector:  # bare app call case
+            if args:
+                return (
+                    f"an ARC-4 bare app call should receive no arguments but got {args}"
+                )
+            return None
+
+        a_len, t_len = len(args), len(arg_types)
+        if not a_len == t_len:
+            return f"length mismatch between args ({a_len}) and arg_types ({t_len})"
+
+        if args[0] != method_selector:
+            return f"first argument should be method selector {method_selector} but was {args[0]}"
+
+        return None
+
+    def dry_run_on_sequence(
+        self,
+        algod: AlgodClient,
+        method: Optional[str] = None,
+        is_app_create: bool = False,
+        on_complete: OnComplete = OnComplete.NoOpOC,
+        inputs: Optional[List[Sequence[PY_TYPES]]] = None,
+        *,
+        arg_types: Optional[List[abi.ABIType]] = None,
+        return_type: Optional[abi.ABIType] = None,
+        validate_inputs: bool = True,
+    ) -> List["DryRunInspector"]:
+        """ARC-4 Compliant Dry Run"""
+        # TODO: handle txn_params
+
+        if arg_types is None:
+            arg_types = self.argument_types(method)
+
+        if return_type is None:
+            return_type = self.return_type(method)
+
+        if inputs is None:
+            inputs = self.generate_inputs(method)
+
+        if validate_inputs:
+            self.validate_inputs(method, inputs)
+
+        return DryRunExecutor.dryrun_app_on_sequence(
+            algod,
+            self.program,
+            inputs,
+            abi_argument_types=arg_types,
+            abi_return_type=return_type,
+            is_app_create=is_app_create,
+            on_complete=on_complete,
+        )
 
 
 class DryRunInspector:
@@ -638,9 +841,16 @@ class DryRunInspector:
     To suppress decoding the last log entry altogether, and show the raw hex, set `config(suppress_abi=True)`.
     """
 
-    CONFIG_OPTIONS = {"suppress_abi", "has_abi_prefix"}
+    CONFIG_OPTIONS = {"suppress_abi", "has_abi_prefix", "show_internal_errors_on_log"}
 
-    def __init__(self, dryrun_resp: dict, txn_index: int, abi_type: abi.ABIType = None):
+    def __init__(
+        self,
+        dryrun_resp: dict,
+        txn_index: int,
+        args: Sequence[PY_TYPES],
+        encoded_args: List[Union[bytes, str]],
+        abi_type: abi.ABIType = None,
+    ):
         txns = dryrun_resp.get("txns", [])
         assert txns, "Dry Run response is missing transactions"
 
@@ -649,6 +859,8 @@ class DryRunInspector:
         ), f"Out of bounds txn_index {txn_index} when there are only {len(txns)} transactions in the Dry Run response"
 
         txn = txns[txn_index]
+        self.args = args
+        self.encoded_args = encoded_args
 
         self.mode: ExecutionMode = self.get_txn_mode(txn)
         self.parent_dryrun_response: dict = dryrun_resp
@@ -660,7 +872,12 @@ class DryRunInspector:
         # config options:
         self.suppress_abi: bool
         self.has_abi_prefix: bool
-        self.config(suppress_abi=False, has_abi_prefix=bool(self.abi_type))
+        self.show_internal_errors_on_log: bool
+        self.config(
+            suppress_abi=False,
+            has_abi_prefix=bool(self.abi_type),
+            show_internal_errors_on_log=True,
+        )
 
     def config(self, **kwargs: bool):
         bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS
@@ -695,7 +912,11 @@ class DryRunInspector:
 
     @classmethod
     def from_single_response(
-        cls, dryrun_resp: dict, abi_type: abi.ABIType = None
+        cls,
+        dryrun_resp: dict,
+        args: Sequence[PY_TYPES],
+        encoded_args: List[Union[bytes, str]],
+        abi_type: abi.ABIType = None,
     ) -> "DryRunInspector":
         error = dryrun_resp.get("error")
         assert not error, f"dryrun response included the following error: [{error}]"
@@ -705,7 +926,7 @@ class DryRunInspector:
             len(txns) == 1
         ), f"require exactly 1 dry run transaction to create a singleton but had {len(txns)} instead"
 
-        return cls(dryrun_resp, 0, abi_type=abi_type)
+        return cls(dryrun_resp, 0, args, encoded_args, abi_type=abi_type)
 
     def dig(self, dr_property: DryRunProperty, **kwargs: Dict[str, Any]) -> Any:
         """Main router for assertable properties"""
@@ -723,7 +944,20 @@ class DryRunInspector:
             last_log = txn.get("logs", [None])[-1]
             if last_log is None:
                 return last_log
-            return b64decode(last_log).hex()
+
+            last_log = b64decode(last_log).hex()
+            if not self.abi_type or self.suppress_abi:
+                return last_log
+
+            try:
+                if self.has_abi_prefix:
+                    # skip the first 8 hex char's == first 4 bytes:
+                    last_log = last_log[8:]
+                return self.abi_type.decode(bytes.fromhex(last_log))
+            except Exception as e:
+                if self.show_internal_errors_on_log:
+                    return str(e)
+                raise e
 
         if dr_property == DryRunProperty.finalScratch:
             return {k: v.as_python_type() for k, v in bbr.final_scratch_state.items()}
@@ -749,16 +983,23 @@ class DryRunInspector:
             return self.extracts["status"] == "REJECT"
 
         if dr_property == DryRunProperty.error:
+            """
+            * when `contains` kwarg is NOT provided
+                - asserts that there was an error
+            * when `contains` kwarg IS provided
+                - asserts that there was an error AND that it's message includes `contains`'s value
+            """
             contains = kwargs.get("contains")
             ok, msg = assert_error(
                 self.parent_dryrun_response, contains=contains, enforce=False
             )
-            # when there WAS an error, we return its msg, else False
             return ok
 
         if dr_property == DryRunProperty.errorMessage:
+            """
+            * when there was no error, we return None, else return its msg
+            """
             _, msg = assert_no_error(self.parent_dryrun_response, enforce=False)
-            # when there was no error, we return None, else return its msg
             return msg if msg else None
 
         if dr_property == DryRunProperty.lastMessage:
@@ -781,13 +1022,7 @@ class DryRunInspector:
         if not self.is_app():
             return None
 
-        res = self.dig(DRProp.lastLog)
-        if not self.abi_type or self.suppress_abi:
-            return res
-
-        if self.has_abi_prefix:
-            res = res[8:]  # skip the first 8 hex char's == first 4 bytes
-        return self.abi_type.decode(bytes.fromhex(res))
+        return self.dig(DRProp.lastLog)
 
     def stack_top(self) -> Union[int, str]:
         """Assertable property for the contents of the top of the stack and the end of a dry run execution
@@ -949,12 +1184,14 @@ class DryRunInspector:
 
     def report(
         self,
-        args: Sequence[Union[str, int]],
+        args: Optional[Sequence[PY_TYPES]] = None,
         msg: str = "Dry Run Inspector Report",
         row: int = 0,
         last_steps: int = 100,
     ) -> str:
         bbr = self.black_box_results
+        if args is None:
+            args = self.args
         return f"""===============
     <<<<<<<<<<<{msg}>>>>>>>>>>>
     ===============
@@ -991,8 +1228,8 @@ class DryRunInspector:
     """
 
     def csv_row(
-        self, row_num: int, args: Sequence[Union[int, str]]
-    ) -> Dict[str, Union[str, int, None]]:
+        self, row_num: int, args: Sequence[PY_TYPES]
+    ) -> Dict[str, Optional[PY_TYPES]]:
         return {
             " Run": row_num,
             " cost": self.cost(),

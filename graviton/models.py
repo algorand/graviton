@@ -38,3 +38,11 @@ class App:
     args: Optional[List[Union[bytes, str]]] = None
     accounts: Optional[List[Union[str, Account]]] = None
     global_state: Optional[List[TealKeyValue]] = None
+
+    @classmethod
+    def factory(cls, **kwargs) -> "App":
+        app = cls()
+        for key, val in kwargs.items():
+            if hasattr(app, key) and val is not None:
+                setattr(app, key, val)
+        return app

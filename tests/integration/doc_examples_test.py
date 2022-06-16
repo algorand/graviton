@@ -179,7 +179,7 @@ def test_step9():
 
     # Invariant assertions on sequence:
     for dr_property, invariant in invariants.items():
-        invariant.validates(dr_property, inputs, inspectors)
+        invariant.validates(dr_property, inspectors)
 
 
 @pytest.mark.parametrize("exercise", ["A", "B"])
@@ -218,4 +218,4 @@ def test_exercises(exercise):
 
     # Invariant assertions on sequence:
     for dr_property, invariant in invariants.items():
-        invariant.validates(dr_property, inputs, inspectors)
+        invariant.validates(dr_property, inspectors)
