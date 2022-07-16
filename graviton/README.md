@@ -5,9 +5,6 @@
 
 Graviton (aka the TEAL Blackbox Toolkit): Program Reporting and Testing via Dry Runs
 
-<!-- Please let me know if you'd like to keep or you think the logo in the header is fine since it also encapsulates the diagram in the letter G -->
-<!-- <img width="345" alt="http://cds.cern.ch/record/2315186/files/scoap3-fulltext.pdf" src="https://user-images.githubusercontent.com/291133/160721859-21a3560a-0a82-4249-aa54-5ede4c60f8d2.png"> -->
-
 **NOTE: to get math formulas to render here using Chrome, add the [xhub extension](https://chrome.google.com/webstore/detail/xhub/anidddebgkllnnnnjfkmjcaallemhjee/related) and reload.**
 
 **DISCLAIMER**: Graviton is subject to change and makes no backwards compatability guarantees.
