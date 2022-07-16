@@ -1,6 +1,20 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## `v0.4.1`
+
+### Added
+
+* Better Logos
+* Badges for:
+  * visitor count
+  * "powered by Algorand"
+* New `THANKS.md`
+
+### Removed
+
+* Original logo including _ALT_ link to graviton journal article in the following tag: `<img width="345" alt="http://cds.cern.ch/record/2315186/files/scoap3-fulltext.pdf" src="https://user-images.githubusercontent.com/291133/160721859-21a3560a-0a82-4249-aa54-5ede4c60f8d2.png">`
+
 ## `v0.4.0` (_aka_ 🐕)
 
 ### Added
