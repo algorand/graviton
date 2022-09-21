@@ -2,11 +2,6 @@
 <!-- markdownlint-disable first-line-h1 -->
 <p align="center"><img  width=100%  src="https://infura-ipfs.io/ipfs/QmRVnM9EaCk3u9p42b5ppLjwxUPv54EDQihmkNyFxqKuVi"  border="0" /></p>
 
-<p align="center">
-    <a href="https://algorand.com"><img src="https://img.shields.io/badge/Powered by-Algorand-teal.svg" alt="Algorand" /></a>
-    <a><img src="https://visitor-badge.glitch.me/badge?page_id=algorand.graviton&right_color=green" /></a>
-</p>
-
 # About
 
 Graviton is a software toolkit for blackbox testing of smart contracts written in TEAL.
