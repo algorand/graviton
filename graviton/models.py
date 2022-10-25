@@ -24,7 +24,7 @@ def get_run_mode(app):
 class LSig:
     """Logic Sig program parameters"""
 
-    args: Optional[List[bytes]] = None
+    args: Optional[List[bytes | str]] = None
 
 
 @dataclass

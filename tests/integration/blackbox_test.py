@@ -287,7 +287,7 @@ APP_SCENARIOS = {
             DRProp.cost: lambda args, actual: (
                 actual - 40 <= 17 * args[0] <= actual + 40
             ),
-            DRProp.budgetConsumed: lambda args, actual : (
+            DRProp.budgetConsumed: lambda args, actual: (
                 actual - 40 <= 17 * args[0] <= actual + 40
             ),
             DRProp.budgetAdded: 0,
@@ -317,7 +317,9 @@ APP_SCENARIOS = {
         "inputs": [(i,) for i in range(18)],
         "invariants": {
             DRProp.cost: lambda args: (fib_cost(args) if args[0] < 17 else 70_000),
-            DRProp.budgetConsumed: lambda args: (fib_cost(args) if args[0] < 17 else 70_000),
+            DRProp.budgetConsumed: lambda args: (
+                fib_cost(args) if args[0] < 17 else 70_000
+            ),
             DRProp.budgetAdded: 0,
             DRProp.lastLog: lambda args: (
                 Encoder.hex(fib(args[0])) if args[0] < 17 else None
@@ -385,7 +387,14 @@ def test_app_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun responses:
-    accounts = [Account(address=get_application_address(Executor.EXISTING_APP_CALL), status="Online", amount=105000000, amount_without_pending_rewards=10500000)]
+    accounts = [
+        Account(
+            address=get_application_address(Executor.EXISTING_APP_CALL),
+            status="Online",
+            amount=105000000,
+            amount_without_pending_rewards=10500000,
+        )
+    ]
     dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs, dryrun_accounts=accounts)  # type: ignore
 
     # 3. Generate statistical report of all the runs:

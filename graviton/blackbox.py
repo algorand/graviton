@@ -50,7 +50,7 @@ class ExecutionMode(Enum):
 
 
 class DryRunProperty(Enum):
-    cost = auto() # deprecated
+    cost = auto()  # deprecated
     budgetAdded = auto()
     budgetConsumed = auto()
     lastLog = auto()
@@ -439,7 +439,7 @@ class DryRunExecutor:
         lease: str = None,
         rekey_to: str = None,
         extra_pages: int = None,
-        dryrun_accounts: List[str | Account] = []
+        dryrun_accounts: List[str | Account] = [],
     ) -> "DryRunInspector":
         """
         Execute a dry run to simulate an app call using provided:
@@ -483,7 +483,7 @@ class DryRunExecutor:
                 foreign_assets=foreign_assets,
                 extra_pages=extra_pages,
             ),
-            accounts=dryrun_accounts
+            accounts=dryrun_accounts,
         )
 
     @classmethod
@@ -533,7 +533,7 @@ class DryRunExecutor:
         abi_return_type: abi.ABIType = None,
         is_app_create: bool = False,
         on_complete: OnComplete = OnComplete.NoOpOC,
-        dryrun_accounts: List[str | Account] = []
+        dryrun_accounts: List[str | Account] = [],
     ) -> List["DryRunInspector"]:
         # TODO: handle txn_params
         return list(
@@ -546,7 +546,7 @@ class DryRunExecutor:
                     abi_return_type=abi_return_type,
                     is_app_create=is_app_create,
                     on_complete=on_complete,
-                    dryrun_accounts=dryrun_accounts
+                    dryrun_accounts=dryrun_accounts,
                 ),
                 inputs,
             )
@@ -596,9 +596,13 @@ class DryRunExecutor:
 
         dryrun_req: DryrunRequest
         if is_app:
-            dryrun_req = DryRunHelper.singleton_app_request(teal, encoded_args, txn_params, accounts)
+            dryrun_req = DryRunHelper.singleton_app_request(
+                teal, encoded_args, txn_params, accounts
+            )
         else:
-            dryrun_req = DryRunHelper.singleton_logicsig_request(teal, encoded_args, txn_params)
+            dryrun_req = DryRunHelper.singleton_logicsig_request(
+                teal, encoded_args, txn_params
+            )
         dryrun_resp = algod.dryrun(dryrun_req)
         return DryRunInspector.from_single_response(
             dryrun_resp, args, encoded_args, abi_type=abi_return_type
