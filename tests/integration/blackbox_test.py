@@ -11,6 +11,8 @@ from graviton.blackbox import (
     mode_has_property,
 )
 from graviton.invariant import Invariant
+from algosdk.v2client.models import Account
+from algosdk.logic import get_application_address
 
 from tests.clients import get_algod
 
@@ -172,6 +174,8 @@ APP_SCENARIOS = {
         # since only a single input, just assert a constant in each case
         "invariants": {
             DRProp.cost: 11,
+            DRProp.budgetConsumed: 11,
+            DRProp.budgetAdded: 0,
             DRProp.lastLog: Encoder.hex(2**10),
             # dicts have a special meaning as invariants. So in the case of "finalScratch"
             # which is supposed to _ALSO_ output a dict, we need to use a lambda as a work-around
@@ -188,6 +192,8 @@ APP_SCENARIOS = {
         "inputs": [(i,) for i in range(100)],
         "invariants": {
             DRProp.cost: lambda _, actual: 20 < actual < 22,
+            DRProp.budgetConsumed: lambda _, actual: 20 < actual < 22,
+            DRProp.budgetAdded: 0,
             DRProp.lastLog: Encoder.hex(1337),
             # due to dry-run artifact of not reporting 0-valued scratchvars,
             # we have a special case for n=0:
@@ -206,6 +212,8 @@ APP_SCENARIOS = {
         "inputs": [(i,) for i in range(100)],
         "invariants": {
             DRProp.cost: 14,
+            DRProp.budgetConsumed: 14,
+            DRProp.budgetAdded: 0,
             DRProp.lastLog: {(i,): Encoder.hex(i * i) for i in range(100)},
             DRProp.finalScratch: lambda args: (
                 {0: args[0], 1: args[0] ** 2} if args[0] else {}
@@ -222,6 +230,8 @@ APP_SCENARIOS = {
         "inputs": [(1, 2), (1, "two"), ("one", 2), ("one", "two")],
         "invariants": {
             DRProp.cost: 27,
+            DRProp.budgetConsumed: 27,
+            DRProp.budgetAdded: 0,
             DRProp.lastLog: Encoder.hex(1337),
             DRProp.finalScratch: lambda args: {
                 0: 4,
@@ -243,6 +253,8 @@ APP_SCENARIOS = {
         "inputs": [("xyzw", i) for i in range(100)],
         "invariants": {
             DRProp.cost: lambda args: 30 + 15 * args[1],
+            DRProp.budgetConsumed: lambda args: 30 + 15 * args[1],
+            DRProp.budgetAdded: 0,
             DRProp.lastLog: (lambda args: Encoder.hex(args[0] * args[1])),
             # due to dryrun 0-scratchvar artifact, special case for i == 0:
             DRProp.finalScratch: lambda args: (
@@ -275,6 +287,10 @@ APP_SCENARIOS = {
             DRProp.cost: lambda args, actual: (
                 actual - 40 <= 17 * args[0] <= actual + 40
             ),
+            DRProp.budgetConsumed: lambda args, actual : (
+                actual - 40 <= 17 * args[0] <= actual + 40
+            ),
+            DRProp.budgetAdded: 0,
             DRProp.lastLog: lambda args: (
                 Encoder.hex(fac_with_overflow(args[0])) if args[0] < 21 else None
             ),
@@ -301,6 +317,8 @@ APP_SCENARIOS = {
         "inputs": [(i,) for i in range(18)],
         "invariants": {
             DRProp.cost: lambda args: (fib_cost(args) if args[0] < 17 else 70_000),
+            DRProp.budgetConsumed: lambda args: (fib_cost(args) if args[0] < 17 else 70_000),
+            DRProp.budgetAdded: 0,
             DRProp.lastLog: lambda args: (
                 Encoder.hex(fib(args[0])) if args[0] < 17 else None
             ),
@@ -325,6 +343,17 @@ APP_SCENARIOS = {
                 if args[0] < 17
                 else "dynamic cost budget exceeded" in actual
             ),
+        },
+    },
+    "app_itxn": {
+        "inputs": [()],
+        "invariants": {
+            DRProp.budgetConsumed: 13,
+            DRProp.budgetAdded: 700,
+            DRProp.status: "PASS",
+            DRProp.passed: True,
+            DRProp.rejected: False,
+            DRProp.errorMessage: None,
         },
     },
 }
@@ -356,7 +385,8 @@ def test_app_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun responses:
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)  # type: ignore
+    accounts = [Account(address=get_application_address(Executor.EXISTING_APP_CALL), status="Online", amount=105000000, amount_without_pending_rewards=10500000)]
+    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs, dryrun_accounts=accounts)  # type: ignore
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"

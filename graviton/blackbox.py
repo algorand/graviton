@@ -20,7 +20,7 @@ from typing import (
 
 from algosdk import abi
 from algosdk.v2client.algod import AlgodClient
-from algosdk.v2client.models import DryrunRequest
+from algosdk.v2client.models import DryrunRequest, Account
 from algosdk.future.transaction import (
     OnComplete,
     StateSchema,
@@ -28,6 +28,7 @@ from algosdk.future.transaction import (
 )
 
 from algosdk import atomic_transaction_composer as atc
+from graviton import dryrun
 
 from graviton.abi_strategy import PY_TYPES, ABIStrategy, RandomABIStrategy
 
@@ -49,7 +50,9 @@ class ExecutionMode(Enum):
 
 
 class DryRunProperty(Enum):
-    cost = auto()
+    cost = auto() # deprecated
+    budgetAdded = auto()
+    budgetConsumed = auto()
     lastLog = auto()
     finalScratch = auto()
     stackTop = auto()
@@ -71,6 +74,8 @@ def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> 
     missing: Dict[ExecutionMode, set] = {
         ExecutionMode.Signature: {
             DryRunProperty.cost,
+            DryRunProperty.budgetAdded,
+            DryRunProperty.budgetConsumed,
             DryRunProperty.lastLog,
         },
         ExecutionMode.Application: set(),
@@ -434,6 +439,7 @@ class DryRunExecutor:
         lease: str = None,
         rekey_to: str = None,
         extra_pages: int = None,
+        dryrun_accounts: List[str | Account] = []
     ) -> "DryRunInspector":
         """
         Execute a dry run to simulate an app call using provided:
@@ -477,6 +483,7 @@ class DryRunExecutor:
                 foreign_assets=foreign_assets,
                 extra_pages=extra_pages,
             ),
+            accounts=dryrun_accounts
         )
 
     @classmethod
@@ -526,6 +533,7 @@ class DryRunExecutor:
         abi_return_type: abi.ABIType = None,
         is_app_create: bool = False,
         on_complete: OnComplete = OnComplete.NoOpOC,
+        dryrun_accounts: List[str | Account] = []
     ) -> List["DryRunInspector"]:
         # TODO: handle txn_params
         return list(
@@ -538,6 +546,7 @@ class DryRunExecutor:
                     abi_return_type=abi_return_type,
                     is_app_create=is_app_create,
                     on_complete=on_complete,
+                    dryrun_accounts=dryrun_accounts
                 ),
                 inputs,
             )
@@ -576,6 +585,7 @@ class DryRunExecutor:
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
         txn_params: dict = {},
+        accounts: List[str | Account] = [],
     ) -> "DryRunInspector":
         assert (
             len(ExecutionMode) == 2
@@ -584,13 +594,11 @@ class DryRunExecutor:
         is_app = mode == ExecutionMode.Application
         encoded_args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
 
-        builder: Callable[[str, List[Union[bytes, str]], Dict[str, Any]], DryrunRequest]
-        builder = (
-            DryRunHelper.singleton_app_request  # type: ignore
-            if is_app
-            else DryRunHelper.singleton_logicsig_request
-        )
-        dryrun_req = builder(teal, encoded_args, txn_params)
+        dryrun_req: DryrunRequest
+        if is_app:
+            dryrun_req = DryRunHelper.singleton_app_request(teal, encoded_args, txn_params, accounts)
+        else:
+            dryrun_req = DryRunHelper.singleton_logicsig_request(teal, encoded_args, txn_params)
         dryrun_resp = algod.dryrun(dryrun_req)
         return DryRunInspector.from_single_response(
             dryrun_resp, args, encoded_args, abi_type=abi_return_type
@@ -940,6 +948,13 @@ class DryRunInspector:
         if dr_property == DryRunProperty.cost:
             return txn["cost"]
 
+        if dr_property == DryRunProperty.budgetAdded:
+            return txn["budget-added"]
+
+        if dr_property == DryRunProperty.budgetConsumed:
+            print(txn["budget-consumed"])
+            return txn["budget-consumed"]
+
         if dr_property == DryRunProperty.lastLog:
             last_log = txn.get("logs", [None])[-1]
             if last_log is None:
@@ -1008,11 +1023,25 @@ class DryRunInspector:
         raise Exception(f"Unknown assert_type {dr_property}")
 
     def cost(self) -> Optional[int]:
-        """Assertable property for the total opcode cost that was used during dry run execution
+        """Assertable property for the net opcode budget consumed during dry run execution
         return type: int
         available Mode: Application only
         """
         return self.dig(DRProp.cost) if self.is_app() else None
+
+    def budget_added(self) -> Optional[int]:
+        """Assertable property for the total opcode budget added with itxns during dry run execution
+        return type: int
+        available Mode: Application only
+        """
+        return self.dig(DRProp.budgetAdded) if self.is_app() else None
+
+    def budget_consumed(self) -> Optional[int]:
+        """Assertable property for the total opcode budget consumed during dry run execution
+        return type: int
+        available Mode: Application only
+        """
+        return self.dig(DRProp.budgetConsumed) if self.is_app() else None
 
     def last_log(self) -> Optional[str]:
         """Assertable property for the last log that was printed during dry run execution

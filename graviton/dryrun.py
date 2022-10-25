@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Union
 
 from algosdk.future import transaction
 from algosdk.encoding import encode_address, msgpack_encode
+from algosdk.logic import get_application_address
 from algosdk.v2client.models import (
     DryrunRequest,
     DryrunSource,
@@ -212,13 +213,13 @@ class DryRunHelper:
 
     @classmethod
     def singleton_app_request(
-        cls, program: str, args: List[Union[bytes, str]], txn_params: Dict[str, Any]
+        cls, program: str, args: List[Union[bytes, str]], txn_params: Dict[str, Any], accounts: List[str | Account]
     ):
         creator = txn_params.get("sender")
         app_idx = txn_params.get("index")
         on_complete = txn_params.get("on_complete")
         app = models.App.factory(
-            creator=creator, app_idx=app_idx, on_complete=on_complete, args=args
+            creator=creator, app_idx=app_idx, on_complete=on_complete, args=args, accounts=accounts
         )
         return cls.dryrun_request(program, app, txn_params)
 

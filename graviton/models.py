@@ -36,7 +36,7 @@ class App:
     app_idx: int = 0
     on_complete: int = 0
     args: Optional[List[Union[bytes, str]]] = None
-    accounts: Optional[List[Union[str, Account]]] = None
+    accounts: Optional[List[str | Account]] = None
     global_state: Optional[List[TealKeyValue]] = None
 
     @classmethod
