@@ -437,7 +437,7 @@ class DryRunExecutor:
         lease: str = None,
         rekey_to: str = None,
         extra_pages: int = None,
-        dryrun_accounts: List[Union[str, Account]]] = [],
+        dryrun_accounts: List[Union[str, Account]] = [],
     ) -> "DryRunInspector":
         """
         Execute a dry run to simulate an app call using provided:
