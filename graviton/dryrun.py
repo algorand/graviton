@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Union
 
 from algosdk.future import transaction
 from algosdk.encoding import encode_address, msgpack_encode
-from algosdk.logic import get_application_address
 from algosdk.v2client.models import (
     DryrunRequest,
     DryrunSource,

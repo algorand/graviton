@@ -7,7 +7,6 @@ import io
 from tabulate import tabulate
 from typing import (
     Any,
-    Callable,
     Dict,
     Final,
     List,
@@ -28,7 +27,6 @@ from algosdk.future.transaction import (
 )
 
 from algosdk import atomic_transaction_composer as atc
-from graviton import dryrun
 
 from graviton.abi_strategy import PY_TYPES, ABIStrategy, RandomABIStrategy
 
