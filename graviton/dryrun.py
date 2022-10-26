@@ -16,7 +16,8 @@ from algosdk.v2client.models import (
     Account,
 )
 
-from . import models
+from graviton import models
+from graviton.models import ArgType
 
 PRINTABLE = frozenset(string.printable)
 
@@ -206,7 +207,7 @@ class DryRunHelper:
 
     @classmethod
     def singleton_logicsig_request(
-        cls, program: str, args: List[Union[bytes, str]], txn_params: Dict[str, Any]
+        cls, program: str, args: List[ArgType], txn_params: Dict[str, Any]
     ):
         return cls.dryrun_request(program, models.LSig(args=args), txn_params)
 
@@ -214,7 +215,7 @@ class DryRunHelper:
     def singleton_app_request(
         cls,
         program: str,
-        args: List[Union[bytes, str]],
+        args: List[ArgType],
         txn_params: Dict[str, Any],
         accounts: List[Union[str, Account]],
     ):

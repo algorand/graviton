@@ -259,7 +259,6 @@ YACC_CLEAR_TEAL = None
 with open(ROUTER / "yacc_clear.teal") as f:
     YACC_CLEAR_TEAL = f.read()
 
-
 QUESTIONABLE_ACE = ABIContractExecutor(
     QUESTIONABLE_TEAL,
     QUESTIONABLE_CONTRACT,
@@ -273,7 +272,6 @@ QUESTIONABLE_CLEAR_ACE = ABIContractExecutor(
     argument_strategy=RandomABIStrategyHalfSized,
     dry_runs=NUM_ROUTER_DRYRUNS,
 )
-
 
 YACC_ACE = ABIContractExecutor(
     YACC_TEAL,
