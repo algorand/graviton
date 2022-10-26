@@ -437,7 +437,7 @@ class DryRunExecutor:
         lease: str = None,
         rekey_to: str = None,
         extra_pages: int = None,
-        dryrun_accounts: List[str | Account] = [],
+        dryrun_accounts: List[Union[str, Account]]] = [],
     ) -> "DryRunInspector":
         """
         Execute a dry run to simulate an app call using provided:
@@ -531,7 +531,7 @@ class DryRunExecutor:
         abi_return_type: abi.ABIType = None,
         is_app_create: bool = False,
         on_complete: OnComplete = OnComplete.NoOpOC,
-        dryrun_accounts: List[str | Account] = [],
+        dryrun_accounts: List[Union[str, Account]] = [],
     ) -> List["DryRunInspector"]:
         # TODO: handle txn_params
         return list(
@@ -583,7 +583,7 @@ class DryRunExecutor:
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
         txn_params: dict = {},
-        accounts: List[str | Account] = [],
+        accounts: List[Union[str, Account]] = [],
     ) -> "DryRunInspector":
         assert (
             len(ExecutionMode) == 2

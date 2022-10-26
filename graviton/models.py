@@ -24,7 +24,7 @@ def get_run_mode(app):
 class LSig:
     """Logic Sig program parameters"""
 
-    args: Optional[List[bytes | str]] = None
+    args: Optional[List[Union[bytes, str]]] = None
 
 
 @dataclass
@@ -36,7 +36,7 @@ class App:
     app_idx: int = 0
     on_complete: int = 0
     args: Optional[List[Union[bytes, str]]] = None
-    accounts: Optional[List[str | Account]] = None
+    accounts: Optional[List[Union[str, Account]]] = None
     global_state: Optional[List[TealKeyValue]] = None
 
     @classmethod

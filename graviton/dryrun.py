@@ -206,7 +206,7 @@ class DryRunHelper:
 
     @classmethod
     def singleton_logicsig_request(
-        cls, program: str, args: List[bytes | str], txn_params: Dict[str, Any]
+        cls, program: str, args: List[Union[bytes, str]], txn_params: Dict[str, Any]
     ):
         return cls.dryrun_request(program, models.LSig(args=args), txn_params)
 
@@ -216,7 +216,7 @@ class DryRunHelper:
         program: str,
         args: List[Union[bytes, str]],
         txn_params: Dict[str, Any],
-        accounts: List[str | Account],
+        accounts: List[Union[str, Account]],
     ):
         creator = txn_params.get("sender")
         app_idx = txn_params.get("index")
