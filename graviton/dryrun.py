@@ -216,7 +216,7 @@ class DryRunHelper:
         program: str,
         args: List[Union[bytes, str]],
         txn_params: Dict[str, Any],
-        accounts: List[Union[str, Account]],
+        accounts: List[Union[str, Account]] = [],
     ):
         creator = txn_params.get("sender")
         app_idx = txn_params.get("index")

@@ -768,6 +768,7 @@ class ABIContractExecutor:
         arg_types: Optional[List[abi.ABIType]] = None,
         return_type: Optional[abi.ABIType] = None,
         validate_inputs: bool = True,
+        dryrun_accounts: List[Union[str, Account]] = [],
     ) -> List["DryRunInspector"]:
         """ARC-4 Compliant Dry Run"""
         # TODO: handle txn_params
@@ -792,6 +793,7 @@ class ABIContractExecutor:
             abi_return_type=return_type,
             is_app_create=is_app_create,
             on_complete=on_complete,
+            dryrun_accounts=dryrun_accounts,
         )
 
 
@@ -820,7 +822,14 @@ class DryRunInspector:
 
     DryRunInspector provides the following **assertable properties**:
     * `cost`
-        - total opcode cost utilized during execution
+        - net opcode budget consumed during execution
+        - derived property: cost = budget_consumed - budget_added
+        - only available for apps
+    * `budget_added`
+        - total opcode budget increase during execution
+        - only available for apps
+    * `budget_consumed`
+        - total opcode budget consumed during execution
         - only available for apps
     * `last_log`
         - the final hex bytes that was logged during execution (apps only)
@@ -948,13 +957,16 @@ class DryRunInspector:
         ), f"{self.mode} cannot handle dig information from txn for assertion type {dr_property}"
 
         if dr_property == DryRunProperty.cost:
-            return txn["cost"]
+            # cost is treated as a derived property if budget-consumed and budget-added is available
+            if "budget-consumed" in txn and "budget-added" in txn:
+                return txn["budget-consumed"] - txn["budget-added"]
+            else:
+                return txn["cost"]
 
         if dr_property == DryRunProperty.budgetAdded:
             return txn["budget-added"]
 
         if dr_property == DryRunProperty.budgetConsumed:
-            print(txn["budget-consumed"])
             return txn["budget-consumed"]
 
         if dr_property == DryRunProperty.lastLog:
@@ -1340,7 +1352,11 @@ class DryRunInspector:
 
     @classmethod
     def extract_cost(cls, txn):
-        return txn.get("cost")
+        # cost is treated as a derived property if budget-consumed and budget-added is available
+        if "budget-consumed" in txn and "budget-added" in txn:
+            return txn["budget-consumed"] - txn["budget-added"]
+        else:
+            return txn.get("cost")
 
     @classmethod
     def extract_status(cls, txn, is_app: bool):
