@@ -347,17 +347,6 @@ APP_SCENARIOS = {
             ),
         },
     },
-    "app_itxn": {
-        "inputs": [()],
-        "invariants": {
-            DRProp.budgetConsumed: 13,
-            DRProp.budgetAdded: 700,
-            DRProp.status: "PASS",
-            DRProp.passed: True,
-            DRProp.rejected: False,
-            DRProp.errorMessage: None,
-        },
-    },
 }
 
 
@@ -405,6 +394,103 @@ def test_app_with_report(filebase: str):
     print(f"Saved Dry Run CSV report to {csvpath}")
 
     # 4. Sequential invariants (if provided any)
+    for i, type_n_invariant in enumerate(invariants.items()):
+        dr_property, invariant = type_n_invariant
+
+        assert mode_has_property(
+            mode, dr_property
+        ), f"assert_type {dr_property} is not applicable for {mode}. Please REMOVE or MODIFY"
+
+        invariant = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{dr_property}")
+        print(
+            f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant}>>"
+        )
+        invariant.validates(dr_property, dryrun_results)
+
+
+def test_app_itxn_with_report():
+    scenario_success = {
+        "inputs": [()],
+        "invariants": {
+            DRProp.budgetConsumed: 13,
+            DRProp.budgetAdded: 700,
+            DRProp.status: "PASS",
+            DRProp.passed: True,
+            DRProp.rejected: False,
+            DRProp.errorMessage: None,
+        },
+    }
+
+    mode = ExecutionMode.Application
+
+    # 0. Validate that the scenario is well defined:
+    inputs, invariants = Invariant.inputs_and_invariants(
+        scenario_success, mode, raw_predicates=True  # type: ignore
+    )
+
+    algod = get_algod()
+
+    # 1. Read the TEAL from ./tests/teal/*.teal
+    path = TESTS_DIR / "teal"
+    case_name = "app_itxn"
+    tealpath = path / f"{case_name}.teal"
+    with open(tealpath, "r") as f:
+        teal = f.read()
+
+    # 2. Run the requests to obtain sequence of Dryrun responses:
+    accounts = [
+        Account(
+            address=get_application_address(Executor.EXISTING_APP_CALL),
+            status="Online",
+            amount=105000000,
+            amount_without_pending_rewards=10500000,
+        )
+    ]
+    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs, dryrun_accounts=accounts)  # type: ignore
+
+    # 3. Generate statistical report of all the runs:
+    csvpath = path / f"{case_name}.csv"
+    with open(csvpath, "w") as f:
+        f.write(Inspector.csv_report(inputs, dryrun_results))
+
+    print(f"Saved Dry Run CSV report to {csvpath}")
+
+    # 4. Sequential invariants (if provided any)
+    for i, type_n_invariant in enumerate(invariants.items()):
+        dr_property, invariant = type_n_invariant
+
+        assert mode_has_property(
+            mode, dr_property
+        ), f"assert_type {dr_property} is not applicable for {mode}. Please REMOVE or MODIFY"
+
+        invariant = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{dr_property}")
+        print(
+            f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant}>>"
+        )
+        invariant.validates(dr_property, dryrun_results)
+
+    # test same program without providing app account balance
+    scenario_failure = {
+        "inputs": [()],
+        "invariants": {
+            DRProp.status: "REJECT",
+            DRProp.passed: False,
+            DRProp.rejected: True,
+        },
+    }
+
+    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)  # type: ignore
+
+    inputs, invariants = Invariant.inputs_and_invariants(
+        scenario_failure, mode, raw_predicates=True  # type: ignore
+    )
+
+    csvpath = path / f"{case_name}.csv"
+    with open(csvpath, "w") as f:
+        f.write(Inspector.csv_report(inputs, dryrun_results))
+
+    print(f"Saved Dry Run CSV report to {csvpath}")
+
     for i, type_n_invariant in enumerate(invariants.items()):
         dr_property, invariant = type_n_invariant
 

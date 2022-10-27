@@ -967,6 +967,7 @@ class DryRunInspector:
             return txn["budget-added"]
 
         if dr_property == DryRunProperty.budgetConsumed:
+            print(txn["budget-consumed"])
             return txn["budget-consumed"]
 
         if dr_property == DryRunProperty.lastLog:
