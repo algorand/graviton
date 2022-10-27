@@ -412,6 +412,7 @@ def test_app_itxn_with_report():
     scenario_success = {
         "inputs": [()],
         "invariants": {
+            DRProp.cost: -687,
             DRProp.budgetConsumed: 13,
             DRProp.budgetAdded: 700,
             DRProp.status: "PASS",
