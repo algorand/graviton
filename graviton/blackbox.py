@@ -36,7 +36,7 @@ from graviton.dryrun import (
     DryRunHelper,
 )
 
-from graviton.models import ZERO_ADDRESS
+from graviton.models import ZERO_ADDRESS, ArgType
 
 
 MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
@@ -271,7 +271,7 @@ class DryRunEncoder:
         cls,
         args: Sequence[PY_TYPES],
         abi_types: List[Optional[abi.ABIType]] = None,
-    ) -> List[Union[bytes, str]]:
+    ) -> List[ArgType]:
         """
         Encoding convention for Black Box Testing.
 
@@ -867,7 +867,7 @@ class DryRunInspector:
         dryrun_resp: dict,
         txn_index: int,
         args: Sequence[PY_TYPES],
-        encoded_args: List[Union[bytes, str]],
+        encoded_args: List[ArgType],
         abi_type: abi.ABIType = None,
     ):
         txns = dryrun_resp.get("txns", [])
@@ -934,7 +934,7 @@ class DryRunInspector:
         cls,
         dryrun_resp: dict,
         args: Sequence[PY_TYPES],
-        encoded_args: List[Union[bytes, str]],
+        encoded_args: List[ArgType],
         abi_type: abi.ABIType = None,
     ) -> "DryRunInspector":
         error = dryrun_resp.get("error")
