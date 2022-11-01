@@ -8,6 +8,7 @@ from algosdk.v2client.models import Account, TealKeyValue
 ZERO_ADDRESS = encode_address(bytes(32))
 
 ArgType = Union[bytes, str]
+DryRunAccountType = Union[str, Account]
 
 
 def get_run_mode(app):
@@ -38,7 +39,7 @@ class App:
     app_idx: int = 0
     on_complete: int = 0
     args: Optional[List[ArgType]] = None
-    accounts: Optional[List[Union[str, Account]]] = None
+    accounts: Optional[List[DryRunAccountType]] = None
     global_state: Optional[List[TealKeyValue]] = None
 
     @classmethod

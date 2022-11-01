@@ -17,7 +17,8 @@ from algosdk.v2client.models import (
 )
 
 from graviton import models
-from graviton.models import ArgType
+from graviton.models import ArgType, DryRunAccountType
+
 
 PRINTABLE = frozenset(string.printable)
 
@@ -217,7 +218,7 @@ class DryRunHelper:
         program: str,
         args: List[ArgType],
         txn_params: Dict[str, Any],
-        accounts: List[Union[str, Account]] = [],
+        accounts: List[DryRunAccountType] = [],
     ):
         creator = txn_params.get("sender")
         app_idx = txn_params.get("index")

@@ -29,14 +29,12 @@ from algosdk.future.transaction import (
 from algosdk import atomic_transaction_composer as atc
 
 from graviton.abi_strategy import PY_TYPES, ABIStrategy, RandomABIStrategy
-
 from graviton.dryrun import (
     assert_error,
     assert_no_error,
     DryRunHelper,
 )
-
-from graviton.models import ZERO_ADDRESS, ArgType
+from graviton.models import ZERO_ADDRESS, ArgType, DryRunAccountType
 
 
 MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
@@ -437,7 +435,7 @@ class DryRunExecutor:
         lease: str = None,
         rekey_to: str = None,
         extra_pages: int = None,
-        dryrun_accounts: List[Union[str, Account]] = [],
+        dryrun_accounts: List[DryRunAccountType] = [],
     ) -> "DryRunInspector":
         """
         Execute a dry run to simulate an app call using provided:
@@ -531,7 +529,7 @@ class DryRunExecutor:
         abi_return_type: abi.ABIType = None,
         is_app_create: bool = False,
         on_complete: OnComplete = OnComplete.NoOpOC,
-        dryrun_accounts: List[Union[str, Account]] = [],
+        dryrun_accounts: List[DryRunAccountType] = [],
     ) -> List["DryRunInspector"]:
         # TODO: handle txn_params
         return list(
@@ -583,7 +581,7 @@ class DryRunExecutor:
         abi_argument_types: List[Optional[abi.ABIType]] = None,
         abi_return_type: abi.ABIType = None,
         txn_params: dict = {},
-        accounts: List[Union[str, Account]] = [],
+        accounts: List[DryRunAccountType] = [],
     ) -> "DryRunInspector":
         assert (
             len(ExecutionMode) == 2
@@ -768,7 +766,7 @@ class ABIContractExecutor:
         arg_types: Optional[List[abi.ABIType]] = None,
         return_type: Optional[abi.ABIType] = None,
         validate_inputs: bool = True,
-        dryrun_accounts: List[Union[str, Account]] = [],
+        dryrun_accounts: List[DryRunAccountType] = [],
     ) -> List["DryRunInspector"]:
         """ARC-4 Compliant Dry Run"""
         # TODO: handle txn_params
@@ -967,7 +965,6 @@ class DryRunInspector:
             return txn["budget-added"]
 
         if dr_property == DryRunProperty.budgetConsumed:
-            print(txn["budget-consumed"])
             return txn["budget-consumed"]
 
         if dr_property == DryRunProperty.lastLog:

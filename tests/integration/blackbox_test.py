@@ -2,6 +2,9 @@ from pathlib import Path
 
 import pytest
 
+from algosdk.v2client.models import Account
+from algosdk.logic import get_application_address
+
 from graviton.blackbox import (
     DryRunEncoder as Encoder,
     DryRunExecutor as Executor,
@@ -11,8 +14,7 @@ from graviton.blackbox import (
     mode_has_property,
 )
 from graviton.invariant import Invariant
-from algosdk.v2client.models import Account
-from algosdk.logic import get_application_address
+
 
 from tests.clients import get_algod
 
@@ -376,16 +378,7 @@ def test_app_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun responses:
-    accounts = [
-        Account(
-            address=get_application_address(Executor.EXISTING_APP_CALL),
-            status="Online",
-            amount=105000000,
-            amount_without_pending_rewards=10500000,
-        )
-    ]
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs, dryrun_accounts=accounts)  # type: ignore
-
+    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)  # type: ignore
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
@@ -477,6 +470,10 @@ def test_app_itxn_with_report():
             DRProp.status: "REJECT",
             DRProp.passed: False,
             DRProp.rejected: True,
+            DRProp.error: True,
+            DRProp.errorMessage: (
+                lambda _, actual: "app 0 failed at line 11: overspend" in actual
+            ),
         },
     }
 
