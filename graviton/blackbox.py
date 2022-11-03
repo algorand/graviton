@@ -19,7 +19,7 @@ from typing import (
 
 from algosdk import abi
 from algosdk.v2client.algod import AlgodClient
-from algosdk.v2client.models import DryrunRequest, Account
+from algosdk.v2client.models import DryrunRequest
 from algosdk.future.transaction import (
     OnComplete,
     StateSchema,

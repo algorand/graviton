@@ -3,7 +3,7 @@ import binascii
 from contextlib import redirect_stdout
 import io
 import string
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 from algosdk.future import transaction
 from algosdk.encoding import encode_address, msgpack_encode
