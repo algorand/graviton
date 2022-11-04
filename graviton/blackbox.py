@@ -956,10 +956,8 @@ class DryRunInspector:
 
         if dr_property == DryRunProperty.cost:
             # cost is treated as a derived property if budget-consumed and budget-added is available
-            if "budget-consumed" in txn and "budget-added" in txn:
-                return txn["budget-consumed"] - txn["budget-added"]
-            else:
-                return txn["cost"]
+            return txn["budget-consumed"] - txn["budget-added"]
+            
 
         if dr_property == DryRunProperty.budgetAdded:
             return txn["budget-added"]
@@ -1351,10 +1349,10 @@ class DryRunInspector:
     @classmethod
     def extract_cost(cls, txn):
         # cost is treated as a derived property if budget-consumed and budget-added is available
-        if "budget-consumed" in txn and "budget-added" in txn:
-            return txn["budget-consumed"] - txn["budget-added"]
-        else:
-            return txn.get("cost")
+        if "budget-consumed" not in txn or "budget-added" not in txn:
+            return None
+
+        return txn["budget-consumed"] - txn["budget-added"]
 
     @classmethod
     def extract_status(cls, txn, is_app: bool):
