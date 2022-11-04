@@ -957,7 +957,6 @@ class DryRunInspector:
         if dr_property == DryRunProperty.cost:
             # cost is treated as a derived property if budget-consumed and budget-added is available
             return txn["budget-consumed"] - txn["budget-added"]
-            
 
         if dr_property == DryRunProperty.budgetAdded:
             return txn["budget-added"]
