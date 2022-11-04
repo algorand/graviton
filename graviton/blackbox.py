@@ -46,7 +46,7 @@ class ExecutionMode(Enum):
 
 
 class DryRunProperty(Enum):
-    cost = auto()  # deprecated
+    cost = auto()
     budgetAdded = auto()
     budgetConsumed = auto()
     lastLog = auto()
