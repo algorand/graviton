@@ -3,7 +3,7 @@ import binascii
 from contextlib import redirect_stdout
 import io
 import string
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 from algosdk.future import transaction
 from algosdk.encoding import encode_address, msgpack_encode
@@ -16,7 +16,9 @@ from algosdk.v2client.models import (
     Account,
 )
 
-from . import models
+from graviton import models
+from graviton.models import ArgType, DryRunAccountType
+
 
 PRINTABLE = frozenset(string.printable)
 
@@ -206,19 +208,27 @@ class DryRunHelper:
 
     @classmethod
     def singleton_logicsig_request(
-        cls, program: str, args: List[bytes], txn_params: Dict[str, Any]
+        cls, program: str, args: List[ArgType], txn_params: Dict[str, Any]
     ):
         return cls.dryrun_request(program, models.LSig(args=args), txn_params)
 
     @classmethod
     def singleton_app_request(
-        cls, program: str, args: List[Union[bytes, str]], txn_params: Dict[str, Any]
+        cls,
+        program: str,
+        args: List[ArgType],
+        txn_params: Dict[str, Any],
+        accounts: List[DryRunAccountType] = [],
     ):
         creator = txn_params.get("sender")
         app_idx = txn_params.get("index")
         on_complete = txn_params.get("on_complete")
         app = models.App.factory(
-            creator=creator, app_idx=app_idx, on_complete=on_complete, args=args
+            creator=creator,
+            app_idx=app_idx,
+            on_complete=on_complete,
+            args=args,
+            accounts=accounts,
         )
         return cls.dryrun_request(program, app, txn_params)
 

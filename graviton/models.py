@@ -7,6 +7,9 @@ from algosdk.v2client.models import Account, TealKeyValue
 
 ZERO_ADDRESS = encode_address(bytes(32))
 
+ArgType = Union[bytes, str]
+DryRunAccountType = Union[str, Account]
+
 
 def get_run_mode(app):
     run_mode = "lsig"
@@ -24,7 +27,7 @@ def get_run_mode(app):
 class LSig:
     """Logic Sig program parameters"""
 
-    args: Optional[List[bytes]] = None
+    args: Optional[List[ArgType]] = None
 
 
 @dataclass
@@ -35,8 +38,8 @@ class App:
     round: Optional[int] = None
     app_idx: int = 0
     on_complete: int = 0
-    args: Optional[List[Union[bytes, str]]] = None
-    accounts: Optional[List[Union[str, Account]]] = None
+    args: Optional[List[ArgType]] = None
+    accounts: Optional[List[DryRunAccountType]] = None
     global_state: Optional[List[TealKeyValue]] = None
 
     @classmethod
