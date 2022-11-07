@@ -12,15 +12,15 @@ setup(
     author="Algorand",
     author_email="pypiservice@algorand.com",
     python_requires=">=3.9",
-    install_requires=["py-algorand-sdk==1.15.0", "tabulate==0.8.9"],
+    install_requires=["py-algorand-sdk==1.20.0", "tabulate==0.9.0"],
     extras_require={
         "development": [
             "black==22.3.0",
-            "flake8==4.0.1",
-            "mypy==0.950",
-            "pytest==7.1.1",
-            "pytest-xdist==2.5.0",
-            "types-tabulate==0.8.9",
+            "flake8==5.0.4",
+            "mypy==0.990",
+            "pytest==7.2.0",
+            "pytest-xdist==3.0.2",
+            "types-tabulate==0.9.0.0",
         ],
         "notebooks": [
             "nbmake==1.3.0",
