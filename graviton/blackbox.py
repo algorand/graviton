@@ -7,7 +7,6 @@ import io
 from tabulate import tabulate
 from typing import (
     Any,
-    Callable,
     Dict,
     Final,
     List,
@@ -30,14 +29,12 @@ from algosdk.future.transaction import (
 from algosdk import atomic_transaction_composer as atc
 
 from graviton.abi_strategy import PY_TYPES, ABIStrategy, RandomABIStrategy
-
 from graviton.dryrun import (
     assert_error,
     assert_no_error,
     DryRunHelper,
 )
-
-from graviton.models import ZERO_ADDRESS
+from graviton.models import ZERO_ADDRESS, ArgType, DryRunAccountType
 
 
 MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
@@ -50,6 +47,8 @@ class ExecutionMode(Enum):
 
 class DryRunProperty(Enum):
     cost = auto()
+    budgetAdded = auto()
+    budgetConsumed = auto()
     lastLog = auto()
     finalScratch = auto()
     stackTop = auto()
@@ -71,6 +70,8 @@ def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> 
     missing: Dict[ExecutionMode, set] = {
         ExecutionMode.Signature: {
             DryRunProperty.cost,
+            DryRunProperty.budgetAdded,
+            DryRunProperty.budgetConsumed,
             DryRunProperty.lastLog,
         },
         ExecutionMode.Application: set(),
@@ -267,8 +268,8 @@ class DryRunEncoder:
     def encode_args(
         cls,
         args: Sequence[PY_TYPES],
-        abi_types: Optional[List[Optional[abi.ABIType]]] = None,
-    ) -> List[Union[bytes, str]]:
+        abi_types: List[Optional[abi.ABIType]] = None,
+    ) -> List[ArgType]:
         """
         Encoding convention for Black Box Testing.
 
@@ -434,6 +435,7 @@ class DryRunExecutor:
         lease: Optional[str] = None,
         rekey_to: Optional[str] = None,
         extra_pages: Optional[int] = None,
+        dryrun_accounts: List[DryRunAccountType] = [],
     ) -> "DryRunInspector":
         """
         Execute a dry run to simulate an app call using provided:
@@ -477,6 +479,7 @@ class DryRunExecutor:
                 foreign_assets=foreign_assets,
                 extra_pages=extra_pages,
             ),
+            accounts=dryrun_accounts,
         )
 
     @classmethod
@@ -526,6 +529,7 @@ class DryRunExecutor:
         abi_return_type: Optional[abi.ABIType] = None,
         is_app_create: bool = False,
         on_complete: OnComplete = OnComplete.NoOpOC,
+        dryrun_accounts: List[DryRunAccountType] = [],
     ) -> List["DryRunInspector"]:
         # TODO: handle txn_params
         return list(
@@ -538,6 +542,7 @@ class DryRunExecutor:
                     abi_return_type=abi_return_type,
                     is_app_create=is_app_create,
                     on_complete=on_complete,
+                    dryrun_accounts=dryrun_accounts,
                 ),
                 inputs,
             )
@@ -576,6 +581,7 @@ class DryRunExecutor:
         abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
         abi_return_type: Optional[abi.ABIType] = None,
         txn_params: dict = {},
+        accounts: List[DryRunAccountType] = [],
     ) -> "DryRunInspector":
         assert (
             len(ExecutionMode) == 2
@@ -584,13 +590,15 @@ class DryRunExecutor:
         is_app = mode == ExecutionMode.Application
         encoded_args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
 
-        builder: Callable[[str, List[Union[bytes, str]], Dict[str, Any]], DryrunRequest]
-        builder = (
-            DryRunHelper.singleton_app_request  # type: ignore
-            if is_app
-            else DryRunHelper.singleton_logicsig_request
-        )
-        dryrun_req = builder(teal, encoded_args, txn_params)
+        dryrun_req: DryrunRequest
+        if is_app:
+            dryrun_req = DryRunHelper.singleton_app_request(
+                teal, encoded_args, txn_params, accounts
+            )
+        else:
+            dryrun_req = DryRunHelper.singleton_logicsig_request(
+                teal, encoded_args, txn_params
+            )
         dryrun_resp = algod.dryrun(dryrun_req)
         return DryRunInspector.from_single_response(
             dryrun_resp, args, encoded_args, abi_type=abi_return_type
@@ -758,6 +766,7 @@ class ABIContractExecutor:
         arg_types: Optional[List[abi.ABIType]] = None,
         return_type: Optional[abi.ABIType] = None,
         validate_inputs: bool = True,
+        dryrun_accounts: List[DryRunAccountType] = [],
     ) -> List["DryRunInspector"]:
         """ARC-4 Compliant Dry Run"""
         # TODO: handle txn_params
@@ -782,6 +791,7 @@ class ABIContractExecutor:
             abi_return_type=return_type,
             is_app_create=is_app_create,
             on_complete=on_complete,
+            dryrun_accounts=dryrun_accounts,
         )
 
 
@@ -810,7 +820,14 @@ class DryRunInspector:
 
     DryRunInspector provides the following **assertable properties**:
     * `cost`
-        - total opcode cost utilized during execution
+        - net opcode budget consumed during execution
+        - derived property: cost = budget_consumed - budget_added
+        - only available for apps
+    * `budget_added`
+        - total opcode budget increase during execution
+        - only available for apps
+    * `budget_consumed`
+        - total opcode budget consumed during execution
         - only available for apps
     * `last_log`
         - the final hex bytes that was logged during execution (apps only)
@@ -848,7 +865,7 @@ class DryRunInspector:
         dryrun_resp: dict,
         txn_index: int,
         args: Sequence[PY_TYPES],
-        encoded_args: List[Union[bytes, str]],
+        encoded_args: List[ArgType],
         abi_type: abi.ABIType = None,
     ):
         txns = dryrun_resp.get("txns", [])
@@ -915,7 +932,7 @@ class DryRunInspector:
         cls,
         dryrun_resp: dict,
         args: Sequence[PY_TYPES],
-        encoded_args: List[Union[bytes, str]],
+        encoded_args: List[ArgType],
         abi_type: abi.ABIType = None,
     ) -> "DryRunInspector":
         error = dryrun_resp.get("error")
@@ -938,7 +955,14 @@ class DryRunInspector:
         ), f"{self.mode} cannot handle dig information from txn for assertion type {dr_property}"
 
         if dr_property == DryRunProperty.cost:
-            return txn["cost"]
+            # cost is treated as a derived property if budget-consumed and budget-added is available
+            return txn["budget-consumed"] - txn["budget-added"]
+
+        if dr_property == DryRunProperty.budgetAdded:
+            return txn["budget-added"]
+
+        if dr_property == DryRunProperty.budgetConsumed:
+            return txn["budget-consumed"]
 
         if dr_property == DryRunProperty.lastLog:
             last_log = txn.get("logs", [None])[-1]
@@ -1008,11 +1032,25 @@ class DryRunInspector:
         raise Exception(f"Unknown assert_type {dr_property}")
 
     def cost(self) -> Optional[int]:
-        """Assertable property for the total opcode cost that was used during dry run execution
+        """Assertable property for the net opcode budget consumed during dry run execution
         return type: int
         available Mode: Application only
         """
         return self.dig(DRProp.cost) if self.is_app() else None
+
+    def budget_added(self) -> Optional[int]:
+        """Assertable property for the total opcode budget added with itxns during dry run execution
+        return type: int
+        available Mode: Application only
+        """
+        return self.dig(DRProp.budgetAdded) if self.is_app() else None
+
+    def budget_consumed(self) -> Optional[int]:
+        """Assertable property for the total opcode budget consumed during dry run execution
+        return type: int
+        available Mode: Application only
+        """
+        return self.dig(DRProp.budgetConsumed) if self.is_app() else None
 
     def last_log(self) -> Optional[str]:
         """Assertable property for the last log that was printed during dry run execution
@@ -1309,7 +1347,11 @@ class DryRunInspector:
 
     @classmethod
     def extract_cost(cls, txn):
-        return txn.get("cost")
+        # cost is treated as a derived property if budget-consumed and budget-added is available
+        if "budget-consumed" not in txn or "budget-added" not in txn:
+            return None
+
+        return txn["budget-consumed"] - txn["budget-added"]
 
     @classmethod
     def extract_status(cls, txn, is_app: bool):
