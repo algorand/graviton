@@ -487,7 +487,7 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[Union[bytes, str, int]],
+        args: Sequence[PyTypes],
         abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
         abi_return_type: Optional[abi.ABIType] = None,
         *,
@@ -553,7 +553,7 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        inputs: List[Sequence[Union[str, int]]],
+        inputs: List[Sequence[PyTypes]],
         abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
         abi_return_type: Optional[abi.ABIType] = None,
     ) -> List["DryRunInspector"]:
