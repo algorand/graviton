@@ -28,7 +28,7 @@ from algosdk.future.transaction import (
 
 from algosdk import atomic_transaction_composer as atc
 
-from graviton.abi_strategy import PY_TYPES, ABIStrategy, RandomABIStrategy
+from graviton.abi_strategy import PyTypes, ABIStrategy, RandomABIStrategy
 from graviton.dryrun import (
     assert_error,
     assert_no_error,
@@ -267,7 +267,7 @@ class DryRunEncoder:
     @classmethod
     def encode_args(
         cls,
-        args: Sequence[PY_TYPES],
+        args: Sequence[PyTypes],
         abi_types: Optional[List[Optional[abi.ABIType]]] = None,
     ) -> List[ArgType]:
         """
@@ -348,7 +348,7 @@ class DryRunEncoder:
 
     @classmethod
     def _encode_arg(
-        cls, arg: PY_TYPES, idx: int, abi_type: Optional[abi.ABIType]
+        cls, arg: PyTypes, idx: int, abi_type: Optional[abi.ABIType]
     ) -> Union[str, bytes]:
         partial = cls._partial_encode_assert(
             arg, abi_type, f"problem encoding arg ({arg!r}) at index ({idx})"
@@ -369,7 +369,7 @@ class DryRunEncoder:
 
     @classmethod
     def _partial_encode_assert(
-        cls, arg: PY_TYPES, abi_type: Optional[abi.ABIType], msg: str = ""
+        cls, arg: PyTypes, abi_type: Optional[abi.ABIType], msg: str = ""
     ) -> Optional[bytes]:
         """
         When have an `abi_type` is present, attempt to encode `arg` accordingly (returning `bytes`)
@@ -414,7 +414,7 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[PY_TYPES],
+        args: Sequence[PyTypes],
         abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
         abi_return_type: abi.ABIType = None,
         is_app_create: bool = False,
@@ -524,7 +524,7 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        inputs: List[Sequence[PY_TYPES]],
+        inputs: List[Sequence[PyTypes]],
         abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
         abi_return_type: Optional[abi.ABIType] = None,
         is_app_create: bool = False,
@@ -576,7 +576,7 @@ class DryRunExecutor:
         cls,
         algod: AlgodClient,
         teal: str,
-        args: Sequence[PY_TYPES],
+        args: Sequence[PyTypes],
         mode: ExecutionMode,
         abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
         abi_return_type: Optional[abi.ABIType] = None,
@@ -692,7 +692,7 @@ class ABIContractExecutor:
 
         return return_type
 
-    def generate_inputs(self, method: Optional[str]) -> List[Sequence[PY_TYPES]]:
+    def generate_inputs(self, method: Optional[str]) -> List[Sequence[PyTypes]]:
         assert (
             self.argument_strategy
         ), "cannot generate inputs without an argument_strategy"
@@ -716,7 +716,7 @@ class ABIContractExecutor:
 
         return [gen_args() for _ in range(self.dry_runs)]
 
-    def validate_inputs(self, method: Optional[str], inputs: List[Sequence[PY_TYPES]]):
+    def validate_inputs(self, method: Optional[str], inputs: List[Sequence[PyTypes]]):
         if not method:
             assert not any(
                 inputs
@@ -733,7 +733,7 @@ class ABIContractExecutor:
     def _validate_args(
         cls,
         method_selector: Optional[str],
-        args: Sequence[PY_TYPES],
+        args: Sequence[PyTypes],
         arg_types: List[abi.ABIType],
     ) -> Optional[str]:
         if not isinstance(args, tuple):
@@ -761,7 +761,7 @@ class ABIContractExecutor:
         method: Optional[str] = None,
         is_app_create: bool = False,
         on_complete: OnComplete = OnComplete.NoOpOC,
-        inputs: Optional[List[Sequence[PY_TYPES]]] = None,
+        inputs: Optional[List[Sequence[PyTypes]]] = None,
         *,
         arg_types: Optional[List[abi.ABIType]] = None,
         return_type: Optional[abi.ABIType] = None,
@@ -864,7 +864,7 @@ class DryRunInspector:
         self,
         dryrun_resp: dict,
         txn_index: int,
-        args: Sequence[PY_TYPES],
+        args: Sequence[PyTypes],
         encoded_args: List[ArgType],
         abi_type: abi.ABIType = None,
     ):
@@ -931,7 +931,7 @@ class DryRunInspector:
     def from_single_response(
         cls,
         dryrun_resp: dict,
-        args: Sequence[PY_TYPES],
+        args: Sequence[PyTypes],
         encoded_args: List[ArgType],
         abi_type: abi.ABIType = None,
     ) -> "DryRunInspector":
@@ -1222,7 +1222,7 @@ class DryRunInspector:
 
     def report(
         self,
-        args: Optional[Sequence[PY_TYPES]] = None,
+        args: Optional[Sequence[PyTypes]] = None,
         msg: str = "Dry Run Inspector Report",
         row: int = 0,
         last_steps: int = 100,
@@ -1266,8 +1266,8 @@ class DryRunInspector:
     """
 
     def csv_row(
-        self, row_num: int, args: Sequence[PY_TYPES]
-    ) -> Dict[str, Optional[PY_TYPES]]:
+        self, row_num: int, args: Sequence[PyTypes]
+    ) -> Dict[str, Optional[PyTypes]]:
         return {
             " Run": row_num,
             " cost": self.cost(),

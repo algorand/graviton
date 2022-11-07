@@ -1,7 +1,7 @@
 from inspect import getsource, signature
 from typing import cast, Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from graviton.abi_strategy import PY_TYPES
+from graviton.abi_strategy import PyTypes
 from graviton.blackbox import (
     DryRunInspector,
     DryRunProperty,
@@ -11,10 +11,10 @@ from graviton.blackbox import (
 
 
 INVARIANT_TYPE = Union[
-    PY_TYPES,
-    Dict[Sequence[PY_TYPES], PY_TYPES],
-    Callable[[PY_TYPES], PY_TYPES],
-    Callable[[PY_TYPES], bool],
+    PyTypes,
+    Dict[Sequence[PyTypes], PyTypes],
+    Callable[[PyTypes], PyTypes],
+    Callable[[PyTypes], bool],
 ]
 
 
@@ -39,7 +39,7 @@ class Invariant:
 
         return f"Invariant({defn})"
 
-    def __call__(self, args: Sequence[PY_TYPES], actual: PY_TYPES) -> Tuple[bool, str]:
+    def __call__(self, args: Sequence[PyTypes], actual: PyTypes) -> Tuple[bool, str]:
         invariant = self.predicate(args, actual)
         msg = ""
         if not invariant:
@@ -52,7 +52,7 @@ class Invariant:
 
         return invariant, msg
 
-    def expected(self, args: Sequence[PY_TYPES]) -> PY_TYPES:
+    def expected(self, args: Sequence[PyTypes]) -> PyTypes:
         return self._expected(args)
 
     def validates(
@@ -77,12 +77,12 @@ class Invariant:
     def prepare_predicate(
         cls,
         predicate: INVARIANT_TYPE,
-    ) -> Tuple[Callable[[Sequence[PY_TYPES], PY_TYPES], bool], Callable]:
+    ) -> Tuple[Callable[[Sequence[PyTypes], PyTypes], bool], Callable]:
         # returns
         # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
         # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
         if isinstance(predicate, dict):
-            d_predicate = cast(Dict[PY_TYPES, PY_TYPES], predicate)
+            d_predicate = cast(Dict[PyTypes, PyTypes], predicate)
             return (
                 lambda args, actual: d_predicate[args] == actual,
                 lambda args: d_predicate[args],
@@ -107,16 +107,14 @@ class Invariant:
         assert N in (1, 2), f"predicate has the wrong number of paramters {N}"
 
         if N == 2:
-            c2_predicate = cast(
-                Callable[[Sequence[PY_TYPES], PY_TYPES], bool], predicate
-            )
+            c2_predicate = cast(Callable[[Sequence[PyTypes], PyTypes], bool], predicate)
             # returns
             # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
             # * Callable[Any, Callable[[Sequence[PY_TYPES], PY_TYPES], bool]]
             return c2_predicate, lambda _: c2_predicate
 
         # N == 1:
-        c1_predicate = cast(Callable[[Sequence[PY_TYPES]], bool], predicate)
+        c1_predicate = cast(Callable[[Sequence[PyTypes]], bool], predicate)
         # returns
         # * Callable[[Sequence[PY_TYPES]], bool]
         # * Callable[[Sequence[PY_TYPES]], PY_TYPES]

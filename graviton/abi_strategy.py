@@ -7,19 +7,19 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 import random
 import string
-from typing import Callable, Dict, List, Optional, Sequence, Union, cast
+from typing import Callable, Dict, List, Optional, cast
 
 from algosdk import abi, encoding
 
-PY_TYPES = Union[bool, int, Sequence, str, bytes]
+from graviton.models import PyTypes
 
 
 class ABIStrategy(ABC):
     @abstractmethod
-    def get(self) -> PY_TYPES:
+    def get(self) -> PyTypes:
         pass
 
-    def get_many(self, n: int) -> List[PY_TYPES]:
+    def get_many(self, n: int) -> List[PyTypes]:
         return [self.get() for _ in range(n)]
 
 
@@ -56,7 +56,7 @@ class RandomABIStrategy(ABIStrategy):
         self.abi_type: abi.ABIType = abi_instance
         self.dynamic_length: Optional[int] = dynamic_length
 
-    def get(self) -> PY_TYPES:
+    def get(self) -> PyTypes:
         if isinstance(self.abi_type, abi.UfixedType):
             raise NotImplementedError(
                 f"Currently cannot get a random sample for {self.abi_type}"
@@ -114,16 +114,16 @@ class RandomABIStrategy(ABIStrategy):
 
     def map(
         self,
-        waterfall: Dict[abi.ABIType, Callable[..., PY_TYPES]],
+        waterfall: Dict[abi.ABIType, Callable[..., PyTypes]],
         *args,
         **kwargs,
-    ) -> PY_TYPES:
+    ) -> PyTypes:
         for abi_type, call in waterfall.items():
             if isinstance(self.abi_type, abi_type):
                 return call(*args, **kwargs)
         return waterfall["DEFAULT"](*args, **kwargs)
 
-    def mutate_for_roundtrip(self, py_abi_instance: PY_TYPES) -> PY_TYPES:
+    def mutate_for_roundtrip(self, py_abi_instance: PyTypes) -> PyTypes:
         def not_implemented(_):
             raise NotImplementedError(f"Currently cannot handle type {self.abi_type}")
 
@@ -193,7 +193,7 @@ class RandomABIStrategyHalfSized(RandomABIStrategy):
     ):
         super().__init__(abi_instance, dynamic_length=dynamic_length)
 
-    def get(self) -> PY_TYPES:
+    def get(self) -> PyTypes:
         full_random = super().get()
 
         if not isinstance(self.abi_type, abi.UintType):
