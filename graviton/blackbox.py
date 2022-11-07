@@ -268,7 +268,7 @@ class DryRunEncoder:
     def encode_args(
         cls,
         args: Sequence[PY_TYPES],
-        abi_types: List[Optional[abi.ABIType]] = None,
+        abi_types: Optional[List[Optional[abi.ABIType]]] = None,
     ) -> List[ArgType]:
         """
         Encoding convention for Black Box Testing.
