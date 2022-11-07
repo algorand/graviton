@@ -22,6 +22,10 @@
 * Ability to handle `dryrun_accounts` in dry run executions
 * New assertable dryrun properties `budgetAdded` and `budgetConsumed` including the rewiring of `cost` to be computed as `budgetConsumed - budgetAdded`
 
+### Fixed
+
+* New `mypy` errors arising from stricter enforcement of setting of `None` to non-optional types
+
 ### Upgraded
 
 * Various dependencies

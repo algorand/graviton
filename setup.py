@@ -15,7 +15,7 @@ setup(
     install_requires=["py-algorand-sdk==1.20.0", "tabulate==0.9.0"],
     extras_require={
         "development": [
-            "black==22.3.0",
+            "black==22.10.0",
             "flake8==5.0.4",
             "mypy==0.990",
             "pytest==7.2.0",
