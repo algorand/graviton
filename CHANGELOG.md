@@ -28,7 +28,7 @@
 
 ### Upgraded
 
-* Various dependencies
+* Various dependencies including `py-algorand-sdk>=1.16.1`
 
 ## `v0.4.0` (_aka_ 🐕)
 
