@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import List, Optional, Sequence, Union
 
 from algosdk.encoding import encode_address
 from algosdk.future import transaction
@@ -9,6 +9,7 @@ ZERO_ADDRESS = encode_address(bytes(32))
 
 ArgType = Union[bytes, str]
 DryRunAccountType = Union[str, Account]
+PyTypes = Union[bool, int, Sequence, str, bytes]
 
 
 def get_run_mode(app):
