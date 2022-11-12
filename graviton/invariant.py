@@ -1,3 +1,4 @@
+from enum import Enum
 from inspect import getsource, signature
 from typing import cast, Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -10,12 +11,45 @@ from graviton.blackbox import (
 )
 
 
+class PredicateKind(Enum):
+    Constant = "constant"
+    CaseMap = "case map"
+    ExactMatch = "exact match"
+    RangeMatch = "range match"
+    IdenticalPair = "identical"
+
+
 INVARIANT_TYPE = Union[
     PyTypes,
     Dict[Sequence[PyTypes], PyTypes],
     Callable[[PyTypes], PyTypes],
     Callable[[PyTypes], bool],
+    PredicateKind,  # currently represents the equality of two dry-run executable functions
 ]
+
+
+def get_kind(predicate: INVARIANT_TYPE) -> PredicateKind:
+    if isinstance(predicate, PredicateKind):
+        return predicate
+
+    if isinstance(predicate, dict):
+        return PredicateKind.CaseMap
+
+    if not callable(predicate):
+        return PredicateKind.Constant
+
+    try:
+        sig = signature(predicate)
+    except Exception as e:
+        raise Exception(f"callable predicate {predicate} must have a signature") from e
+
+    N = len(sig.parameters)
+    assert N in (1, 2), f"predicate has the wrong number of paramters {N}"
+
+    if N == 2:
+        return PredicateKind.RangeMatch
+
+    return PredicateKind.ExactMatch
 
 
 class Invariant:
@@ -28,7 +62,12 @@ class Invariant:
         name: Optional[str] = None,
     ):
         self.definition = predicate
-        self.predicate, self._expected = self.prepare_predicate(predicate)
+        self.predicate_kind: PredicateKind
+        self.predicate: Callable
+        self._expected: Callable
+        self.predicate_kind, self.predicate, self._expected = self.prepare_predicate(
+            predicate
+        )
         self.enforce = enforce
         self.name = name
 
@@ -39,32 +78,72 @@ class Invariant:
 
         return f"Invariant({defn})"
 
-    def __call__(self, args: Sequence[PyTypes], actual: PyTypes) -> Tuple[bool, str]:
-        invariant = self.predicate(args, actual)
+    def __call__(
+        self,
+        args: Sequence[PyTypes],
+        actual: PyTypes,
+        external_expected: Optional[PyTypes] = None,
+    ) -> Tuple[bool, str]:
+        invariant = (
+            self.predicate(args, actual)
+            if external_expected is None
+            else self.predicate(args, actual, external_expected)
+        )
         msg = ""
         if not invariant:
-            expected = self.expected(args)
-            if callable(expected):
-                expected = getsource(expected)
-            msg = f"Invariant for '{self.name}' failed for for args {args!r}: actual is [{actual!r}] BUT expected [{expected!r}]"
+            expected = (
+                self.expected(args)
+                if external_expected is None
+                else self.expected(actual, external_expected)
+            )
+            prefix = f"Invariant of {self.predicate_kind} for '{self.name}' failed for for args {args!r}: "
+            if self.predicate_kind == PredicateKind.IdenticalPair:
+                msg = prefix + f"(actual, expected) = {expected!r}"
+            else:
+                msg = prefix + f"actual is [{actual!r}] BUT expected [{expected!r}]"
+
             if self.enforce:
                 assert invariant, msg
 
         return invariant, msg
 
-    def expected(self, args: Sequence[PyTypes]) -> PyTypes:
-        return self._expected(args)
+    def expected(self, x: Any, y: Any = None) -> PyTypes:
+        return self._expected(x) if y is None else self._expected(x, y)
 
     def validates(
         self,
         dr_property: DryRunProperty,
-        inspectors: List[DryRunInspector],
+        inspectors: Sequence[DryRunInspector],
         *,
+        identities: Optional[Sequence[DryRunInspector]] = None,
         msg: str = "",
     ):
         assert isinstance(
             dr_property, DryRunProperty
         ), f"invariants types must be DryRunProperty's but got [{dr_property}] which is a {type(dr_property)}"
+
+        if identities:
+            assert (
+                self.predicate_kind == PredicateKind.IdenticalPair
+            ), f"Unhandled PredicateKind {self.predicate_kind}"
+            for i, inspector in enumerate(inspectors):
+                identity = identities[i]
+
+                assert (
+                    inspector.abi_type == identity.abi_type
+                ), f"IdenticalPair predicates should have the same abi_type but {inspector.abi_type=} V. {identity.abi_type=}"
+
+                assert (
+                    inspector.abi_params_or_args() == identity.abi_params_or_args()
+                ), f"IdenticalPair predicates expects the same argments but they aren't: {inspector.abi_params_or_args()=} V. {identity.abi_params_or_args()=}"
+                expected = identity.dig(dr_property)
+                actual = inspector.dig(dr_property)
+                ok, fail_msg = self(inspector.args, actual, expected)
+                if msg:
+                    fail_msg += f". invariant provided message:{msg}"
+                assert ok, inspector.report(msg=fail_msg, row=i + 1)
+
+            return
 
         for i, inspector in enumerate(inspectors):
             actual = inspector.dig(dr_property)
@@ -75,52 +154,118 @@ class Invariant:
 
     @classmethod
     def prepare_predicate(
-        cls,
-        predicate: INVARIANT_TYPE,
-    ) -> Tuple[Callable[[Sequence[PyTypes], PyTypes], bool], Callable]:
-        # returns
-        # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
-        # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
-        if isinstance(predicate, dict):
+        cls, predicate: INVARIANT_TYPE
+    ) -> Tuple[PredicateKind, Callable, Callable]:
+        kind = get_kind(predicate)
+
+        def get_return(f, g):
+            return kind, f, g
+
+        if kind == PredicateKind.IdenticalPair:
+            # equality between 2 inspectors
+            # returns
+            # * Callable[[Sequence[PY_TYPES], Callable[[Sequence[PY_TYPES], PY_TYPES], Callable[[Sequence[PY_TYPES], PY_TYPES]], bool]
+            # * Callable[[Sequence[PY_TYPES], Callable[[Sequence[PY_TYPES], PY_TYPES], Callable[[Sequence[PY_TYPES], PY_TYPES]], Tuple[PY_TYPES, PY_TYPES]]
+            return get_return(
+                lambda _, actual, expected: actual == expected,
+                lambda actual, expected: (actual, expected),
+            )
+
+        if kind == PredicateKind.CaseMap:
+            # returns
+            # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
+            # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
             d_predicate = cast(Dict[PyTypes, PyTypes], predicate)
-            return (
+            return get_return(
                 lambda args, actual: d_predicate[args] == actual,
                 lambda args: d_predicate[args],
             )
 
-        # predicate = cast(Callable, predicate)
-        # returns
-        # * Callable[[Any], PY_TYPES], bool]
-        # * Callable[[Any], PY_TYPES]
-        if not callable(predicate):
+        if kind == PredicateKind.Constant:
+            # returns
+            # * Callable[[Any], PY_TYPES], bool]
+            # * Callable[[Any], PY_TYPES]
             # constant function in this case:
-            return lambda _, actual: predicate == actual, lambda _: predicate
+            a_const = predicate
+            return get_return(lambda _, actual: a_const == actual, lambda _: a_const)
 
-        try:
-            sig = signature(predicate)
-        except Exception as e:
-            raise Exception(
-                f"callable predicate {predicate} must have a signature"
-            ) from e
-
-        N = len(sig.parameters)
-        assert N in (1, 2), f"predicate has the wrong number of paramters {N}"
-
-        if N == 2:
-            c2_predicate = cast(Callable[[Sequence[PyTypes], PyTypes], bool], predicate)
+        if kind == PredicateKind.RangeMatch:
+            # N == 2 args:
             # returns
             # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
             # * Callable[Any, Callable[[Sequence[PY_TYPES], PY_TYPES], bool]]
-            return c2_predicate, lambda _: c2_predicate
+            c2_predicate = cast(Callable[[Sequence[PyTypes], PyTypes], bool], predicate)
+            return get_return(c2_predicate, lambda args: f"RangeMatch({args=})")
 
-        # N == 1:
-        c1_predicate = cast(Callable[[Sequence[PyTypes]], bool], predicate)
-        # returns
-        # * Callable[[Sequence[PY_TYPES]], bool]
-        # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
-        return lambda args, actual: c1_predicate(
-            args
-        ) == actual, lambda args: c1_predicate(args)
+        if kind == PredicateKind.ExactMatch:
+            # N == 1 args:
+            # returns
+            # * Callable[[Sequence[PY_TYPES]], bool]
+            # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
+            c1_predicate = cast(Callable[[Sequence[PyTypes]], bool], predicate)
+            return get_return(
+                lambda args, actual: c1_predicate(args) == actual,
+                lambda args: c1_predicate(args),
+            )
+
+        raise ValueError("Unhanlded PredicateKind {kind} for predicate {predicate}")
+
+    # @classmethod
+    # def prepare_predicate(
+    #     cls,
+    #     predicate: INVARIANT_TYPE,
+    # ) -> Tuple[Callable, Callable]:
+    #     if isinstance(predicate, PredicateKind):
+    #         assert predicate == PredicateKind.IdenticalPair
+    #         # equality between 2 inspectors
+    #         return (
+    #             lambda f1, f2, args: f1(args) == f2(args),
+    #             lambda f1, f2, args: (f1(args), f2(args)),
+    #         )
+
+    #     # returns
+    #     # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
+    #     # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
+    #     if isinstance(predicate, dict):
+    #         d_predicate = cast(Dict[PyTypes, PyTypes], predicate)
+    #         return (
+    #             lambda args, actual: d_predicate[args] == actual,
+    #             lambda args: d_predicate[args],
+    #         )
+
+    #     # returns
+    #     # * Callable[[Any], PY_TYPES], bool]
+    #     # * Callable[[Any], PY_TYPES]
+    #     if not callable(predicate):
+    #         # constant function in this case:
+    #         a_const = predicate
+    #         return lambda _, actual: a_const == actual, lambda _: a_const
+
+    #     try:
+    #         sig = signature(predicate)
+    #     except Exception as e:
+    #         raise Exception(
+    #             f"callable predicate {predicate} must have a signature"
+    #         ) from e
+
+    #     N = len(sig.parameters)
+    #     assert N in (1, 2), f"predicate has the wrong number of paramters {N}"
+
+    #     if N == 2:
+    #         c2_predicate = cast(Callable[[Sequence[PyTypes], PyTypes], bool], predicate)
+    #         # returns
+    #         # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
+    #         # * Callable[Any, Callable[[Sequence[PY_TYPES], PY_TYPES], bool]]
+    #         return c2_predicate, lambda _: c2_predicate
+
+    #     # N == 1:
+    #     c1_predicate = cast(Callable[[Sequence[PyTypes]], bool], predicate)
+    #     # returns
+    #     # * Callable[[Sequence[PY_TYPES]], bool]
+    #     # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
+    #     return lambda args, actual: c1_predicate(
+    #         args
+    #     ) == actual, lambda args: c1_predicate(args)
 
     @classmethod
     def inputs_and_invariants(
@@ -192,3 +337,19 @@ class Invariant:
             ), f"each key must be a DryRunProperty's appropriate to {mode}. This is not the case for key {key}"
             invariants[key] = Invariant(predicate, name=str(key))
         return invariants
+
+    @classmethod
+    def full_validation(
+        cls,
+        predicates: Dict[DryRunProperty, Any],
+        inspectors: Sequence[DryRunInspector],
+        *,
+        identities: Optional[Sequence[DryRunInspector]] = None,
+        msg: str = "",
+    ) -> None:
+        invariants = Invariant.as_invariants(predicates)
+
+        for dr_prop, invariant in invariants.items():
+            invariant.validates(
+                dr_prop, inspectors=inspectors, identities=identities, msg=msg
+            )
