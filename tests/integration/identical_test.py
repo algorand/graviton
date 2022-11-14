@@ -127,7 +127,7 @@ def test_identical_functions(teal_method1, teal_method2, inputs, predicates):
 
 def test_non_identical():
     algod = get_algod()
-    square_inspectores, square_p1_inspectors = DRExecutor.dryrun_app_pair_on_sequence(
+    square_inspectors, square_p1_inspectors = DRExecutor.dryrun_app_pair_on_sequence(
         algod, square, square_p1, ten
     )
 
@@ -139,7 +139,7 @@ def test_non_identical():
     }
     Invariant.full_validation(
         square_predicates,
-        inspectors=square_inspectores,
+        inspectors=square_inspectors,
     )
 
     square_p1_predicates = deepcopy(square_predicates)
@@ -154,7 +154,7 @@ def test_non_identical():
     with pytest.raises(AssertionError) as ae:
         Invariant.full_validation(
             identity_predicates,
-            inspectors=square_inspectores,
+            inspectors=square_inspectors,
             identities=square_p1_inspectors,
         )
 
