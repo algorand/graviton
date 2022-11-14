@@ -5,8 +5,6 @@ import pytest
 from graviton.blackbox import DryRunProperty as DRProp, DryRunExecutor as DRExecutor
 from graviton.invariant import Invariant, PredicateKind as IQ
 
-# from graviton.models import ExecutionMode
-
 from tests.clients import get_algod
 
 square_teal = """#pragma version 7
@@ -127,7 +125,7 @@ def test_identical_functions(teal_method1, teal_method2, inputs, predicates):
     )
 
 
-def test_non_idenical():
+def test_non_identical():
     algod = get_algod()
     square_inspectores, square_p1_inspectors = DRExecutor.dryrun_app_pair_on_sequence(
         algod, square, square_p1, ten
