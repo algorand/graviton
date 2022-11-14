@@ -210,63 +210,6 @@ class Invariant:
 
         raise ValueError("Unhanlded PredicateKind {kind} for predicate {predicate}")
 
-    # @classmethod
-    # def prepare_predicate(
-    #     cls,
-    #     predicate: INVARIANT_TYPE,
-    # ) -> Tuple[Callable, Callable]:
-    #     if isinstance(predicate, PredicateKind):
-    #         assert predicate == PredicateKind.IdenticalPair
-    #         # equality between 2 inspectors
-    #         return (
-    #             lambda f1, f2, args: f1(args) == f2(args),
-    #             lambda f1, f2, args: (f1(args), f2(args)),
-    #         )
-
-    #     # returns
-    #     # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
-    #     # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
-    #     if isinstance(predicate, dict):
-    #         d_predicate = cast(Dict[PyTypes, PyTypes], predicate)
-    #         return (
-    #             lambda args, actual: d_predicate[args] == actual,
-    #             lambda args: d_predicate[args],
-    #         )
-
-    #     # returns
-    #     # * Callable[[Any], PY_TYPES], bool]
-    #     # * Callable[[Any], PY_TYPES]
-    #     if not callable(predicate):
-    #         # constant function in this case:
-    #         a_const = predicate
-    #         return lambda _, actual: a_const == actual, lambda _: a_const
-
-    #     try:
-    #         sig = signature(predicate)
-    #     except Exception as e:
-    #         raise Exception(
-    #             f"callable predicate {predicate} must have a signature"
-    #         ) from e
-
-    #     N = len(sig.parameters)
-    #     assert N in (1, 2), f"predicate has the wrong number of paramters {N}"
-
-    #     if N == 2:
-    #         c2_predicate = cast(Callable[[Sequence[PyTypes], PyTypes], bool], predicate)
-    #         # returns
-    #         # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
-    #         # * Callable[Any, Callable[[Sequence[PY_TYPES], PY_TYPES], bool]]
-    #         return c2_predicate, lambda _: c2_predicate
-
-    #     # N == 1:
-    #     c1_predicate = cast(Callable[[Sequence[PyTypes]], bool], predicate)
-    #     # returns
-    #     # * Callable[[Sequence[PY_TYPES]], bool]
-    #     # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
-    #     return lambda args, actual: c1_predicate(
-    #         args
-    #     ) == actual, lambda args: c1_predicate(args)
-
     @classmethod
     def inputs_and_invariants(
         cls,
