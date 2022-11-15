@@ -111,9 +111,9 @@ class Invariant:
         msg = ""
         if not invariant:
             expected = (
-                self.expected(args)
-                if external_expected is None
-                else self.expected(actual, external_expected)
+                self.expected(actual, external_expected)
+                if has_external_expected
+                else self.expected(args)
             )
             prefix = f"Invariant of {self.predicate_kind} for '{self.name}' failed for for args {args!r}: "
             if self.predicate_kind == PredicateKind.IdenticalPair:
