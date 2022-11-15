@@ -1,6 +1,13 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## `v0.6.0` (_aka_ 🐸)
+
+### Added
+
+* `class PredicateKind` introduced to strengthen typing of predicates and invariants
+* `PredicateKind.IdenticalPair`: allow asserting identical behavior of teal programs without specifying behavior details
+
 ## `v0.5.0` (_aka_ 🐘)
 
 ### Added
