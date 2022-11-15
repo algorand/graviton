@@ -20,19 +20,31 @@ class PredicateKind(Enum):
 
 
 INVARIANT_TYPE = Union[
+    # sentinel invariant, eg:
+    # Predicate.IdenticalPair
+    PredicateKind,
+    # dict invariant, eg:
+    # {(0,): 0**2, (1,): 1**2}
+    Dict[Tuple[PyTypes, ...], PyTypes],
+    # constant invariant, eg:
+    # 42
     PyTypes,
-    Dict[Sequence[PyTypes], PyTypes],
-    Callable[[PyTypes], PyTypes],
-    Callable[[PyTypes], bool],
-    PredicateKind,  # currently represents the equality of two dry-run executable functions
+    # range match invariant, eg:
+    # lambda args, actual: -17 <= f(args[0]) - actual <= 17
+    Callable[[Tuple[PyTypes, ...], PyTypes], bool],
+    # exact match invariant, eg:
+    # lambda args: f(args[0])
+    Callable[[Tuple[PyTypes, ...]], PyTypes],
 ]
 
 
 def get_kind(predicate: INVARIANT_TYPE) -> PredicateKind:
     if isinstance(predicate, PredicateKind):
+        # sentinel predicate
         return predicate
 
     if isinstance(predicate, dict):
+        # mapping predicate of type Dict[Tuple[PyTypes, ...], PyTypes]
         return PredicateKind.CaseMap
 
     if not callable(predicate):
@@ -47,8 +59,10 @@ def get_kind(predicate: INVARIANT_TYPE) -> PredicateKind:
     assert N in (1, 2), f"predicate has the wrong number of paramters {N}"
 
     if N == 2:
+        # range match invariant of type Callable[[Tuple[PyTypes, ...], PyTypes], bool]
         return PredicateKind.RangeMatch
 
+    # exact match invariant of type Callable[[Tuple[PyTypes, ...]], PyTypes]
     return PredicateKind.ExactMatch
 
 
@@ -164,8 +178,8 @@ class Invariant:
         if kind == PredicateKind.IdenticalPair:
             # equality between 2 inspectors
             # returns
-            # * Callable[[Sequence[PY_TYPES], Callable[[Sequence[PY_TYPES], PY_TYPES], Callable[[Sequence[PY_TYPES], PY_TYPES]], bool]
-            # * Callable[[Sequence[PY_TYPES], Callable[[Sequence[PY_TYPES], PY_TYPES], Callable[[Sequence[PY_TYPES], PY_TYPES]], Tuple[PY_TYPES, PY_TYPES]]
+            # * Callable[[Any, PyTypes, PyTypes], bool]
+            # * Callable[[PyTypes, PyTypes], Tuple[PyTypes, PyTypes]]
             return get_return(
                 lambda _, actual, expected: actual == expected,
                 lambda actual, expected: (actual, expected),
@@ -173,9 +187,9 @@ class Invariant:
 
         if kind == PredicateKind.CaseMap:
             # returns
-            # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
-            # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
-            d_predicate = cast(Dict[PyTypes, PyTypes], predicate)
+            # * Callable[[Tuple[PyTypes, ...], PyTypes], bool]
+            # * Callable[[Tuple[PyTypes, ...]], PyTypes]
+            d_predicate = cast(Dict[Tuple[PyTypes], PyTypes], predicate)
             return get_return(
                 lambda args, actual: d_predicate[args] == actual,
                 lambda args: d_predicate[args],
@@ -183,8 +197,8 @@ class Invariant:
 
         if kind == PredicateKind.Constant:
             # returns
-            # * Callable[[Any], PY_TYPES], bool]
-            # * Callable[[Any], PY_TYPES]
+            # * Callable[[Any, PyTypes], bool]
+            # * Callable[[Any], PyTypes]
             # constant function in this case:
             a_const = predicate
             return get_return(lambda _, actual: a_const == actual, lambda _: a_const)
@@ -192,20 +206,21 @@ class Invariant:
         if kind == PredicateKind.RangeMatch:
             # N == 2 args:
             # returns
-            # * Callable[[Sequence[PY_TYPES], PY_TYPES], bool]
-            # * Callable[Any, Callable[[Sequence[PY_TYPES], PY_TYPES], bool]]
-            c2_predicate = cast(Callable[[Sequence[PyTypes], PyTypes], bool], predicate)
+            # * Callable[[Tuple[PyTypes, ...], PyTypes], bool]
+            # * Callable[[Tuple[PyTypes, ...]], str]
+            c2_predicate = cast(
+                Callable[[Tuple[PyTypes, ...], PyTypes], bool], predicate
+            )
             return get_return(c2_predicate, lambda args: f"RangeMatch({args=})")
 
         if kind == PredicateKind.ExactMatch:
             # N == 1 args:
             # returns
-            # * Callable[[Sequence[PY_TYPES]], bool]
-            # * Callable[[Sequence[PY_TYPES]], PY_TYPES]
-            c1_predicate = cast(Callable[[Sequence[PyTypes]], bool], predicate)
+            # * Callable[[Tuple[PyTypes, ...]], bool]
+            # * Callable[[Tuple[PyTypes, ...]], PyTypes]
+            c1_predicate = cast(Callable[[Tuple[PyTypes, ...]], PyTypes], predicate)
             return get_return(
-                lambda args, actual: c1_predicate(args) == actual,
-                lambda args: c1_predicate(args),
+                lambda args, actual: c1_predicate(args) == actual, c1_predicate
             )
 
         raise ValueError("Unhanlded PredicateKind {kind} for predicate {predicate}")
