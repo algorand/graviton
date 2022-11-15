@@ -127,8 +127,12 @@ class Invariant:
         return invariant, msg
 
     def expected(self, x: Any, y: Any = None) -> PyTypes:
-        return self._expected(x) if y is None else self._expected(x, y)
-
+        return (
+            self._expected(x, y)
+            if self.predicate_kind == PredicateKind.IdenticalPair or y is not None
+            else self._expected(x)
+        )
+        
     def validates(
         self,
         dr_property: DryRunProperty,
