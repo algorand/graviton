@@ -3,7 +3,7 @@ import pytest
 
 
 from graviton.blackbox import DryRunProperty as DRProp, DryRunExecutor as DRExecutor
-from graviton.invariant import Invariant, PredicateKind as IQ
+from graviton.invariant import Invariant, PredicateKind
 
 from tests.clients import get_algod
 
@@ -99,10 +99,10 @@ square_byref = (square_byref_teal, "square_byref(uint64)uint64")
 square_p1 = (square_plus_1_teal, "square(uint64)uint64")
 ten = [(i,) for i in range(10)]
 identity_predicates = {
-    DRProp.lastLog: IQ.IdenticalPair,
-    DRProp.status: IQ.IdenticalPair,
-    DRProp.error: IQ.IdenticalPair,
-    DRProp.lastMessage: IQ.IdenticalPair,
+    DRProp.lastLog: PredicateKind.IdenticalPair,
+    DRProp.status: PredicateKind.IdenticalPair,
+    DRProp.error: PredicateKind.IdenticalPair,
+    DRProp.lastMessage: PredicateKind.IdenticalPair,
 }
 
 
