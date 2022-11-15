@@ -96,13 +96,18 @@ class Invariant:
         self,
         args: Sequence[PyTypes],
         actual: PyTypes,
-        external_expected: Optional[PyTypes] = None,
+        **kwargs,
     ) -> Tuple[bool, str]:
+        has_external_expected: bool = False
+        if kwargs and (ee_key := "external_expected") in kwargs:
+            has_external_expected = True
+            external_expected: Optional[PyTypes] = kwargs[ee_key]
         invariant = (
-            self.predicate(args, actual)
-            if external_expected is None
-            else self.predicate(args, actual, external_expected)
+            self.predicate(args, actual, external_expected)
+            if has_external_expected
+            else self.predicate(args, actual)
         )
+
         msg = ""
         if not invariant:
             expected = (
@@ -152,7 +157,7 @@ class Invariant:
                 ), f"IdenticalPair predicates expects the same argments but they aren't: {inspector.abi_params_or_args()=} V. {identity.abi_params_or_args()=}"
                 expected = identity.dig(dr_property)
                 actual = inspector.dig(dr_property)
-                ok, fail_msg = self(inspector.args, actual, expected)
+                ok, fail_msg = self(inspector.args, actual, external_expected=expected)
                 if msg:
                     fail_msg += f". invariant provided message:{msg}"
                 assert ok, inspector.report(msg=fail_msg, row=i + 1)

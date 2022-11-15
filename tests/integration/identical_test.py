@@ -121,7 +121,10 @@ def test_identical_functions(teal_method1, teal_method2, inputs, predicates):
         algod, teal_method1, teal_method2, inputs
     )
     Invariant.full_validation(
-        predicates, inspectors=inspectors1, identities=inspectors2
+        predicates,
+        inspectors=inspectors1,
+        identities=inspectors2,
+        msg=f"{teal_method1[1]} v. {teal_method2[1]}",
     )
 
 
@@ -138,8 +141,7 @@ def test_non_identical():
         DRProp.lastMessage: "PASS",
     }
     Invariant.full_validation(
-        square_predicates,
-        inspectors=square_inspectors,
+        square_predicates, inspectors=square_inspectors, msg="square by itself"
     )
 
     square_p1_predicates = deepcopy(square_predicates)
@@ -147,8 +149,7 @@ def test_non_identical():
         DRProp.lastLog
     ](args)
     Invariant.full_validation(
-        square_p1_predicates,
-        inspectors=square_p1_inspectors,
+        square_p1_predicates, inspectors=square_p1_inspectors, msg="square_p1 by itself"
     )
 
     with pytest.raises(AssertionError) as ae:
@@ -156,6 +157,7 @@ def test_non_identical():
             identity_predicates,
             inspectors=square_inspectors,
             identities=square_p1_inspectors,
+            msg="square v. square_p1",
         )
 
     assert (
