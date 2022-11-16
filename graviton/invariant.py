@@ -132,7 +132,7 @@ class Invariant:
             if self.predicate_kind == PredicateKind.IdenticalPair or y is not None
             else self._expected(x)
         )
-        
+
     def validates(
         self,
         dr_property: DryRunProperty,
