@@ -655,7 +655,7 @@ class DryRunExecutor:
         if abi_method_signature:
             assert not (
                 abi_argument_types or abi_return_type
-            ), f"provided method {abi_method_signature}, so should not have provided argument types {abi_argument_types} not return type {abi_return_type}"
+            ), f"provided method {abi_method_signature}, so should provide neither argument types {abi_argument_types} nor return type {abi_return_type}"
             method = abi.Method.from_signature(abi_method_signature)
             selector = method.get_selector()
             # the method selector is not abi-encoded, hence its abi-type is set to None
