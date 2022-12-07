@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum, auto
 import io
 
+from graviton.models import ExecutionMode
+
 from tabulate import tabulate
 from typing import (
     Any,
@@ -12,6 +14,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Tuple,
     Type,
     Union,
     cast,
@@ -36,13 +39,9 @@ from graviton.dryrun import (
 )
 from graviton.models import ZERO_ADDRESS, ArgType, DryRunAccountType
 
+TealAndMaybeMethod = Union[Tuple[str], Tuple[str, str]]
 
 MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
-
-
-class ExecutionMode(Enum):
-    Signature = auto()
-    Application = auto()
 
 
 class DryRunProperty(Enum):
@@ -420,6 +419,7 @@ class DryRunExecutor:
         is_app_create: bool = False,
         on_complete: OnComplete = OnComplete.NoOpOC,
         *,
+        abi_method_signature: Optional[str] = None,
         sender: Optional[str] = None,
         sp: Optional[SuggestedParams] = None,
         index: Optional[int] = None,
@@ -455,6 +455,7 @@ class DryRunExecutor:
             teal,
             args,
             ExecutionMode.Application,
+            abi_method_signature=abi_method_signature,
             abi_argument_types=abi_argument_types,
             abi_return_type=abi_return_type,
             txn_params=cls.transaction_params(
@@ -520,11 +521,70 @@ class DryRunExecutor:
         )
 
     @classmethod
+    def dryrun_app_pair_on_sequence(
+        cls,
+        algod: AlgodClient,
+        teal_and_method1: TealAndMaybeMethod,
+        teal_and_method2: TealAndMaybeMethod,
+        inputs: List[Sequence[PyTypes]],
+        abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
+        abi_return_type: Optional[abi.ABIType] = None,
+        is_app_create: bool = False,
+        on_complete: OnComplete = OnComplete.NoOpOC,
+        dryrun_accounts: List[DryRunAccountType] = [],
+    ) -> Tuple[Sequence["DryRunInspector"], Sequence["DryRunInspector"]]:
+        return tuple(  # type: ignore
+            cls.dryrun_multiapps_on_sequence(
+                algod=algod,
+                multi_teal_method_pairs=[teal_and_method1, teal_and_method2],
+                inputs=inputs,
+                abi_argument_types=abi_argument_types,
+                abi_return_type=abi_return_type,
+                is_app_create=is_app_create,
+                on_complete=on_complete,
+                dryrun_accounts=dryrun_accounts,
+            )
+        )
+
+    @classmethod
+    def dryrun_multiapps_on_sequence(
+        cls,
+        algod: AlgodClient,
+        multi_teal_method_pairs: List[TealAndMaybeMethod],
+        inputs: List[Sequence[PyTypes]],
+        abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
+        abi_return_type: Optional[abi.ABIType] = None,
+        is_app_create: bool = False,
+        on_complete: OnComplete = OnComplete.NoOpOC,
+        dryrun_accounts: List[DryRunAccountType] = [],
+    ) -> List[Sequence["DryRunInspector"]]:
+        def runner(teal_method_pair):
+            teal = teal_method_pair[0]
+            abi_method = None
+            if len(teal_method_pair) > 1:
+                abi_method = teal_method_pair[1]
+
+            return cls.dryrun_app_on_sequence(
+                algod=algod,
+                teal=teal,
+                inputs=inputs,
+                abi_method=abi_method,
+                abi_argument_types=abi_argument_types,
+                abi_return_type=abi_return_type,
+                is_app_create=is_app_create,
+                on_complete=on_complete,
+                dryrun_accounts=dryrun_accounts,
+            )
+
+        return list(map(runner, multi_teal_method_pairs))
+
+    @classmethod
     def dryrun_app_on_sequence(
         cls,
         algod: AlgodClient,
         teal: str,
         inputs: List[Sequence[PyTypes]],
+        abi_method: Optional[str] = None,
         abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
         abi_return_type: Optional[abi.ABIType] = None,
         is_app_create: bool = False,
@@ -538,6 +598,7 @@ class DryRunExecutor:
                     algod=algod,
                     teal=teal,
                     args=args,
+                    abi_method_signature=abi_method,
                     abi_argument_types=abi_argument_types,
                     abi_return_type=abi_return_type,
                     is_app_create=is_app_create,
@@ -578,16 +639,30 @@ class DryRunExecutor:
         teal: str,
         args: Sequence[PyTypes],
         mode: ExecutionMode,
+        abi_method_signature: Optional[str] = None,
         abi_argument_types: Optional[List[Optional[abi.ABIType]]] = None,
         abi_return_type: Optional[abi.ABIType] = None,
         txn_params: dict = {},
         accounts: List[DryRunAccountType] = [],
+        verbose: bool = False,
     ) -> "DryRunInspector":
         assert (
             len(ExecutionMode) == 2
         ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
+
+        if abi_method_signature:
+            assert not (
+                abi_argument_types or abi_return_type
+            ), f"provided method {abi_method_signature}, so should provide neither argument types {abi_argument_types} nor return type {abi_return_type}"
+            method = abi.Method.from_signature(abi_method_signature)
+            selector = method.get_selector()
+            # the method selector is not abi-encoded, hence its abi-type is set to None
+            abi_argument_types = [None] + [a.type for a in method.args]
+            args = tuple([selector] + list(args))
+            abi_return_type = method.returns.type
+
         encoded_args = DryRunEncoder.encode_args(args, abi_types=abi_argument_types)
 
         dryrun_req: DryrunRequest
@@ -599,7 +674,11 @@ class DryRunExecutor:
             dryrun_req = DryRunHelper.singleton_logicsig_request(
                 teal, encoded_args, txn_params
             )
+        if verbose:
+            print(f"{cls}::execute_one_dryrun(): {dryrun_req=}")
         dryrun_resp = algod.dryrun(dryrun_req)
+        if verbose:
+            print(f"{cls}::execute_one_dryrun(): {dryrun_resp=}")
         return DryRunInspector.from_single_response(
             dryrun_resp, args, encoded_args, abi_type=abi_return_type
         )
@@ -895,6 +974,12 @@ class DryRunInspector:
             has_abi_prefix=bool(self.abi_type),
             show_internal_errors_on_log=True,
         )
+
+    def method_selector_param(self) -> Optional[str]:
+        return cast(str, self.args[0]) if self.abi_type else None
+
+    def abi_params_or_args(self) -> Tuple[PyTypes, ...]:
+        return tuple(self.args[1:] if self.abi_type else self.args)
 
     def config(self, **kwargs: bool):
         bad_keys = set(kwargs.keys()) - self.CONFIG_OPTIONS

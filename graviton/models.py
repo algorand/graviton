@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum, auto
 from typing import List, Optional, Sequence, Union
 
 from algosdk.encoding import encode_address
@@ -10,6 +11,11 @@ ZERO_ADDRESS = encode_address(bytes(32))
 ArgType = Union[bytes, str]
 DryRunAccountType = Union[str, Account]
 PyTypes = Union[bool, int, Sequence, str, bytes]
+
+
+class ExecutionMode(Enum):
+    Signature = auto()
+    Application = auto()
 
 
 def get_run_mode(app):
