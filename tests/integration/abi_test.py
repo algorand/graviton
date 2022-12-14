@@ -501,7 +501,7 @@ EXPECTED_ERR_PATTERN = r"""
     assert\ failed                              # pyteal generated assert's ok
 |   err\ opcode                                 # pyteal generated err's ok
 |   invalid\ ApplicationArgs\ index             # failing because an app arg wasn't provided
-|   extract\ range\ beyond\ length\ of\ string  # failing because couldn't extract from jammed in tuple
+|   extraction\ end\ [0-9]+\ is\ beyond\ length # failing because couldn't extract from jammed in tuple
 """
 
 NEGATIVE_INVARIANTS = Invariant.as_invariants(
