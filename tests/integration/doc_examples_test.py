@@ -1,7 +1,6 @@
 import pytest
 import re
 
-
 teal = """#pragma version 6
 arg 0
 btoi
@@ -154,6 +153,7 @@ def test_step9():
         DryRunExecutor,
         DryRunProperty as DRProp,
     )
+    from graviton.invariant import Invariant
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -169,7 +169,7 @@ def test_step9():
     }
     # Validate the scenario and dig out inputs/invariants:
     inputs = scenario["inputs"]
-    invariants = scenario["invariants"]
+    invariants = Invariant.as_invariants(scenario["invariants"])
     assert inputs and isinstance(inputs, list)
     assert invariants and isinstance(invariants, dict)
 
@@ -187,6 +187,7 @@ def test_exercises(exercise):
         DryRunExecutor,
         DryRunProperty as DRProp,
     )
+    from graviton.invariant import Invariant
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -207,7 +208,7 @@ def test_exercises(exercise):
     }
     # Validate the scenario and dig out inputs/invariants:
     inputs = scenario["inputs"]
-    invariants = scenario["invariants"]
+    invariants = Invariant.as_invariants(scenario["invariants"])
     assert inputs and isinstance(inputs, list)
     assert invariants and isinstance(invariants, dict)
 
