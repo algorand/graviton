@@ -1367,7 +1367,7 @@ class DryRunInspector:
     @classmethod
     def csv_report(
         cls,
-        inputs: List[Sequence[Union[str, int]]],
+        inputs: List[Sequence[PyTypes]],
         dr_resps: List["DryRunInspector"],
         txns: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
