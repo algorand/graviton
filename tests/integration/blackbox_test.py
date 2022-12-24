@@ -520,7 +520,7 @@ def test_app_itxn_with_report():
         },
     }
 
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)  # type: ignore
+    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)
 
     inputs = scenario_failure["inputs"]
     invariants = scenario_failure["invariants"]
@@ -716,7 +716,7 @@ def test_logicsig_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun resonses:
-    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)  # type: ignore
+    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
