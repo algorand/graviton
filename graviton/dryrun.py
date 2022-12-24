@@ -29,10 +29,6 @@ def _msg_if(msg):
     return "" if msg is None else f": {msg}"
 
 
-def _fail(msg):
-    assert False, msg
-
-
 def _assert_in(status, msgs, msg=None, enforce=True):
     ok = status in msgs
     result = None
@@ -42,53 +38,6 @@ def _assert_in(status, msgs, msg=None, enforce=True):
             assert status in msgs, result
 
     return ok, result
-
-
-def assert_pass(txn_index, msg, txns_res):
-    assert_status("PASS", txn_index, msg, txns_res)
-
-
-def assert_reject(txn_index, msg, txns_res):
-    assert_status("REJECT", txn_index, msg, txns_res)
-
-
-def assert_status(status, txn_index, msg, txns_res, enforce=True):
-    if txn_index is not None and (txn_index < 0 or txn_index >= len(txns_res)):
-        _fail(f"txn index {txn_index} is out of range [0, {len(txns_res)})")
-
-    assert_all = True
-    all_msgs = []
-    if status == "REJECT":
-        assert_all = False
-
-    for idx, txn_res in enumerate(txns_res):
-        # skip if txn_index is set
-        if txn_index is not None and idx != txn_index:
-            continue
-
-        msgs = []
-        if (
-            "logic-sig-messages" in txn_res
-            and txn_res["logic-sig-messages"] is not None
-            and len(txn_res["logic-sig-messages"]) > 0
-        ):
-            msgs = txn_res["logic-sig-messages"]
-        elif (
-            "app-call-messages" in txn_res
-            and txn_res["app-call-messages"] is not None
-            and len(txn_res["app-call-messages"]) > 0
-        ):
-            msgs = txn_res["app-call-messages"]
-        else:
-            _fail("no messages from dryrun")
-        if assert_all or idx == txn_index:
-            _assert_in(status, msgs, msg=msg)
-        all_msgs.extend(msgs)
-
-    if not assert_all:
-        return _assert_in(status, all_msgs, msg=msg, enforce=enforce)
-
-    return True, None
 
 
 def assert_error(drr, contains=None, txn_index=None, msg=None, enforce=True):
@@ -118,9 +67,63 @@ def assert_no_error(drr, txn_index=None, msg=None, enforce=True):
     return ok, result
 
 
-def assert_global_state_contains(delta_value, txn_index, txns_res, msg=None):
+# ### DEPRECATED FUNCTIONS - BEGIN ### #
+
+
+def _deprecated_fail(msg):
+    assert False, msg
+
+
+def deprecated_assert_pass(txn_index, msg, txns_res):
+    deprecated_assert_status("PASS", txn_index, msg, txns_res)
+
+
+def deprecated_assert_reject(txn_index, msg, txns_res):
+    deprecated_assert_status("REJECT", txn_index, msg, txns_res)
+
+
+def deprecated_assert_status(status, txn_index, msg, txns_res, enforce=True):
     if txn_index is not None and (txn_index < 0 or txn_index >= len(txns_res)):
-        _fail(f"txn index {txn_index} is out of range [0, {len(txns_res)})")
+        _deprecated_fail(f"txn index {txn_index} is out of range [0, {len(txns_res)})")
+
+    assert_all = True
+    all_msgs = []
+    if status == "REJECT":
+        assert_all = False
+
+    for idx, txn_res in enumerate(txns_res):
+        # skip if txn_index is set
+        if txn_index is not None and idx != txn_index:
+            continue
+
+        msgs = []
+        if (
+            "logic-sig-messages" in txn_res
+            and txn_res["logic-sig-messages"] is not None
+            and len(txn_res["logic-sig-messages"]) > 0
+        ):
+            msgs = txn_res["logic-sig-messages"]
+        elif (
+            "app-call-messages" in txn_res
+            and txn_res["app-call-messages"] is not None
+            and len(txn_res["app-call-messages"]) > 0
+        ):
+            msgs = txn_res["app-call-messages"]
+        else:
+            _deprecated_fail("no messages from dryrun")
+        if assert_all or idx == txn_index:
+            _assert_in(status, msgs, msg=msg)
+        all_msgs.extend(msgs)
+
+    if not assert_all:
+        return _assert_in(status, all_msgs, msg=msg, enforce=enforce)
+
+    return True, None
+
+
+def deprecated_assert_global_state_contains(delta_value, txn_index, txns_res, msg=None):
+    if txn_index is not None and (txn_index < 0 or txn_index >= len(txns_res)):
+        _deprecated_fail(f"txn index {txn_index} is out of range [0, {len(txns_res)})")
 
     found = False
     all_global_deltas = []
@@ -133,19 +136,21 @@ def assert_global_state_contains(delta_value, txn_index, txns_res, msg=None):
             and txn_res["global-delta"] is not None
             and len(txn_res["global-delta"]) > 0
         ):
-            found = DryRunHelper.find_delta_value(txn_res["global-delta"], delta_value)
+            found = DryRunHelper.deprecated_find_delta_value(
+                txn_res["global-delta"], delta_value
+            )
             if not found and idx == txn_index:
                 msg = (
                     msg
                     if msg is not None
                     else f"{delta_value} not found in {txn_res['global-delta']}"
                 )
-                _fail(msg)
+                _deprecated_fail(msg)
             if found:
                 break
             all_global_deltas.extend(txn_res["global-delta"])
         elif idx == txn_index:
-            _fail("no global state from dryrun")
+            _deprecated_fail("no global state from dryrun")
 
     if not found:
         msg = (
@@ -153,12 +158,14 @@ def assert_global_state_contains(delta_value, txn_index, txns_res, msg=None):
             if msg is not None
             else f"{delta_value} not found in any of {all_global_deltas}"
         )
-        _fail(msg)
+        _deprecated_fail(msg)
 
 
-def assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=None):
+def deprecated_assert_local_state_contains(
+    addr, delta_value, txn_index, txns_res, msg=None
+):
     if txn_index is not None and (txn_index < 0 or txn_index >= len(txns_res)):
-        _fail(f"txn index {txn_index} is out of range [0, {len(txns_res)})")
+        _deprecated_fail(f"txn index {txn_index} is out of range [0, {len(txns_res)})")
 
     found = False
     all_local_deltas = []
@@ -176,7 +183,7 @@ def assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=None
                 addr_found = False
                 if local_delta["address"] == addr:
                     addr_found = True
-                    found = DryRunHelper.find_delta_value(
+                    found = DryRunHelper.deprecated_find_delta_value(
                         local_delta["delta"], delta_value
                     )
                     if not found and idx == txn_index:
@@ -185,14 +192,14 @@ def assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=None
                             if msg is not None
                             else f"{delta_value} not found in {local_delta['delta']}"
                         )
-                        _fail(msg)
+                        _deprecated_fail(msg)
                     if found:
                         break
                     all_local_deltas.extend(local_delta["delta"])
             if not addr_found and idx == txn_index:
-                _fail(f"no address {addr} in local states from dryrun")
+                _deprecated_fail(f"no address {addr} in local states from dryrun")
         elif idx == txn_index:
-            _fail("no local states from dryrun")
+            _deprecated_fail("no local states from dryrun")
 
     if not found:
         msg = (
@@ -200,7 +207,10 @@ def assert_local_state_contains(addr, delta_value, txn_index, txns_res, msg=None
             if msg is not None
             else f"{delta_value} not found in any of {all_local_deltas}"
         )
-        _fail(msg)
+        _deprecated_fail(msg)
+
+
+# ### DEPRECATED FUNCTIONS - END ### #
 
 
 class DryRunHelper:
@@ -418,81 +428,6 @@ class DryRunHelper:
         return Application(idx, params)
 
     @staticmethod
-    def _guess(value):
-        try:
-            value = base64.b64decode(value)
-        except binascii.Error:
-            return value
-
-        try:
-            all_print = True
-            for b in value:
-                if chr(b) not in PRINTABLE:
-                    all_print = False
-            if all_print:
-                return '"' + value.decode("utf8") + '"'
-            else:
-                if len(value) == 32:  # address? hash?
-                    return f"{encode_address(value)} ({value.hex()})"
-                elif len(value) < 16:  # most likely bin number
-                    return "0x" + value.hex()
-                return value.hex()
-        except UnicodeDecodeError:
-            return value.hex()
-
-    @classmethod
-    def _format_stack(cls, stack):
-        parts = []
-        for item in stack:
-            if item["type"] == 1:  # bytes
-                item = cls._guess(item["bytes"])
-            else:
-                item = str(item["uint"])
-            parts.append(item)
-        return " ".join(parts)
-
-    @classmethod
-    def pprint(cls, drr) -> str:
-        """Helper function to pretty print dryrun response"""
-        f = io.StringIO()
-        with redirect_stdout(f):
-            if "error" in drr and drr["error"]:
-                print("error:", drr["error"])
-            if "txns" in drr and isinstance(drr["txns"], list):
-                for idx, txn_res in enumerate(drr["txns"]):
-                    msgs = []
-                    trace = []
-                    try:
-                        msgs = txn_res["app-call-messages"]
-                        trace = txn_res["app-call-trace"]
-                    except KeyError:
-                        try:
-                            msgs = txn_res["logic-sig-messages"]
-                            trace = txn_res["logic-sig-trace"]
-                        except KeyError:
-                            pass
-                    if msgs:
-                        print(f"txn[{idx}] messages:")
-                        for msg in msgs:
-                            print(msg)
-                    if trace:
-                        print(f"txn[{idx}] trace:")
-                        for item in trace:
-                            dis = txn_res["disassembly"][item["line"]]
-                            stack = cls._format_stack(item["stack"])
-                            line = "{:4d}".format(item["line"])
-                            pc = "{:04d}".format(item["pc"])
-                            disasm = "{:25}".format(dis)
-                            stack_line = "{}".format(stack)
-                            result = f"{line} ({pc}): {disasm} [{stack_line}]"
-                            if "error" in item:
-                                result += f" error: {item['error']}"
-                            print(result)
-        out = f.getvalue()
-        print(out)
-        return out
-
-    @staticmethod
     def find_error(drr, txn_index=None):
         """
         Helper function to find error in dryrun response
@@ -526,8 +461,85 @@ class DryRunHelper:
                         error = f"{ptype} {idx} failed at line {item['line']}: {item['error']}"
                         return error
 
+    # ### DEPRECATED METHODS ### #
+
     @staticmethod
-    def build_bytes_delta_value(value):
+    def _deprecated_guess(value):
+        try:
+            value = base64.b64decode(value)
+        except binascii.Error:
+            return value
+
+        try:
+            all_print = True
+            for b in value:
+                if chr(b) not in PRINTABLE:
+                    all_print = False
+            if all_print:
+                return '"' + value.decode("utf8") + '"'
+            else:
+                if len(value) == 32:  # address? hash?
+                    return f"{encode_address(value)} ({value.hex()})"
+                elif len(value) < 16:  # most likely bin number
+                    return "0x" + value.hex()
+                return value.hex()
+        except UnicodeDecodeError:
+            return value.hex()
+
+    @classmethod
+    def _deprecated_format_stack(cls, stack):
+        parts = []
+        for item in stack:
+            if item["type"] == 1:  # bytes
+                item = cls._deprecated_guess(item["bytes"])
+            else:
+                item = str(item["uint"])
+            parts.append(item)
+        return " ".join(parts)
+
+    @classmethod
+    def deprecated_pprint(cls, drr) -> str:
+        """Helper function to pretty print dryrun response"""
+        f = io.StringIO()
+        with redirect_stdout(f):
+            if "error" in drr and drr["error"]:
+                print("error:", drr["error"])
+            if "txns" in drr and isinstance(drr["txns"], list):
+                for idx, txn_res in enumerate(drr["txns"]):
+                    msgs = []
+                    trace = []
+                    try:
+                        msgs = txn_res["app-call-messages"]
+                        trace = txn_res["app-call-trace"]
+                    except KeyError:
+                        try:
+                            msgs = txn_res["logic-sig-messages"]
+                            trace = txn_res["logic-sig-trace"]
+                        except KeyError:
+                            pass
+                    if msgs:
+                        print(f"txn[{idx}] messages:")
+                        for msg in msgs:
+                            print(msg)
+                    if trace:
+                        print(f"txn[{idx}] trace:")
+                        for item in trace:
+                            dis = txn_res["disassembly"][item["line"]]
+                            stack = cls._deprecated_format_stack(item["stack"])
+                            line = "{:4d}".format(item["line"])
+                            pc = "{:04d}".format(item["pc"])
+                            disasm = "{:25}".format(dis)
+                            stack_line = "{}".format(stack)
+                            result = f"{line} ({pc}): {disasm} [{stack_line}]"
+                            if "error" in item:
+                                result += f" error: {item['error']}"
+                            print(result)
+        out = f.getvalue()
+        print(out)
+        return out
+
+    @staticmethod
+    def deprecated_build_bytes_delta_value(value):
         if isinstance(value, str):
             value = value.encode("utf-8")
         return dict(
@@ -536,7 +548,7 @@ class DryRunHelper:
         )
 
     @staticmethod
-    def find_delta_value(deltas, delta_value):
+    def deprecated_find_delta_value(deltas, delta_value):
         found = False
         for delta in deltas:
             try:
@@ -556,7 +568,7 @@ class DryRunHelper:
         return found
 
     @staticmethod
-    def save_dryrun_request(name_or_fp, req):
+    def deprecated_save_dryrun_request(name_or_fp, req):
         """Helper function to save dryrun request
 
         Args:
