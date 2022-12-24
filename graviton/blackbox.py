@@ -39,7 +39,9 @@ from graviton.dryrun import (
 )
 from graviton.models import ZERO_ADDRESS, ArgType, DryRunAccountType
 
-TealAndMaybeMethod = Union[Tuple[str], Tuple[str, str]]
+TealAndMethodType = Union[Tuple[str], Tuple[str, str]]
+EncodingType = Union[abi.ABIType, str, None]
+
 
 MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
 
@@ -267,7 +269,7 @@ class DryRunEncoder:
     def encode_args(
         cls,
         args: Sequence[PyTypes],
-        abi_types: Optional[List[Optional[abi.ABIType]]] = None,
+        abi_types: Optional[List[EncodingType]] = None,
         validation: bool = True,
     ) -> List[ArgType]:
         """
@@ -351,7 +353,7 @@ class DryRunEncoder:
 
     @classmethod
     def _encode_arg(
-        cls, arg: PyTypes, idx: int, abi_type: Optional[abi.ABIType]
+        cls, arg: PyTypes, idx: int, abi_type: EncodingType
     ) -> Union[str, bytes]:
         partial = cls._partial_encode_assert(
             arg, abi_type, f"problem encoding arg ({arg!r}) at index ({idx})"
@@ -372,7 +374,7 @@ class DryRunEncoder:
 
     @classmethod
     def _partial_encode_assert(
-        cls, arg: PyTypes, abi_type: Optional[abi.ABIType], msg: str = ""
+        cls, arg: PyTypes, abi_type: EncodingType, msg: str = ""
     ) -> Optional[bytes]:
         """
         When have an `abi_type` is present, attempt to encode `arg` accordingly (returning `bytes`)
@@ -380,7 +382,7 @@ class DryRunEncoder:
         """
         if abi_type:
             try:
-                return abi_type.encode(arg)
+                return cast(abi.ABIType, abi_type).encode(arg)
             except Exception as e:
                 raise AssertionError(
                     f"{msg +': ' if msg else ''}can't handle arg [{arg!r}] of type {type(arg)} and abi-type {abi_type}: {e}"
@@ -530,8 +532,8 @@ class DryRunExecutor:
     def dryrun_app_pair_on_sequence(
         cls,
         algod: AlgodClient,
-        teal_and_method1: TealAndMaybeMethod,
-        teal_and_method2: TealAndMaybeMethod,
+        teal_and_method1: TealAndMethodType,
+        teal_and_method2: TealAndMethodType,
         inputs: List[Sequence[PyTypes]],
         *,
         is_app_create: bool = False,
@@ -557,7 +559,7 @@ class DryRunExecutor:
     def dryrun_multiapps_on_sequence(
         cls,
         algod: AlgodClient,
-        multi_teal_method_pairs: List[TealAndMaybeMethod],
+        multi_teal_method_pairs: List[TealAndMethodType],
         inputs: List[Sequence[PyTypes]],
         *,
         is_app_create: bool = False,
@@ -665,7 +667,7 @@ class DryRunExecutor:
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
 
-        abi_argument_types = None
+        abi_argument_types: Optional[List[EncodingType]] = None
         abi_return_type: Optional[abi.ABIType] = None
         if abi_method_signature:
             """
