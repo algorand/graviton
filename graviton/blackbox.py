@@ -696,7 +696,7 @@ class DryRunExecutor:
                 if len(args) == len(abi_argument_types):
                     if not omit_method_selector:
                         # the method selector is not abi-encoded, hence its abi-type is set to None
-                        abi_argument_types = [None] + abi_argument_types
+                        abi_argument_types = [None] + abi_argument_types  # type: ignore
                         args = [selector] + args
 
                 elif len(args) == len(abi_argument_types) + 1:
@@ -707,14 +707,14 @@ class DryRunExecutor:
                     if omit_method_selector:
                         args = args[1:]
                     else:
-                        abi_argument_types = [None] + abi_argument_types
+                        abi_argument_types = [None] + abi_argument_types  # type: ignore
 
                 else:
                     raise AssertionError(
                         f"{len(args)=} is incompatible with {len(method.args)=}: LEFT should be equal or exactly RIGHT + 1"
                     )
             elif not omit_method_selector:
-                abi_argument_types = [None] + abi_argument_types
+                abi_argument_types = [None] + abi_argument_types  # type: ignore
 
             args = tuple(args)
 
