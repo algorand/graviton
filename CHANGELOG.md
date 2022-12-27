@@ -1,6 +1,20 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## `v0.7.0` (_aka_ 🦒)
+
+### Breaking changes
+
+In [#42](https://github.com/algorand/graviton/pull/42):
+
+* Inside `graviton/blackbox.py`: Removing the parameters `abi_argument_types` and `abi_return_type` from dry run execution methods, in favor of the unified `abi_method_signature` parameter. Also adding `omit_method_selector` and `validation` parameters to allow running non-ARC-4 compliant teal code that use ABI types.
+* Deleting all code previously marked with the `deprecated_` (or `Deprecated`) prefix. This includes:
+  * `graviton/deprecated_dryrun.py`
+  * `graviton/deprecated_dryrun_mixin.py`
+  * `tests/integration/dryrun_mixin_docs_test.py`
+* Deleting method `Invariant.inputs_and_invariants()`
+* Inside `graviton/dryrun.py`: marked as deprecated for future removal with prefix `deprecated_` code that is orphaned after the deletion of the above
+
 ## `v0.6.0` (_aka_ 🐸)
 
 ### Added
