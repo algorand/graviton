@@ -1161,6 +1161,23 @@ class DryRunExecutor:
         return executor
 
     @classmethod
+    def execute_one_dryrun_FUTURE(
+        cls,
+        algod: AlgodClient,
+        teal: str,
+        args: Sequence[PyTypes],
+        mode: ExecutionMode,
+        *,
+        abi_method_signature: Optional[str] = None,
+        omit_method_selector: bool = False,
+        validation: bool = True,
+        txn_params: dict = {},
+        accounts: List[DryRunAccountType] = [],
+        verbose: bool = False,
+    ) -> DryRunInspector:
+        pass
+
+    @classmethod
     def execute_one_dryrun(
         cls,
         algod: AlgodClient,
@@ -1174,7 +1191,7 @@ class DryRunExecutor:
         txn_params: dict = {},
         accounts: List[DryRunAccountType] = [],
         verbose: bool = False,
-    ) -> "DryRunInspector":
+    ) -> DryRunInspector:
         (
             is_app,
             abi_argument_types,
@@ -1714,7 +1731,7 @@ class ABIContractExecutor:
         *,
         validation: bool = True,
         dryrun_accounts: List[DryRunAccountType] = [],
-    ) -> List["DryRunInspector"]:
+    ) -> List[DryRunInspector]:
         """ARC-4 Compliant Dry Run
         When inputs aren't provided, you should INSTEAD SHOULD HAVE PROVIDED
         an `argument_strategy` upon construction.
