@@ -1,7 +1,7 @@
 from base64 import b64decode
 from copy import copy
 import csv
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum, auto
 import io
 
@@ -424,7 +424,9 @@ class DryRunTransactionParams:
     foreign_apps: Optional[List[str]] = None
     foreign_assets: Optional[List[str]] = None
     extra_pages: Optional[int] = None
-    dryrun_accounts: Optional[List[DryRunAccountType]] = None  # belongs here???
+    dryrun_accounts: List[DryRunAccountType] = field(
+        default_factory=list
+    )  # belongs here???
     # future:
     box_refs: Optional[List[Tuple[int, str]]] = None
 
@@ -498,8 +500,58 @@ class DryRunExecutor:
             self.selector,
         ) = self._prerun_validation(self.mode, self.abi_method_signature)
 
-    def run(self, *inputs: Sequence[ArgType]) -> Sequence["DryRunInspector"]:
-        pass
+    def run(
+        self,
+        *inputs: Sequence[ArgType],
+        txn_params: Optional[DryRunTransactionParams] = None,
+        verbose: bool = False,
+    ) -> Sequence["DryRunInspector"]:
+        return list(map(self._executor(txn_params, verbose), inputs))
+
+    def _executor(
+        self,
+        txn_params: Optional[DryRunTransactionParams],
+        verbose: bool,
+    ):
+        def executor(args: Sequence[PyTypes]) -> "DryRunInspector":
+            # ------ at runtime (depends on args) ------ #
+            if self.abi_method_signature:
+                args, abi_argument_types = self._abi_adapter(
+                    args,
+                    self.abi_argument_types,
+                    self.omit_method_selector,
+                    self.validation,
+                    self.method,
+                    self.selector,
+                )
+
+            encoded_args = DryRunEncoder.encode_args(
+                args, abi_types=self.abi_argument_types, validation=self.validation
+            )
+
+            dryrun_req: DryrunRequest
+            txn_params_d = asdict(txn_params) if txn_params else {}
+            if self.is_app:
+                dryrun_req = DryRunHelper.singleton_app_request(
+                    self.program,
+                    encoded_args,
+                    txn_params_d,
+                    txn_params_d.get("dryrun_accounts", []),
+                )
+            else:
+                dryrun_req = DryRunHelper.singleton_logicsig_request(
+                    self.program, encoded_args, txn_params_d
+                )
+            if verbose:
+                print(f"{type(self)}.run(): {dryrun_req=}")
+            dryrun_resp = self.algod.dryrun(dryrun_req)
+            if verbose:
+                print(f"{type(self)}::execute_one_dryrun(): {dryrun_resp=}")
+            return DryRunInspector.from_single_response(
+                dryrun_resp, args, encoded_args, abi_type=self.abi_return_type
+            )
+
+        return executor
 
     @classmethod
     def execute_one_dryrun(
@@ -1227,7 +1279,7 @@ class DryRunInspector:
         dryrun_resp: dict,
         args: Sequence[PyTypes],
         encoded_args: List[ArgType],
-        abi_type: abi.ABIType = None,
+        abi_type: EncodingType = None,
     ) -> "DryRunInspector":
         error = dryrun_resp.get("error")
         assert not error, f"dryrun response included the following error: [{error}]"
