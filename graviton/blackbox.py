@@ -1481,15 +1481,35 @@ class DryRunExecutor:
         lease: Optional[str] = None,
         rekey_to: Optional[str] = None,
     ) -> DryRunInspector:
-        return cls.execute_one_dryrun(
+        # return cls.execute_one_dryrun(
+        #     algod,
+        #     teal,
+        #     args,
+        #     ExecutionMode.Signature,
+        #     abi_method_signature=abi_method_signature,
+        #     omit_method_selector=omit_method_selector,
+        #     validation=validation,
+        #     txn_params=cls.transaction_params(
+        #         sender=ZERO_ADDRESS if sender is None else sender,
+        #         sp=cls.SUGGESTED_PARAMS if sp is None else sp,
+        #         note=note,
+        #         lease=lease,
+        #         rekey_to=rekey_to,
+        #         receiver=ZERO_ADDRESS if receiver is None else receiver,
+        #         amt=0 if amt is None else amt,
+        #         close_remainder_to=close_remainder_to,
+        #     ),
+        # )
+        return cls(
             algod,
-            teal,
-            args,
             ExecutionMode.Signature,
+            teal,
             abi_method_signature=abi_method_signature,
             omit_method_selector=omit_method_selector,
             validation=validation,
-            txn_params=cls.transaction_params(
+        ).run(
+            args,
+            txn_params=DryRunTransactionParams(
                 sender=ZERO_ADDRESS if sender is None else sender,
                 sp=cls.SUGGESTED_PARAMS if sp is None else sp,
                 note=note,
@@ -1499,7 +1519,9 @@ class DryRunExecutor:
                 amt=0 if amt is None else amt,
                 close_remainder_to=close_remainder_to,
             ),
-        )
+        )[
+            0
+        ]
 
     @classmethod
     def dryrun_app_pair_on_sequence(
