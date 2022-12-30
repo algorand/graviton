@@ -32,13 +32,13 @@ from algosdk.future.transaction import (
 
 from algosdk import atomic_transaction_composer as atc
 
-from graviton.abi_strategy import PyTypes, ABIStrategy, RandomABIStrategy
+from graviton.abi_strategy import ABIStrategy, RandomABIStrategy
 from graviton.dryrun import (
     assert_error,
     assert_no_error,
     DryRunHelper,
 )
-from graviton.models import ZERO_ADDRESS, ArgType, DryRunAccountType
+from graviton.models import ZERO_ADDRESS, ArgType, DryRunAccountType, PyTypes, Stringy
 
 TealAndMethodType = Union[Tuple[str], Tuple[str, str]]
 EncodingType = Union[abi.ABIType, str, None]
@@ -1010,15 +1010,15 @@ class DryRunTransactionParams:
     """
 
     # generic:
-    sender: Optional[str] = None
+    sender: Optional[Stringy] = None
     sp: Optional[SuggestedParams] = None
-    note: Optional[str] = None
-    lease: Optional[str] = None
-    rekey_to: Optional[str] = None
+    note: Optional[Stringy] = None
+    lease: Optional[Stringy] = None
+    rekey_to: Optional[Stringy] = None
     # payments
-    receiver: Optional[str] = None
+    receiver: Optional[Stringy] = None
     amt: Optional[int] = None
-    close_remainder_to: Optional[str] = None
+    close_remainder_to: Optional[Stringy] = None
     # apps
     index: Optional[int] = None
     on_complete: Optional[OnComplete] = None
@@ -1036,6 +1036,15 @@ class DryRunTransactionParams:
     )  # belongs here???
     # future:
     box_refs: Optional[List[Tuple[int, str]]] = None
+
+    def asdict(self, drop_nones: bool = True) -> Dict[str, Any]:
+        d = asdict(self)
+        del d["dryrun_accounts"]
+        del d["box_refs"]
+        if not drop_nones:
+            return d
+
+        return {k: v for k, v in d.items() if v is not None}
 
 
 @dataclass(frozen=True)
@@ -1109,7 +1118,7 @@ class DryRunExecutor:
 
     def run(
         self,
-        *inputs: Sequence[ArgType],
+        *inputs: Sequence[PyTypes],
         txn_params: Optional[DryRunTransactionParams] = None,
         verbose: bool = False,
     ) -> Sequence[DryRunInspector]:
@@ -1121,7 +1130,7 @@ class DryRunExecutor:
         verbose: bool,
     ):
         def executor(args: Sequence[PyTypes]) -> DryRunInspector:
-            # ------ at runtime (depends on args) ------ #
+            abi_argument_types = self.abi_argument_types
             if self.abi_method_signature:
                 args, abi_argument_types = self._abi_adapter(
                     args,
@@ -1133,17 +1142,18 @@ class DryRunExecutor:
                 )
 
             encoded_args = DryRunEncoder.encode_args(
-                args, abi_types=self.abi_argument_types, validation=self.validation
+                args, abi_types=abi_argument_types, validation=self.validation
             )
 
             dryrun_req: DryrunRequest
-            txn_params_d = asdict(txn_params) if txn_params else {}
+            txn_params_d = txn_params.asdict() if txn_params else {}
+            dr_acts = txn_params.dryrun_accounts if txn_params else []
             if self.is_app:
                 dryrun_req = DryRunHelper.singleton_app_request(
                     self.program,
                     encoded_args,
                     txn_params_d,
-                    txn_params_d.get("dryrun_accounts", []),
+                    dr_acts,
                 )
             else:
                 dryrun_req = DryRunHelper.singleton_logicsig_request(
@@ -1161,7 +1171,7 @@ class DryRunExecutor:
         return executor
 
     @classmethod
-    def execute_one_dryrun_FUTURE(
+    def execute_one_dryrun(
         cls,
         algod: AlgodClient,
         teal: str,
@@ -1175,10 +1185,23 @@ class DryRunExecutor:
         accounts: List[DryRunAccountType] = [],
         verbose: bool = False,
     ) -> DryRunInspector:
-        pass
+        return cls(
+            algod,
+            mode,
+            teal,
+            abi_method_signature=abi_method_signature,
+            omit_method_selector=omit_method_selector,
+            validation=validation,
+        ).run(
+            args,
+            txn_params=DryRunTransactionParams(dryrun_accounts=accounts, **txn_params),
+            verbose=verbose,
+        )[
+            0
+        ]
 
     @classmethod
-    def execute_one_dryrun(
+    def execute_one_dryrun_ORIGINAL(
         cls,
         algod: AlgodClient,
         teal: str,
@@ -1371,15 +1394,48 @@ class DryRunExecutor:
 
         Additional application call transaction parameters can be provided as well
         """
-        return cls.execute_one_dryrun(
+        # return cls.execute_one_dryrun(
+        #     algod,
+        #     teal,
+        #     args,
+        #     ExecutionMode.Application,
+        #     abi_method_signature=abi_method_signature,
+        #     omit_method_selector=omit_method_selector,
+        #     validation=validation,
+        #     txn_params=cls.transaction_params(
+        #         sender=ZERO_ADDRESS if sender is None else sender,
+        #         sp=cls.SUGGESTED_PARAMS if sp is None else sp,
+        #         note=note,
+        #         lease=lease,
+        #         rekey_to=rekey_to,
+        #         index=(
+        #             (cls.CREATION_APP_CALL if is_app_create else cls.EXISTING_APP_CALL)
+        #             if index is None
+        #             else index
+        #         ),
+        #         on_complete=on_complete,
+        #         local_schema=local_schema,
+        #         global_schema=global_schema,
+        #         approval_program=approval_program,
+        #         clear_program=clear_program,
+        #         app_args=app_args,
+        #         accounts=accounts,
+        #         foreign_apps=foreign_apps,
+        #         foreign_assets=foreign_assets,
+        #         extra_pages=extra_pages,
+        #     ),
+        #     accounts=dryrun_accounts,
+        # )
+        return cls(
             algod,
-            teal,
-            args,
             ExecutionMode.Application,
+            teal,
             abi_method_signature=abi_method_signature,
             omit_method_selector=omit_method_selector,
             validation=validation,
-            txn_params=cls.transaction_params(
+        ).run(
+            args,
+            txn_params=DryRunTransactionParams(
                 sender=ZERO_ADDRESS if sender is None else sender,
                 sp=cls.SUGGESTED_PARAMS if sp is None else sp,
                 note=note,
@@ -1400,9 +1456,11 @@ class DryRunExecutor:
                 foreign_apps=foreign_apps,
                 foreign_assets=foreign_assets,
                 extra_pages=extra_pages,
+                dryrun_accounts=dryrun_accounts,
             ),
-            accounts=dryrun_accounts,
-        )
+        )[
+            0
+        ]
 
     @classmethod
     def dryrun_logicsig(

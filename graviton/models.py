@@ -10,7 +10,8 @@ ZERO_ADDRESS = encode_address(bytes(32))
 
 ArgType = Union[bytes, str]
 DryRunAccountType = Union[str, Account]
-PyTypes = Union[bool, int, Sequence, str, bytes]
+Stringy = Union[str, bytes]
+PyTypes = Union[bool, int, Sequence, Stringy]
 
 
 class ExecutionMode(Enum):
