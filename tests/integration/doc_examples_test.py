@@ -23,7 +23,7 @@ def test_step4():
     algod = get_algod()
     x = 9
     args = (x,)
-    inspector = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(args)
+    inspector = DryRunExecutor(algod, ExecutionMode.Signature, teal).run_one(args)
     assert inspector.status() == "PASS"
     assert inspector.stack_top() == x**2
 
@@ -43,7 +43,7 @@ def test_step5():
     algod = get_algod()
     x = 2
     args = (x,)
-    inspector = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(args)
+    inspector = DryRunExecutor(algod, ExecutionMode.Signature, teal).run_one(args)
 
     # This one's ok
     expected, actual = "PASS", inspector.status()
@@ -119,7 +119,9 @@ def test_step6_and_7():
 
     algod = get_algod()
     inputs = [(x,) for x in range(16)]
-    run_results = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(inputs)
+    run_results = DryRunExecutor(algod, ExecutionMode.Signature, teal).run_sequence(
+        inputs
+    )
     csv = DryRunInspector.csv_report(inputs, run_results)
     print(csv)
 
@@ -138,7 +140,9 @@ def test_step8():
 
     algod = get_algod()
     inputs = [(x,) for x in range(101)]
-    dryrun_results = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(inputs)
+    dryrun_results = DryRunExecutor(algod, ExecutionMode.Signature, teal).run_sequence(
+        inputs
+    )
     for i, inspector in enumerate(dryrun_results):
         args = inputs[i]
         x = args[0]
@@ -175,7 +179,9 @@ def test_step9():
     assert invariants and isinstance(invariants, dict)
 
     # Execute the dry runs and obtain sequence of DryRunInspectors:
-    inspectors = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(inputs)
+    inspectors = DryRunExecutor(algod, ExecutionMode.Signature, teal).run_sequence(
+        inputs
+    )
 
     # Invariant assertions on sequence:
     for dr_property, invariant in invariants.items():
@@ -215,7 +221,9 @@ def test_exercises(exercise):
     assert invariants and isinstance(invariants, dict)
 
     # Execute the dry runs and obtain sequence of DryRunInspectors:
-    inspectors = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(inputs)
+    inspectors = DryRunExecutor(algod, ExecutionMode.Signature, teal).run_sequence(
+        inputs
+    )
 
     # Invariant assertions on sequence:
     for dr_property, invariant in invariants.items():
