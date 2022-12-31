@@ -1662,7 +1662,7 @@ class DryRunExecutor:
         validation: bool = True,
     ) -> Tuple[Sequence[DryRunInspector], Sequence[DryRunInspector]]:
         return tuple(  # type: ignore
-            cls.dryrun_multiapps_on_sequence(
+            cls.deprecated_dryrun_multiapps_on_sequence(
                 algod=algod,
                 multi_teal_method_pairs=[teal_and_method1, teal_and_method2],
                 inputs=inputs,
