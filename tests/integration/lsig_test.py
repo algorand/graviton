@@ -15,6 +15,8 @@ import pytest
 from graviton.blackbox import (
     DryRunExecutor as Executor,
     DryRunInspector as Inspector,
+    ExecutionMode,
+    DryRunTransactionParams as TxParams,
 )
 
 from tests.clients import get_algod
@@ -48,12 +50,13 @@ btoi
 int 0x31
 ==
 """
-    insp_no_args = Executor.dryrun_logicsig(ALGOD, source, [])
+    executor = Executor(ALGOD, ExecutionMode.Signature, source)
+    insp_no_args = executor.run(tuple())
     assert "cannot load arg[0] of 0" in insp_no_args.error_message()
     assert insp_no_args.rejected()
 
     # providing the string arg "1" results is encoded to 0x31, and hence eval passes:
-    insp_args_1_2 = Executor.dryrun_logicsig(ALGOD, source, ["1", "2"])
+    insp_args_1_2 = executor.run(("1", "2"))
     assert insp_args_1_2.passed()
 
 
@@ -77,7 +80,7 @@ def payment_amount(p, q):
 @pytest.mark.parametrize("p, q", product(range(20), range(20)))
 def test_factorizer_game_3_stateless(p, q):
     args = (p, q)
-    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_TEAL, args)
+    inspector = Executor(ALGOD, ExecutionMode.Signature, FACTORIZER_TEAL).run(args)
     slots = inspector.final_scratch()
     assert slots.get(3, 0) == expected_prize_before_dupe_constraint(
         p, q
@@ -88,7 +91,9 @@ def test_factorizer_game_3_stateless(p, q):
 def test_factorizer_game_4_payout(p, q):
     args = (p, q)
     eprize = expected_prize_before_dupe_constraint(p, q)
-    inspector = Executor.dryrun_logicsig(ALGOD, FACTORIZER_TEAL, args, amt=eprize)
+    inspector = Executor(ALGOD, ExecutionMode.Signature, FACTORIZER_TEAL).run(
+        args, txn_params=TxParams(amt=eprize)
+    )
     assert inspector.final_scratch().get(3, 0) == eprize, inspector.report(
         args, f"final scratch slot #3 {p, q}"
     )
@@ -110,10 +115,11 @@ def test_factorizer_report_with_pymnt():
     algod = get_algod()
 
     dryrun_results, txns = [], []
+    executor = Executor(algod, ExecutionMode.Signature, teal)
     for args, amt in zip(inputs, amts):
         txn = {"amt": amt}
         txns.append(txn)
-        dryrun_results.append(Executor.dryrun_logicsig(algod, teal, args, **txn))
+        dryrun_results.append(executor.run(args, txn_params=TxParams(**txn)))
 
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:

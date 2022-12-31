@@ -17,13 +17,13 @@ retsub"""
 
 
 def test_step4():
-    from graviton.blackbox import DryRunExecutor
+    from graviton.blackbox import DryRunExecutor, ExecutionMode
     from tests.clients import get_algod
 
     algod = get_algod()
     x = 9
     args = (x,)
-    inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
+    inspector = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(args)
     assert inspector.status() == "PASS"
     assert inspector.stack_top() == x**2
 
@@ -37,13 +37,13 @@ def test_step4():
 
 
 def test_step5():
-    from graviton.blackbox import DryRunExecutor
+    from graviton.blackbox import DryRunExecutor, ExecutionMode
     from tests.clients import get_algod
 
     algod = get_algod()
     x = 2
     args = (x,)
-    inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
+    inspector = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(args)
 
     # This one's ok
     expected, actual = "PASS", inspector.status()

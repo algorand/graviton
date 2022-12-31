@@ -84,7 +84,7 @@ load 1""",
     )
 
     x = 9
-    args = [x]
+    args = (x,)
 
     app_res, app_log_res = list(
         map(
@@ -94,7 +94,7 @@ load 1""",
     )
     lsig_res, bad_lsig_res = list(
         map(
-            lambda teal: Executor.dryrun_logicsig(algod, teal, args),
+            lambda teal: Executor(algod, ExecutionMode.Signature, teal).run(args),
             [teal_lsig, bad_teal_lsig],
         )
     )

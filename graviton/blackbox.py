@@ -10,6 +10,7 @@ from graviton.models import ExecutionMode
 from tabulate import tabulate
 from typing import (
     Any,
+    Callable,
     Dict,
     Final,
     List,
@@ -45,6 +46,16 @@ EncodingType = Union[abi.ABIType, str, None]
 
 
 MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
+# `CREATION_APP_CALL` and `EXISTING_APP_CALL` are enum-like constants used to denote whether a dry run
+# execution will simulate calling during on-creation vs post-creation.
+# In the default case that a dry run is executed without a provided application id (aka `index`), the `index`
+# supplied will be:
+# * `CREATION_APP_CALL` in the case of `is_app_create == True`
+# * `EXISTING_APP_CALL` in the case of `is_app_create == False`
+CREATION_APP_CALL: Final[int] = 0
+EXISTING_APP_CALL: Final[int] = 42
+
+SUGGESTED_PARAMS = SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
 
 
 class DryRunProperty(Enum):
@@ -1037,6 +1048,29 @@ class DryRunTransactionParams:
     # future:
     box_refs: Optional[List[Tuple[int, str]]] = None
 
+    @classmethod
+    def for_logicsig(
+        cls,
+        sender: Optional[Stringy] = None,
+        sp: Optional[SuggestedParams] = None,
+        note: Optional[Stringy] = None,
+        lease: Optional[Stringy] = None,
+        rekey_to: Optional[Stringy] = None,
+        receiver: Optional[Stringy] = None,
+        amt: Optional[int] = None,
+        close_remainder_to: Optional[Stringy] = None,
+    ) -> "DryRunTransactionParams":
+        return cls(
+            sender=sender or ZERO_ADDRESS,
+            sp=sp or SUGGESTED_PARAMS,
+            note=note,
+            lease=lease,
+            rekey_to=rekey_to,
+            receiver=receiver or ZERO_ADDRESS,
+            amt=0 if amt is None else amt,
+            close_remainder_to=close_remainder_to,
+        )
+
     def asdict(self, drop_nones: bool = True) -> Dict[str, Any]:
         d = asdict(self)
         del d["dryrun_accounts"]
@@ -1118,18 +1152,37 @@ class DryRunExecutor:
 
     def run(
         self,
-        *inputs: Sequence[PyTypes],
+        inputs: Union[Sequence[Sequence[PyTypes]], Sequence[PyTypes]],
         txn_params: Optional[DryRunTransactionParams] = None,
         verbose: bool = False,
-    ) -> Sequence[DryRunInspector]:
-        return list(map(self._executor(txn_params, verbose), inputs))
+    ) -> Union[Sequence[DryRunInspector], DryRunInspector]:
+        """
+        TODO: eliminate type-switch on inputs using
+        functools: singledispatch + partial
+        """
+        executor = self._executor(txn_params, verbose)
+        if isinstance(inputs, tuple):
+            return executor(inputs)
+
+        assert isinstance(
+            inputs, list
+        ), f"inputs must be of type list (for multiple args) or tuple (for single args) but was {type(inputs)}"
+        assert inputs, "must provide at least one input args tuple"
+
+        for i, args in enumerate(inputs):
+            assert isinstance(
+                args, tuple
+            ), f"each args in inputs list must be a tuple but at index {i=} we have {type(args)}"
+
+        inputs = cast(List[Tuple[PyTypes, ...]], inputs)
+        return list(map(executor, inputs))
 
     def _executor(
         self,
         txn_params: Optional[DryRunTransactionParams],
         verbose: bool,
-    ):
-        def executor(args: Sequence[PyTypes]) -> DryRunInspector:
+    ) -> Callable[[Tuple[PyTypes, ...]], DryRunInspector]:
+        def executor(args: Tuple[PyTypes, ...]) -> DryRunInspector:
             abi_argument_types = self.abi_argument_types
             if self.abi_method_signature:
                 args, abi_argument_types = self._abi_adapter(
@@ -1185,20 +1238,23 @@ class DryRunExecutor:
         accounts: List[DryRunAccountType] = [],
         verbose: bool = False,
     ) -> DryRunInspector:
-        return cls(
-            algod,
-            mode,
-            teal,
-            abi_method_signature=abi_method_signature,
-            omit_method_selector=omit_method_selector,
-            validation=validation,
-        ).run(
-            args,
-            txn_params=DryRunTransactionParams(dryrun_accounts=accounts, **txn_params),
-            verbose=verbose,
-        )[
-            0
-        ]
+        return cast(
+            DryRunInspector,
+            cls(
+                algod,
+                mode,
+                teal,
+                abi_method_signature=abi_method_signature,
+                omit_method_selector=omit_method_selector,
+                validation=validation,
+            ).run(
+                args,
+                txn_params=DryRunTransactionParams(
+                    dryrun_accounts=accounts, **txn_params
+                ),
+                verbose=verbose,
+            ),
+        )
 
     @classmethod
     def execute_one_dryrun_ORIGINAL(
@@ -1426,41 +1482,46 @@ class DryRunExecutor:
         #     ),
         #     accounts=dryrun_accounts,
         # )
-        return cls(
-            algod,
-            ExecutionMode.Application,
-            teal,
-            abi_method_signature=abi_method_signature,
-            omit_method_selector=omit_method_selector,
-            validation=validation,
-        ).run(
-            args,
-            txn_params=DryRunTransactionParams(
-                sender=ZERO_ADDRESS if sender is None else sender,
-                sp=cls.SUGGESTED_PARAMS if sp is None else sp,
-                note=note,
-                lease=lease,
-                rekey_to=rekey_to,
-                index=(
-                    (cls.CREATION_APP_CALL if is_app_create else cls.EXISTING_APP_CALL)
-                    if index is None
-                    else index
+        return cast(
+            DryRunInspector,
+            cls(
+                algod,
+                ExecutionMode.Application,
+                teal,
+                abi_method_signature=abi_method_signature,
+                omit_method_selector=omit_method_selector,
+                validation=validation,
+            ).run(
+                args,
+                txn_params=DryRunTransactionParams(
+                    sender=ZERO_ADDRESS if sender is None else sender,
+                    sp=cls.SUGGESTED_PARAMS if sp is None else sp,
+                    note=note,
+                    lease=lease,
+                    rekey_to=rekey_to,
+                    index=(
+                        (
+                            cls.CREATION_APP_CALL
+                            if is_app_create
+                            else cls.EXISTING_APP_CALL
+                        )
+                        if index is None
+                        else index
+                    ),
+                    on_complete=on_complete,
+                    local_schema=local_schema,
+                    global_schema=global_schema,
+                    approval_program=approval_program,
+                    clear_program=clear_program,
+                    app_args=app_args,
+                    accounts=accounts,
+                    foreign_apps=foreign_apps,
+                    foreign_assets=foreign_assets,
+                    extra_pages=extra_pages,
+                    dryrun_accounts=dryrun_accounts,
                 ),
-                on_complete=on_complete,
-                local_schema=local_schema,
-                global_schema=global_schema,
-                approval_program=approval_program,
-                clear_program=clear_program,
-                app_args=app_args,
-                accounts=accounts,
-                foreign_apps=foreign_apps,
-                foreign_assets=foreign_assets,
-                extra_pages=extra_pages,
-                dryrun_accounts=dryrun_accounts,
             ),
-        )[
-            0
-        ]
+        )
 
     @classmethod
     def dryrun_logicsig(
@@ -1481,47 +1542,29 @@ class DryRunExecutor:
         lease: Optional[str] = None,
         rekey_to: Optional[str] = None,
     ) -> DryRunInspector:
-        # return cls.execute_one_dryrun(
-        #     algod,
-        #     teal,
-        #     args,
-        #     ExecutionMode.Signature,
-        #     abi_method_signature=abi_method_signature,
-        #     omit_method_selector=omit_method_selector,
-        #     validation=validation,
-        #     txn_params=cls.transaction_params(
-        #         sender=ZERO_ADDRESS if sender is None else sender,
-        #         sp=cls.SUGGESTED_PARAMS if sp is None else sp,
-        #         note=note,
-        #         lease=lease,
-        #         rekey_to=rekey_to,
-        #         receiver=ZERO_ADDRESS if receiver is None else receiver,
-        #         amt=0 if amt is None else amt,
-        #         close_remainder_to=close_remainder_to,
-        #     ),
-        # )
-        return cls(
-            algod,
-            ExecutionMode.Signature,
-            teal,
-            abi_method_signature=abi_method_signature,
-            omit_method_selector=omit_method_selector,
-            validation=validation,
-        ).run(
-            args,
-            txn_params=DryRunTransactionParams(
-                sender=ZERO_ADDRESS if sender is None else sender,
-                sp=cls.SUGGESTED_PARAMS if sp is None else sp,
-                note=note,
-                lease=lease,
-                rekey_to=rekey_to,
-                receiver=ZERO_ADDRESS if receiver is None else receiver,
-                amt=0 if amt is None else amt,
-                close_remainder_to=close_remainder_to,
+        return cast(
+            DryRunInspector,
+            cls(
+                algod,
+                ExecutionMode.Signature,
+                teal,
+                abi_method_signature=abi_method_signature,
+                omit_method_selector=omit_method_selector,
+                validation=validation,
+            ).run(
+                args,
+                txn_params=DryRunTransactionParams.for_logicsig(
+                    sender=sender,
+                    sp=sp,
+                    note=note,
+                    lease=lease,
+                    rekey_to=rekey_to,
+                    receiver=receiver,
+                    amt=amt,
+                    close_remainder_to=close_remainder_to,
+                ),
             ),
-        )[
-            0
-        ]
+        )
 
     @classmethod
     def dryrun_app_pair_on_sequence(
@@ -1629,13 +1672,16 @@ class DryRunExecutor:
         # TODO: handle txn_params
         return list(
             map(
-                lambda args: cls.dryrun_logicsig(
-                    algod=algod,
-                    teal=teal,
-                    args=args,
-                    abi_method_signature=abi_method_signature,
-                    omit_method_selector=omit_method_selector,
-                    validation=validation,
+                lambda args: cast(
+                    DryRunInspector,
+                    cls(
+                        algod=algod,
+                        mode=ExecutionMode.Signature,
+                        teal=teal,
+                        abi_method_signature=abi_method_signature,
+                        omit_method_selector=omit_method_selector,
+                        validation=validation,
+                    ).run(args),
                 ),
                 inputs,
             )
