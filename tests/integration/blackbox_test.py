@@ -421,11 +421,13 @@ def test_app_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun responses:
-    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run(inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run_sequence(
+        inputs
+    )
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(Inspector.csv_report(inputs, dryrun_results))  # type: ignore
+        f.write(Inspector.csv_report(inputs, dryrun_results))
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
@@ -439,7 +441,7 @@ def test_app_with_report(filebase: str):
         print(
             f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant!r}>>"
         )
-        inv.validates(dr_property, dryrun_results)  # type: ignore
+        inv.validates(dr_property, dryrun_results)
 
 
 def test_app_itxn_with_report():
@@ -527,7 +529,9 @@ def test_app_itxn_with_report():
         },
     }
 
-    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run(inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run_sequence(
+        inputs
+    )
 
     inputs = scenario_failure["inputs"]
     invariants = scenario_failure["invariants"]
@@ -536,7 +540,7 @@ def test_app_itxn_with_report():
 
     csvpath = path / f"{case_name}.csv"
     with open(csvpath, "w") as f:
-        f.write(Inspector.csv_report(inputs, dryrun_results))  # type: ignore
+        f.write(Inspector.csv_report(inputs, dryrun_results))
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
@@ -723,12 +727,12 @@ def test_logicsig_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun resonses:
-    dryrun_results = Executor(algod, ExecutionMode.Signature, teal).run(inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Signature, teal).run_sequence(inputs)
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(Inspector.csv_report(inputs, dryrun_results))  # type: ignore
+        f.write(Inspector.csv_report(inputs, dryrun_results))
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 

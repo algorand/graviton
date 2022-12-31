@@ -752,8 +752,8 @@ class DryRunInspector:
     @classmethod
     def csv_report(
         cls,
-        inputs: List[Sequence[PyTypes]],
-        dr_resps: List["DryRunInspector"],
+        inputs: Sequence[Sequence[PyTypes]],
+        dr_resps: Sequence["DryRunInspector"],
         txns: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         """Produce a Comma Separated Values report string capturing important statistics
