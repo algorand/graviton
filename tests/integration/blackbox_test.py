@@ -89,13 +89,13 @@ load 1""",
 
     app_res, app_log_res = list(
         map(
-            lambda teal: Executor(algod, ExecutionMode.Application, teal).run(args),
+            lambda teal: Executor(algod, ExecutionMode.Application, teal).run_one(args),
             [teal_app, teal_app_log],
         )
     )
     lsig_res, bad_lsig_res = list(
         map(
-            lambda teal: Executor(algod, ExecutionMode.Signature, teal).run(args),
+            lambda teal: Executor(algod, ExecutionMode.Signature, teal).run_one(args),
             [teal_lsig, bad_teal_lsig],
         )
     )
@@ -484,10 +484,7 @@ def test_app_itxn_with_report():
             amount_without_pending_rewards=10500000,
         )
     ]
-    # dryrun_results = Executor.dryrun_app_on_sequence(
-    #     algod, teal, inputs, dryrun_accounts=accounts
-    # )
-    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run(
+    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run_sequence(
         inputs,
         txn_params=DryRunTransactionParams.for_app(
             dryrun_accounts=accounts,

@@ -99,7 +99,7 @@ def test_dynamic_array_sum():
         ExecutionMode.Application,
         DYNAMIC_ARRAY_SUM_TEAL,
         abi_method_signature="abi_sum(uint64[])uint64",
-    ).run(args)
+    ).run_one(args)
     # with default config:
     assert inspector.abi_type
     assert inspector.suppress_abi is False
@@ -203,7 +203,7 @@ def test_roundtrip_abi_strategy(roundtrip_app):
         roundtrip_teal,
         abi_method_signature=method_sig,
         omit_method_selector=True,
-    ).run(args)
+    ).run_one(args)
 
     cost = inspector.cost()
     passed = inspector.passed()
