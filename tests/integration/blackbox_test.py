@@ -88,7 +88,7 @@ load 1""",
 
     app_res, app_log_res = list(
         map(
-            lambda teal: Executor.dryrun_app(algod, teal, args),
+            lambda teal: Executor(algod, ExecutionMode.Application, teal).run(args),
             [teal_app, teal_app_log],
         )
     )

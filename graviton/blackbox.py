@@ -1707,20 +1707,8 @@ class DryRunExecutor:
         # TODO: handle txn_params
         return list(
             map(
-                lambda args: cls.dryrun_app(
-                    algod=algod,
-                    teal=teal,
-                    args=args,
-                    abi_method_signature=abi_method_signature,
-                    omit_method_selector=omit_method_selector,
-                    validation=validation,
-                    is_app_create=is_app_create,
-                    on_complete=on_complete,
-                    dryrun_accounts=dryrun_accounts,
-                ),
-                # lambda args: cls(
+                # lambda args: cls.dryrun_app(
                 #     algod=algod,
-                #     mode=ExecutionMode.Application,
                 #     teal=teal,
                 #     args=args,
                 #     abi_method_signature=abi_method_signature,
@@ -1730,6 +1718,24 @@ class DryRunExecutor:
                 #     on_complete=on_complete,
                 #     dryrun_accounts=dryrun_accounts,
                 # ),
+                lambda args: cast(
+                    DryRunInspector,
+                    cls(
+                        algod=algod,
+                        mode=ExecutionMode.Application,
+                        teal=teal,
+                        abi_method_signature=abi_method_signature,
+                        omit_method_selector=omit_method_selector,
+                        validation=validation,
+                    ).run(
+                        args,
+                        txn_params=DryRunTransactionParams.for_app(
+                            is_app_create=is_app_create,
+                            on_complete=on_complete,
+                            dryrun_accounts=dryrun_accounts,
+                        ),
+                    ),
+                ),
                 inputs,
             )
         )
