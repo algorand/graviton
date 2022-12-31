@@ -15,6 +15,11 @@ In [#42](https://github.com/algorand/graviton/pull/42):
 * Deleting method `Invariant.inputs_and_invariants()`
 * Inside `graviton/dryrun.py`: marked as deprecated for future removal with prefix `deprecated_` code that is orphaned after the deletion of the above
 
+In [#44](https://github.com/algorand/graviton/pull/44):
+* `DryRunExecutor` has been refactored. All the class methods `dryrun_*` have been removed in favor of the instance methods `run()`, and the more user-friendly `run_one()` and `run_sequence()`.
+In particular, it is now required to instantiate a `DryRunExecutor` object 
+before calling the dry run exection methods.
+
 ## `v0.6.0` (_aka_ 🐸)
 
 ### Added
