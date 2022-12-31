@@ -1125,24 +1125,6 @@ class DryRunTransactionParams:
         return {k: v for k, v in d.items() if v is not None}
 
 
-@dataclass(frozen=True)
-class DryRunnable:
-    """
-    - [ ] isAppCreate * (app only)
-    - [ ] onComplete * (app only)
-    - [ ] method signature *+ . Equivalently:
-            - [ ] method name
-            - [ ] argument types
-            - [ ] return type
-    - [ ] ABI Json *+
-    - [ ] method name *+
-    """
-
-    mode: ExecutionMode
-    teal: str
-    txn_params: DryRunTransactionParams
-
-
 class DryRunExecutor:
 
     """Methods to package up and kick off dry run executions
