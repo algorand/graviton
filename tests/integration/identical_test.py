@@ -129,7 +129,7 @@ def test_identical_functions(teal_method1, teal_method2, inputs, predicates):
     dre2 = DRExecutor(
         algod, ExecutionMode.Application, teal2, abi_method_signature=meth2
     )
-    inspectors1, inspectors2 = DRExecutor.run_multi([dre1, dre2], inputs)
+    inspectors1, inspectors2 = DRExecutor.multi_exec([dre1, dre2], inputs)
     Invariant.full_validation(
         predicates,
         inspectors=inspectors1,
@@ -150,7 +150,7 @@ def test_non_identical():
     dre2 = DRExecutor(
         algod, ExecutionMode.Application, teal2, abi_method_signature=meth2
     )
-    square_inspectors, square_p1_inspectors = DRExecutor.run_multi([dre1, dre2], ten)
+    square_inspectors, square_p1_inspectors = DRExecutor.multi_exec([dre1, dre2], ten)
 
     square_predicates = {
         DRProp.lastLog: lambda args: args[1] ** 2,

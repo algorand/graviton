@@ -1190,7 +1190,7 @@ class DryRunExecutor:
         ) = self._prerun_validation(self.mode, self.abi_method_signature)
 
     @classmethod
-    def run_multi(
+    def multi_exec(
         cls,
         execs: List["DryRunExecutor"],
         inputs: Sequence[Sequence[PyTypes]],
@@ -1236,6 +1236,34 @@ class DryRunExecutor:
 
         inputs = cast(List[Tuple[PyTypes, ...]], inputs)
         return list(map(executor, inputs))
+
+    def run_one(
+        self,
+        args: Sequence[PyTypes],
+        *,
+        txn_params: Optional[DryRunTransactionParams] = None,
+        verbose: bool = False,
+    ) -> DryRunInspector:
+        """Convenience method for easier typing"""
+        return cast(
+            DryRunInspector,
+            self.run(tuple(args), txn_params=txn_params, verbose=verbose),
+        )
+
+    def run_sequence(
+        self,
+        inputs: Sequence[Sequence[PyTypes]],
+        *,
+        txn_params: Optional[DryRunTransactionParams] = None,
+        verbose: bool = False,
+    ) -> Sequence[DryRunInspector]:
+        """Convenience method for easier typing"""
+        return cast(
+            Sequence[DryRunInspector],
+            self.run(
+                [tuple(args) for args in inputs], txn_params=txn_params, verbose=verbose
+            ),
+        )
 
     def _executor(
         self,
