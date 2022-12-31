@@ -36,11 +36,11 @@ def test_factorizer_game_report():
 
     algod = get_algod()
 
-    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Signature, teal).run(inputs)
 
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(Inspector.csv_report(inputs, dryrun_results))
+        f.write(Inspector.csv_report(inputs, dryrun_results))  # type: ignore
 
 
 def test_logic_sig():

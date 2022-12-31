@@ -114,12 +114,12 @@ assert 8 == 4
 
 
 def test_step6_and_7():
-    from graviton.blackbox import DryRunExecutor, DryRunInspector
+    from graviton.blackbox import DryRunExecutor, DryRunInspector, ExecutionMode
     from tests.clients import get_algod
 
     algod = get_algod()
     inputs = [(x,) for x in range(16)]
-    run_results = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    run_results = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(inputs)
     csv = DryRunInspector.csv_report(inputs, run_results)
     print(csv)
 
@@ -133,12 +133,12 @@ def test_step6_and_7():
 
 
 def test_step8():
-    from graviton.blackbox import DryRunExecutor
+    from graviton.blackbox import DryRunExecutor, ExecutionMode
     from tests.clients import get_algod
 
     algod = get_algod()
     inputs = [(x,) for x in range(101)]
-    dryrun_results = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    dryrun_results = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(inputs)
     for i, inspector in enumerate(dryrun_results):
         args = inputs[i]
         x = args[0]
@@ -152,6 +152,7 @@ def test_step9():
     from graviton.blackbox import (
         DryRunExecutor,
         DryRunProperty as DRProp,
+        ExecutionMode,
     )
     from graviton.invariant import Invariant
     from tests.clients import get_algod
@@ -174,7 +175,7 @@ def test_step9():
     assert invariants and isinstance(invariants, dict)
 
     # Execute the dry runs and obtain sequence of DryRunInspectors:
-    inspectors = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    inspectors = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(inputs)
 
     # Invariant assertions on sequence:
     for dr_property, invariant in invariants.items():
@@ -186,6 +187,7 @@ def test_exercises(exercise):
     from graviton.blackbox import (
         DryRunExecutor,
         DryRunProperty as DRProp,
+        ExecutionMode,
     )
     from graviton.invariant import Invariant
     from tests.clients import get_algod
@@ -213,7 +215,7 @@ def test_exercises(exercise):
     assert invariants and isinstance(invariants, dict)
 
     # Execute the dry runs and obtain sequence of DryRunInspectors:
-    inspectors = DryRunExecutor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    inspectors = DryRunExecutor(algod, ExecutionMode.Signature, teal).run(inputs)
 
     # Invariant assertions on sequence:
     for dr_property, invariant in invariants.items():

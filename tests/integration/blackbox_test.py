@@ -716,12 +716,12 @@ def test_logicsig_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun resonses:
-    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Signature, teal).run(inputs)
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(Inspector.csv_report(inputs, dryrun_results))
+        f.write(Inspector.csv_report(inputs, dryrun_results))  # type: ignore
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
