@@ -1037,7 +1037,7 @@ class DryRunTransactionParams:
     global_schema: Optional[StateSchema] = None
     approval_program: Optional[str] = None
     clear_program: Optional[str] = None
-    app_args: Optional[Sequence[Union[str, int]]] = None
+    app_args: Optional[Sequence[ArgType]] = None
     accounts: Optional[List[str]] = None
     foreign_apps: Optional[List[str]] = None
     foreign_assets: Optional[List[str]] = None
@@ -1069,6 +1069,50 @@ class DryRunTransactionParams:
             receiver=receiver or ZERO_ADDRESS,
             amt=0 if amt is None else amt,
             close_remainder_to=close_remainder_to,
+        )
+
+    @classmethod
+    def for_app(
+        cls,
+        is_app_create: bool,
+        sender: Optional[Stringy] = None,
+        sp: Optional[SuggestedParams] = None,
+        note: Optional[Stringy] = None,
+        lease: Optional[Stringy] = None,
+        rekey_to: Optional[Stringy] = None,
+        index: Optional[int] = None,
+        on_complete: Optional[OnComplete] = None,
+        local_schema: Optional[StateSchema] = None,
+        global_schema: Optional[StateSchema] = None,
+        approval_program: Optional[str] = None,
+        clear_program: Optional[str] = None,
+        app_args: Optional[Sequence[ArgType]] = None,
+        accounts: Optional[List[str]] = None,
+        foreign_apps: Optional[List[str]] = None,
+        foreign_assets: Optional[List[str]] = None,
+        extra_pages: Optional[int] = None,
+        dryrun_accounts: List[DryRunAccountType] = [],
+    ):
+        return cls(
+            sender=sender or ZERO_ADDRESS,
+            sp=sp or SUGGESTED_PARAMS,
+            note=note,
+            lease=lease,
+            rekey_to=rekey_to,
+            index=(CREATION_APP_CALL if is_app_create else EXISTING_APP_CALL)
+            if index is None
+            else index,
+            on_complete=on_complete,
+            local_schema=local_schema,
+            global_schema=global_schema,
+            approval_program=approval_program,
+            clear_program=clear_program,
+            app_args=app_args,
+            accounts=accounts,
+            foreign_apps=foreign_apps,
+            foreign_assets=foreign_assets,
+            extra_pages=extra_pages,
+            dryrun_accounts=dryrun_accounts,
         )
 
     def asdict(self, drop_nones: bool = True) -> Dict[str, Any]:
@@ -1493,33 +1537,53 @@ class DryRunExecutor:
                 validation=validation,
             ).run(
                 args,
-                txn_params=DryRunTransactionParams(
-                    sender=ZERO_ADDRESS if sender is None else sender,
-                    sp=cls.SUGGESTED_PARAMS if sp is None else sp,
+                txn_params=DryRunTransactionParams.for_app(
+                    is_app_create=is_app_create,
+                    sender=sender,
+                    sp=sp,
                     note=note,
                     lease=lease,
                     rekey_to=rekey_to,
-                    index=(
-                        (
-                            cls.CREATION_APP_CALL
-                            if is_app_create
-                            else cls.EXISTING_APP_CALL
-                        )
-                        if index is None
-                        else index
-                    ),
+                    index=index,
                     on_complete=on_complete,
                     local_schema=local_schema,
                     global_schema=global_schema,
                     approval_program=approval_program,
                     clear_program=clear_program,
-                    app_args=app_args,
+                    app_args=app_args,  # type: ignore
                     accounts=accounts,
                     foreign_apps=foreign_apps,
                     foreign_assets=foreign_assets,
                     extra_pages=extra_pages,
                     dryrun_accounts=dryrun_accounts,
-                ),
+                )
+                # txn_params=DryRunTransactionParams(
+                #     sender=ZERO_ADDRESS if sender is None else sender,
+                #     sp=cls.SUGGESTED_PARAMS if sp is None else sp,
+                #     note=note,
+                #     lease=lease,
+                #     rekey_to=rekey_to,
+                #     index=(
+                #         (
+                #             cls.CREATION_APP_CALL
+                #             if is_app_create
+                #             else cls.EXISTING_APP_CALL
+                #         )
+                #         if index is None
+                #         else index
+                #     ),
+                #     on_complete=on_complete,
+                #     local_schema=local_schema,
+                #     global_schema=global_schema,
+                #     approval_program=approval_program,
+                #     clear_program=clear_program,
+                #     app_args=app_args,
+                #     accounts=accounts,
+                #     foreign_apps=foreign_apps,
+                #     foreign_assets=foreign_assets,
+                #     extra_pages=extra_pages,
+                #     dryrun_accounts=dryrun_accounts,
+                # ),
             ),
         )
 
@@ -1654,6 +1718,18 @@ class DryRunExecutor:
                     on_complete=on_complete,
                     dryrun_accounts=dryrun_accounts,
                 ),
+                # lambda args: cls(
+                #     algod=algod,
+                #     mode=ExecutionMode.Application,
+                #     teal=teal,
+                #     args=args,
+                #     abi_method_signature=abi_method_signature,
+                #     omit_method_selector=omit_method_selector,
+                #     validation=validation,
+                #     is_app_create=is_app_create,
+                #     on_complete=on_complete,
+                #     dryrun_accounts=dryrun_accounts,
+                # ),
                 inputs,
             )
         )
@@ -1688,7 +1764,7 @@ class DryRunExecutor:
         )
 
     @classmethod
-    def transaction_params(
+    def deprecated_transaction_params(
         cls,
         *,
         # generic:
