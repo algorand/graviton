@@ -8,6 +8,7 @@ If you need to update its TEAL source:
 
 from itertools import product
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -36,11 +37,11 @@ def test_factorizer_game_report():
 
     algod = get_algod()
 
-    dryrun_results = Executor(algod, ExecutionMode.Signature, teal).run(inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Signature, teal).run_sequence(inputs)
 
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(Inspector.csv_report(inputs, dryrun_results))  # type: ignore
+        f.write(Inspector.csv_report(inputs, dryrun_results))
 
 
 def test_logic_sig():
@@ -51,12 +52,12 @@ int 0x31
 ==
 """
     executor = Executor(ALGOD, ExecutionMode.Signature, source)
-    insp_no_args = executor.run(tuple())
-    assert "cannot load arg[0] of 0" in insp_no_args.error_message()
+    insp_no_args = executor.run_one([])
+    assert "cannot load arg[0] of 0" in cast(str, insp_no_args.error_message())
     assert insp_no_args.rejected()
 
     # providing the string arg "1" results is encoded to 0x31, and hence eval passes:
-    insp_args_1_2 = executor.run(("1", "2"))
+    insp_args_1_2 = executor.run_one(("1", "2"))
     assert insp_args_1_2.passed()
 
 
@@ -80,7 +81,7 @@ def payment_amount(p, q):
 @pytest.mark.parametrize("p, q", product(range(20), range(20)))
 def test_factorizer_game_3_stateless(p, q):
     args = (p, q)
-    inspector = Executor(ALGOD, ExecutionMode.Signature, FACTORIZER_TEAL).run(args)
+    inspector = Executor(ALGOD, ExecutionMode.Signature, FACTORIZER_TEAL).run_one(args)
     slots = inspector.final_scratch()
     assert slots.get(3, 0) == expected_prize_before_dupe_constraint(
         p, q
@@ -91,7 +92,7 @@ def test_factorizer_game_3_stateless(p, q):
 def test_factorizer_game_4_payout(p, q):
     args = (p, q)
     eprize = expected_prize_before_dupe_constraint(p, q)
-    inspector = Executor(ALGOD, ExecutionMode.Signature, FACTORIZER_TEAL).run(
+    inspector = Executor(ALGOD, ExecutionMode.Signature, FACTORIZER_TEAL).run_one(
         args, txn_params=TxParams(amt=eprize)
     )
     assert inspector.final_scratch().get(3, 0) == eprize, inspector.report(
@@ -119,7 +120,7 @@ def test_factorizer_report_with_pymnt():
     for args, amt in zip(inputs, amts):
         txn = {"amt": amt}
         txns.append(txn)
-        dryrun_results.append(executor.run(args, txn_params=TxParams(**txn)))
+        dryrun_results.append(executor.run_one(args, txn_params=TxParams(**txn)))
 
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
