@@ -281,54 +281,39 @@ class DryRunInspector:
     dry run execution results on a _single transaction_ and for making
     assertions in tests.
 
-    For example, let's execute a dry run for a logic sig teal program that purportedly computes $`x^2`$
-    (see [lsig_square.teal](../../x/blackbox/teal/lsig_square.teal) for one such example).
-    So assume you have a string `teal` containing that TEAL source and run the following:
-
-    ```python
-    >>> algod = get_algod()
-    >>> x = 9
-    >>> args = (x,)
-    >>> inspector = DryRunExecutor.dryrun_logicsig(algod, teal, args)
-    >>> assert inspector.status() == "PASS"
-    >>> assert inspector.stack_stop() == x ** 2
-    ```
-    In the above we have asserted the the program has succesfully exited with
-    status "PASS" and that the top of the stack contained $`x^2 = 9`$.
-    The _assertable properties_ were `status()` and `stack_top()`.
-
     DryRunInspector provides the following **assertable properties**:
-    * `cost`
-        - net opcode budget consumed during execution
-        - derived property: cost = budget_consumed - budget_added
-        - only available for apps
+
     * `budget_added`
         - total opcode budget increase during execution
         - only available for apps
     * `budget_consumed`
         - total opcode budget consumed during execution
         - only available for apps
+    * `cost`
+        - net opcode budget consumed during execution
+        - derived property: cost = budget_consumed - budget_added
+        - only available for apps
+    * `error` with optional `contains` matching
+        - when no contains is provided, returns True exactly when execution fails due to error
+        - when contains given, only return True if an error occured included contains
+    * `final_scratch`
+        - the final scratch slot state contents represented as a dictionary
+        - CAVEAT: slots containing a type's zero-value (0 or "") are not reported
     * `last_log`
         - the final hex bytes that was logged during execution (apps only)
         - only available for apps
     * `logs`
         - similar to `last_log` but a list of _all_ the printed logs
-    * `final_scratch`
-        - the final scratch slot state contents represented as a dictionary
-        - CAVEAT: slots containing a type's zero-value (0 or "") are not reported
     * `max_stack_height`
         - the maximum height of stack had during execution
-    * `stack_top`
-        - the contents of the top of the stack and the end of execution
-    * `status`
-        - either "PASS" when the execution succeeded or "REJECT" otherwise
     * `passed`
         - shorthand for `status() == "PASS"`
     * `rejected`
         - shorthand for `status() == "REJECT"`
-    * `error` with optional `contains` matching
-        - when no contains is provided, returns True exactly when execution fails due to error
-        - when contains given, only return True if an error occured included contains
+    * `stack_top`
+        - the contents of the top of the stack and the end of execution
+    * `status`
+        - either "PASS" when the execution succeeded or "REJECT" otherwise
 
     A.B.I. types and last_log():
 
@@ -773,32 +758,6 @@ class DryRunInspector:
     ) -> str:
         """Produce a Comma Separated Values report string capturing important statistics
         for a sequence of dry runs.
-
-        For example, assuming you have a string `teal` which is a TEAL program computing $`x^2`$
-        such as this [example program](x/blackbox/teal/app_square.teal).
-        Let's run some Exploratory Dry Run Analysis (EDRA) for $`x`$ in the range $`[0, 10]`$:
-
-        ```python
-        >>> algod = get_algod()
-        >>> inputs = [(x,) for x in range(11)]  # [(0), (1), ... , (10)]
-        >>> run_results = DryRunExecutor.dryrun_app_on_sequence(algod, teal, inputs)
-        >>> csv = DryRunInspector.csv_report(inputs, run_results)
-        >>> print(csv)
-        ```
-        Then you would get the following output:
-        ```plain
-        Run, Status, cost, final_message, last_log, top_of_stack,Arg_00,max_stack_height,s@000,s@001,steps
-        1,REJECT,14,REJECT,`None,0,0,2,,,15
-        2,PASS,14,PASS,`0000000000000001,1,1,2,1,1,15
-        3,PASS,14,PASS,`0000000000000004,4,2,2,2,4,15
-        4,PASS,14,PASS,`0000000000000009,9,3,2,3,9,15
-        5,PASS,14,PASS,`0000000000000010,16,4,2,4,16,15
-        6,PASS,14,PASS,`0000000000000019,25,5,2,5,25,15
-        7,PASS,14,PASS,`0000000000000024,36,6,2,6,36,15
-        8,PASS,14,PASS,`0000000000000031,49,7,2,7,49,15
-        9,PASS,14,PASS,`0000000000000040,64,8,2,8,64,15
-        10,PASS,14,PASS,`0000000000000051,81,9,2,9,81,15
-        ```
         """
         N = len(inputs)
         assert N == len(
@@ -1361,23 +1320,6 @@ class DryRunExecutor:
         abi_return_type: Optional[Union[abi.ABIType, str]] = None
 
         if abi_method_signature:
-            """
-            Try to do the right thing.
-            When `omit_method_selector is False`:
-                * if provided with the same number of args as expected arg types
-                    --> prepend `None` to the types and `selector` to args
-                * if provided with |arg types| + 1 args
-                    --> assert that `args[0] == selector`
-                * otherwise
-                    --> there is a cardinality mismatch, so fail
-            When `omit_method_selector is True`:
-                * if provided with the same number of args as expected arg types
-                    --> good to go
-                * if provided with |arg types| + 1 args
-                    --> assert that `args[0] == selector` but DROP it from the args
-                * otherwise
-                    --> there is a cardinality mismatch, so fail
-            """
             method = abi.Method.from_signature(abi_method_signature)
             selector = method.get_selector()
             abi_argument_types = [a.type for a in method.args]
