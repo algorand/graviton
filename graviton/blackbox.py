@@ -1152,16 +1152,11 @@ class DryRunExecutor:
        * `abi_return_type` is given the `DryRunInspector`'s resulting from execution for ABI-decoding into Python
     """
 
-    # `CREATION_APP_CALL` and `EXISTING_APP_CALL` are enum-like constants used to denote whether a dry run
-    # execution will simulate calling during on-creation vs post-creation.
-    # In the default case that a dry run is executed without a provided application id (aka `index`), the `index`
-    # supplied will be:
-    # * `CREATION_APP_CALL` in the case of `is_app_create == True`
-    # * `EXISTING_APP_CALL` in the case of `is_app_create == False`
-    CREATION_APP_CALL: Final[int] = 0
-    EXISTING_APP_CALL: Final[int] = 42
+    # for usage convenience, copy constants over into the class
+    CREATION_APP_CALL = CREATION_APP_CALL
+    EXISTING_APP_CALL = EXISTING_APP_CALL
 
-    SUGGESTED_PARAMS = SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
+    SUGGESTED_PARAMS = SUGGESTED_PARAMS
 
     def __init__(
         self,
@@ -1386,7 +1381,7 @@ class DryRunExecutor:
 
     # --- DEPRECATED BELOW --- #
     @classmethod
-    def execute_one_dryrun(
+    def deprecated_execute_one_dryrun(
         cls,
         algod: AlgodClient,
         teal: str,
@@ -1419,7 +1414,7 @@ class DryRunExecutor:
         )
 
     @classmethod
-    def execute_one_dryrun_ORIGINAL(
+    def deprecated_execute_one_dryrun_ORIGINAL(
         cls,
         algod: AlgodClient,
         teal: str,
@@ -1475,7 +1470,7 @@ class DryRunExecutor:
         )
 
     @classmethod
-    def dryrun_app(
+    def deprecated_dryrun_app(
         cls,
         algod: AlgodClient,
         teal: str,
@@ -1610,7 +1605,7 @@ class DryRunExecutor:
         )
 
     @classmethod
-    def dryrun_logicsig(
+    def deprecated_dryrun_logicsig(
         cls,
         algod: AlgodClient,
         teal: str,
@@ -1653,7 +1648,7 @@ class DryRunExecutor:
         )
 
     @classmethod
-    def dryrun_app_pair_on_sequence(
+    def deprecated_dryrun_app_pair_on_sequence(
         cls,
         algod: AlgodClient,
         teal_and_method1: TealAndMethodType,
@@ -1680,7 +1675,7 @@ class DryRunExecutor:
         )
 
     @classmethod
-    def dryrun_multiapps_on_sequence(
+    def deprecated_dryrun_multiapps_on_sequence(
         cls,
         algod: AlgodClient,
         multi_teal_method_pairs: List[TealAndMethodType],
@@ -1717,7 +1712,7 @@ class DryRunExecutor:
         return list(map(runner, multi_teal_method_pairs))  # type: ignore
 
     @classmethod
-    def dryrun_app_on_sequence(
+    def deprecated_dryrun_app_on_sequence(
         cls,
         algod: AlgodClient,
         teal: str,
@@ -1767,7 +1762,7 @@ class DryRunExecutor:
         )
 
     @classmethod
-    def dryrun_logicsig_on_sequence(
+    def deprecated_dryrun_logicsig_on_sequence(
         cls,
         algod: AlgodClient,
         teal: str,
