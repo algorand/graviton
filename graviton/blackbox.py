@@ -1074,7 +1074,7 @@ class DryRunTransactionParams:
     @classmethod
     def for_app(
         cls,
-        is_app_create: bool,
+        is_app_create: bool = False,
         sender: Optional[Stringy] = None,
         sp: Optional[SuggestedParams] = None,
         note: Optional[Stringy] = None,
@@ -1676,19 +1676,23 @@ class DryRunExecutor:
             if len(teal_method_pair) > 1:
                 abi_method = teal_method_pair[1]
 
-            return cls.dryrun_app_on_sequence(
+            return cls(
                 algod=algod,
+                mode=ExecutionMode.Application,
                 teal=teal,
-                inputs=inputs,
                 abi_method_signature=abi_method,
                 omit_method_selector=omit_method_selector,
                 validation=validation,
-                is_app_create=is_app_create,
-                on_complete=on_complete,
-                dryrun_accounts=dryrun_accounts,
+            ).run(
+                inputs=inputs,
+                txn_params=DryRunTransactionParams.for_app(
+                    is_app_create=is_app_create,
+                    on_complete=on_complete,
+                    dryrun_accounts=dryrun_accounts,
+                ),
             )
 
-        return list(map(runner, multi_teal_method_pairs))
+        return list(map(runner, multi_teal_method_pairs))  # type: ignore
 
     @classmethod
     def dryrun_app_on_sequence(
@@ -1954,14 +1958,23 @@ class ABIContractExecutor:
         if validation:
             self.validate_inputs(method, inputs)
 
-        return DryRunExecutor.dryrun_app_on_sequence(
-            algod,
-            self.program,
-            inputs,
-            abi_method_signature=self.method_signature(method),
-            omit_method_selector=False,
-            validation=validation,
-            is_app_create=is_app_create,
-            on_complete=on_complete,
-            dryrun_accounts=dryrun_accounts,
+        return list(
+            cast(
+                Sequence[DryRunInspector],
+                DryRunExecutor(
+                    algod,
+                    ExecutionMode.Application,
+                    self.program,
+                    abi_method_signature=self.method_signature(method),
+                    omit_method_selector=False,
+                    validation=validation,
+                ).run(
+                    inputs,
+                    txn_params=DryRunTransactionParams.for_app(
+                        is_app_create=is_app_create,
+                        on_complete=on_complete,
+                        dryrun_accounts=dryrun_accounts,
+                    ),
+                ),
+            )
         )

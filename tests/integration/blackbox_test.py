@@ -11,6 +11,7 @@ from graviton.blackbox import (
     DryRunExecutor as Executor,
     DryRunProperty as DRProp,
     DryRunInspector as Inspector,
+    DryRunTransactionParams,
     ExecutionMode,
     mode_has_property,
 )
@@ -420,11 +421,11 @@ def test_app_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun responses:
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run(inputs)
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
-        f.write(Inspector.csv_report(inputs, dryrun_results))
+        f.write(Inspector.csv_report(inputs, dryrun_results))  # type: ignore
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
@@ -438,7 +439,7 @@ def test_app_with_report(filebase: str):
         print(
             f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant!r}>>"
         )
-        inv.validates(dr_property, dryrun_results)
+        inv.validates(dr_property, dryrun_results)  # type: ignore
 
 
 def test_app_itxn_with_report():
@@ -481,8 +482,14 @@ def test_app_itxn_with_report():
             amount_without_pending_rewards=10500000,
         )
     ]
-    dryrun_results = Executor.dryrun_app_on_sequence(
-        algod, teal, inputs, dryrun_accounts=accounts
+    # dryrun_results = Executor.dryrun_app_on_sequence(
+    #     algod, teal, inputs, dryrun_accounts=accounts
+    # )
+    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run(
+        inputs,
+        txn_params=DryRunTransactionParams.for_app(
+            dryrun_accounts=accounts,
+        ),
     )
 
     # 3. Generate statistical report of all the runs:
@@ -520,7 +527,7 @@ def test_app_itxn_with_report():
         },
     }
 
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run(inputs)
 
     inputs = scenario_failure["inputs"]
     invariants = scenario_failure["invariants"]
@@ -529,7 +536,7 @@ def test_app_itxn_with_report():
 
     csvpath = path / f"{case_name}.csv"
     with open(csvpath, "w") as f:
-        f.write(Inspector.csv_report(inputs, dryrun_results))
+        f.write(Inspector.csv_report(inputs, dryrun_results))  # type: ignore
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
