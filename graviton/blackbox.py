@@ -1209,8 +1209,11 @@ class DryRunExecutor:
             return executor(inputs)
 
         assert isinstance(
-            inputs, list
-        ), f"inputs must be of type list (for multiple args) or tuple (for single args) but was {type(inputs)}"
+            inputs, (list, map)
+        ), f"inputs must be of type list or map (for multiple args) or tuple (for single args) but was {type(inputs)}"
+        if isinstance(inputs, map):
+            inputs = list(inputs)
+
         assert inputs, "must provide at least one input args tuple"
 
         for i, args in enumerate(inputs):
