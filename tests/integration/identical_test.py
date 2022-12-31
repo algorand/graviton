@@ -2,7 +2,11 @@ from copy import deepcopy
 import pytest
 
 
-from graviton.blackbox import DryRunProperty as DRProp, DryRunExecutor as DRExecutor
+from graviton.blackbox import (
+    DryRunProperty as DRProp,
+    DryRunExecutor as DRExecutor,
+    ExecutionMode,
+)
 from graviton.invariant import Invariant, PredicateKind
 
 from tests.clients import get_algod
@@ -117,9 +121,15 @@ COPACETIC = [
 @pytest.mark.parametrize("teal_method1, teal_method2, inputs, predicates", COPACETIC)
 def test_identical_functions(teal_method1, teal_method2, inputs, predicates):
     algod = get_algod()
-    inspectors1, inspectors2 = DRExecutor.dryrun_app_pair_on_sequence(
-        algod, teal_method1, teal_method2, inputs
+    teal1, meth1 = teal_method1
+    teal2, meth2 = teal_method2
+    dre1 = DRExecutor(
+        algod, ExecutionMode.Application, teal1, abi_method_signature=meth1
     )
+    dre2 = DRExecutor(
+        algod, ExecutionMode.Application, teal2, abi_method_signature=meth2
+    )
+    inspectors1, inspectors2 = DRExecutor.run_multi([dre1, dre2], inputs)
     Invariant.full_validation(
         predicates,
         inspectors=inspectors1,
@@ -130,9 +140,17 @@ def test_identical_functions(teal_method1, teal_method2, inputs, predicates):
 
 def test_non_identical():
     algod = get_algod()
-    square_inspectors, square_p1_inspectors = DRExecutor.dryrun_app_pair_on_sequence(
-        algod, square, square_p1, ten
+
+    teal1, meth1 = square
+    teal2, meth2 = square_p1
+
+    dre1 = DRExecutor(
+        algod, ExecutionMode.Application, teal1, abi_method_signature=meth1
     )
+    dre2 = DRExecutor(
+        algod, ExecutionMode.Application, teal2, abi_method_signature=meth2
+    )
+    square_inspectors, square_p1_inspectors = DRExecutor.run_multi([dre1, dre2], ten)
 
     square_predicates = {
         DRProp.lastLog: lambda args: args[1] ** 2,
