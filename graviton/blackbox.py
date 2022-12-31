@@ -1289,95 +1289,6 @@ class DryRunExecutor:
         return executor
 
     @classmethod
-    def execute_one_dryrun(
-        cls,
-        algod: AlgodClient,
-        teal: str,
-        args: Sequence[PyTypes],
-        mode: ExecutionMode,
-        *,
-        abi_method_signature: Optional[str] = None,
-        omit_method_selector: bool = False,
-        validation: bool = True,
-        txn_params: dict = {},
-        accounts: List[DryRunAccountType] = [],
-        verbose: bool = False,
-    ) -> DryRunInspector:
-        return cast(
-            DryRunInspector,
-            cls(
-                algod,
-                mode,
-                teal,
-                abi_method_signature=abi_method_signature,
-                omit_method_selector=omit_method_selector,
-                validation=validation,
-            ).run(
-                args,
-                txn_params=DryRunTransactionParams(
-                    dryrun_accounts=accounts, **txn_params
-                ),
-                verbose=verbose,
-            ),
-        )
-
-    @classmethod
-    def execute_one_dryrun_ORIGINAL(
-        cls,
-        algod: AlgodClient,
-        teal: str,
-        args: Sequence[PyTypes],
-        mode: ExecutionMode,
-        *,
-        abi_method_signature: Optional[str] = None,
-        omit_method_selector: bool = False,
-        validation: bool = True,
-        txn_params: dict = {},
-        accounts: List[DryRunAccountType] = [],
-        verbose: bool = False,
-    ) -> DryRunInspector:
-        (
-            is_app,
-            abi_argument_types,
-            abi_return_type,
-            method,
-            selector,
-        ) = cls._prerun_validation(mode, abi_method_signature)
-
-        # ------ at runtime (depends on args) ------ #
-        if abi_method_signature:
-            args, abi_argument_types = cls._abi_adapter(
-                args,
-                abi_argument_types,
-                omit_method_selector,
-                validation,
-                method,
-                selector,
-            )
-
-        encoded_args = DryRunEncoder.encode_args(
-            args, abi_types=abi_argument_types, validation=validation
-        )
-
-        dryrun_req: DryrunRequest
-        if is_app:
-            dryrun_req = DryRunHelper.singleton_app_request(
-                teal, encoded_args, txn_params, accounts
-            )
-        else:
-            dryrun_req = DryRunHelper.singleton_logicsig_request(
-                teal, encoded_args, txn_params
-            )
-        if verbose:
-            print(f"{cls}::execute_one_dryrun(): {dryrun_req=}")
-        dryrun_resp = algod.dryrun(dryrun_req)
-        if verbose:
-            print(f"{cls}::execute_one_dryrun(): {dryrun_resp=}")
-        return DryRunInspector.from_single_response(
-            dryrun_resp, args, encoded_args, abi_type=abi_return_type
-        )
-
-    @classmethod
     def _abi_adapter(
         cls,
         args: Sequence[PyTypes],
@@ -1472,6 +1383,96 @@ class DryRunExecutor:
             method = selector = None
 
         return is_app, abi_argument_types, abi_return_type, method, selector
+
+    # --- DEPRECATED BELOW --- #
+    @classmethod
+    def execute_one_dryrun(
+        cls,
+        algod: AlgodClient,
+        teal: str,
+        args: Sequence[PyTypes],
+        mode: ExecutionMode,
+        *,
+        abi_method_signature: Optional[str] = None,
+        omit_method_selector: bool = False,
+        validation: bool = True,
+        txn_params: dict = {},
+        accounts: List[DryRunAccountType] = [],
+        verbose: bool = False,
+    ) -> DryRunInspector:
+        return cast(
+            DryRunInspector,
+            cls(
+                algod,
+                mode,
+                teal,
+                abi_method_signature=abi_method_signature,
+                omit_method_selector=omit_method_selector,
+                validation=validation,
+            ).run(
+                args,
+                txn_params=DryRunTransactionParams(
+                    dryrun_accounts=accounts, **txn_params
+                ),
+                verbose=verbose,
+            ),
+        )
+
+    @classmethod
+    def execute_one_dryrun_ORIGINAL(
+        cls,
+        algod: AlgodClient,
+        teal: str,
+        args: Sequence[PyTypes],
+        mode: ExecutionMode,
+        *,
+        abi_method_signature: Optional[str] = None,
+        omit_method_selector: bool = False,
+        validation: bool = True,
+        txn_params: dict = {},
+        accounts: List[DryRunAccountType] = [],
+        verbose: bool = False,
+    ) -> DryRunInspector:
+        (
+            is_app,
+            abi_argument_types,
+            abi_return_type,
+            method,
+            selector,
+        ) = cls._prerun_validation(mode, abi_method_signature)
+
+        # ------ at runtime (depends on args) ------ #
+        if abi_method_signature:
+            args, abi_argument_types = cls._abi_adapter(
+                args,
+                abi_argument_types,
+                omit_method_selector,
+                validation,
+                method,
+                selector,
+            )
+
+        encoded_args = DryRunEncoder.encode_args(
+            args, abi_types=abi_argument_types, validation=validation
+        )
+
+        dryrun_req: DryrunRequest
+        if is_app:
+            dryrun_req = DryRunHelper.singleton_app_request(
+                teal, encoded_args, txn_params, accounts
+            )
+        else:
+            dryrun_req = DryRunHelper.singleton_logicsig_request(
+                teal, encoded_args, txn_params
+            )
+        if verbose:
+            print(f"{cls}::execute_one_dryrun(): {dryrun_req=}")
+        dryrun_resp = algod.dryrun(dryrun_req)
+        if verbose:
+            print(f"{cls}::execute_one_dryrun(): {dryrun_resp=}")
+        return DryRunInspector.from_single_response(
+            dryrun_resp, args, encoded_args, abi_type=abi_return_type
+        )
 
     @classmethod
     def dryrun_app(
