@@ -268,9 +268,9 @@ class BlackboxResults:
     def final_as_row(self) -> dict:
         return {
             "steps": self.steps(),
-            " top_of_stack": self.final_stack_top() or "",
+            " top_of_stack": "" if (ts := self.final_stack_top()) is None else ts,
             "max_stack_height": self.max_stack_height(),
-            **self.final_scratch(with_formatting=True),  # type: ignore
+            **self.final_scratch(with_formatting=True),
         }
 
 
@@ -729,24 +729,24 @@ class DryRunInspector:
     Local Delta:
     {self.local_deltas()}
     ===============
-    TXN AS ROW: {self.csv_row(row, args)}
+    TXN AS ROW: {self.csv_row(row)}
     ===============
     <<<<<<<<<<<{msg}>>>>>>>>>>>
     ===============
     """
 
-    def csv_row(
-        self, row_num: int, args: Sequence[PyTypes]
-    ) -> Dict[str, Optional[PyTypes]]:
+    def csv_row(self, row_num: int) -> Dict[str, Optional[PyTypes]]:
         return {
             " Run": row_num,
+            " budget_added": self.budget_added(),
+            " budget_consumed": self.budget_consumed(),
             " cost": self.cost(),
             # back-tick needed to keep Excel/Google sheets from stumbling over hex
             " last_log": f"`{self.last_log()}",
             " final_message": self.last_message(),
             " Status": self.status(),
             **self.black_box_results.final_as_row(),
-            **{f"Arg_{i:02}": arg for i, arg in enumerate(args)},
+            **{f"Arg_{i:02}": arg for i, arg in enumerate(self.args)},
         }
 
     @classmethod
@@ -768,7 +768,7 @@ class DryRunInspector:
                 txns
             ), f"cannot produce CSV with unmatching size of inputs ({len(inputs)}) v. txns ({len(txns)})"
 
-        _drrs = [resp.csv_row(i + 1, inputs[i]) for i, resp in enumerate(dr_resps)]
+        _drrs = [resp.csv_row(i + 1) for i, resp in enumerate(dr_resps)]
 
         def row(i):
             return {**_drrs[i], **(txns[i] if txns else {})}

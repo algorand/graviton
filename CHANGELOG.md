@@ -19,6 +19,11 @@ In [#44](https://github.com/algorand/graviton/pull/44):
 * `DryRunExecutor` has been refactored. All the class methods `dryrun_*` have been removed in favor of the instance methods `run()`, and the more user-friendly `run_one()` and `run_sequence()`.
 In particular, it is now required to instantiate a `DryRunExecutor` object 
 before calling the dry run exection methods.
+* `DryRunInspector` no longer accepts `args` as a second parameter and uses `self.args` instead.
+
+### Added
+
+* Adding `budget_added` and `budget_consumed` to `DryRunInspector.csv_row()` thus addressing Issue #38. ([#44](https://github.com/algorand/graviton/pull/44))
 
 ## `v0.6.0` (_aka_ 🐸)
 
