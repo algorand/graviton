@@ -23,7 +23,7 @@ before calling the dry run exection methods.
 
 ### Added
 
-* Adding `budget_added` and `budget_consumed` to `DryRunInspector.csv_row()` thus addressing Issue #38. ([#44](https://github.com/algorand/graviton/pull/44))
+* Adding `budget_added` and `budget_consumed` to `DryRunInspector.csv_row()` thus addressing Issue [#38](https://github.com/algorand/graviton/issues/38). ([#44](https://github.com/algorand/graviton/pull/44))
 
 ## `v0.6.0` (_aka_ 🐸)
 
