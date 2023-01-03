@@ -92,11 +92,12 @@ retsub
 
 def test_dynamic_array_sum():
     algod = get_algod()
-    args = ("ignored", [1, 2, 3, 4, 5])
-    abi_arg_types = (None, abi.ArrayDynamicType(abi.UintType(64)))
-    abi_out_type = abi.UintType(64)
+    args = ([1, 2, 3, 4, 5],)
     inspector = DRE.dryrun_app(
-        algod, DYNAMIC_ARRAY_SUM_TEAL, args, abi_arg_types, abi_out_type
+        algod,
+        DYNAMIC_ARRAY_SUM_TEAL,
+        args,
+        abi_method_signature="abi_sum(uint64[])uint64",
     )
     # with default config:
     assert inspector.abi_type
@@ -138,7 +139,8 @@ def process_filename(filename):
 
     abi_instance = abi.ABIType.from_string(abi_str)
     abi_strat = RandomABIStrategy(abi_instance, length)
-    return abi_str, length, abi_instance, abi_strat
+    abi_sig = f"foo({abi_str})({abi_str},{abi_str},{abi_str})"
+    return abi_str, length, abi_instance, abi_strat, abi_sig
 
 
 def get_roundtrip_teals():
@@ -149,7 +151,7 @@ def get_roundtrip_teals():
 def test_unit_abi_strategy_get_random(roundtrip_app):
     filename = str(roundtrip_app)
 
-    abi_str, length, abi_instance, abi_strat = process_filename(filename)
+    abi_str, length, abi_instance, abi_strat, _ = process_filename(filename)
     rand = abi_strat.get()
     encoded = DryRunEncoder.encode_args([rand], abi_types=[abi_instance])
     decoded = abi_instance.decode(encoded[0])
@@ -178,7 +180,7 @@ BAD_TEALS = {
 @pytest.mark.parametrize("roundtrip_app", get_roundtrip_teals())
 def test_roundtrip_abi_strategy(roundtrip_app):
     filename = str(roundtrip_app)
-    abi_str, _, abi_instance, abi_strat = process_filename(filename)
+    abi_str, _, abi_instance, abi_strat, method_sig = process_filename(filename)
 
     if abi_str in BAD_TEALS:
         print(
@@ -190,13 +192,17 @@ def test_roundtrip_abi_strategy(roundtrip_app):
 
     algod = get_algod()
     args = (rand,)
-    abi_arg_types = (abi_instance,)
-    abi_out_type = abi.TupleType([abi_instance] * 3)
 
     with open(filename) as f:
         roundtrip_teal = f.read()
 
-    inspector = DRE.dryrun_app(algod, roundtrip_teal, args, abi_arg_types, abi_out_type)
+    inspector = DRE.dryrun_app(
+        algod,
+        roundtrip_teal,
+        args,
+        abi_method_signature=method_sig,
+        omit_method_selector=True,
+    )
 
     cost = inspector.cost()
     passed = inspector.passed()
@@ -264,6 +270,7 @@ QUESTIONABLE_ACE = ABIContractExecutor(
     QUESTIONABLE_CONTRACT,
     argument_strategy=RandomABIStrategyHalfSized,
     dry_runs=NUM_ROUTER_DRYRUNS,
+    handle_selector=True,
 )
 
 QUESTIONABLE_CLEAR_ACE = ABIContractExecutor(
@@ -271,6 +278,7 @@ QUESTIONABLE_CLEAR_ACE = ABIContractExecutor(
     QUESTIONABLE_CONTRACT,  # weird, but the methods in the clear program do belong to the contract
     argument_strategy=RandomABIStrategyHalfSized,
     dry_runs=NUM_ROUTER_DRYRUNS,
+    handle_selector=True,
 )
 
 YACC_ACE = ABIContractExecutor(
@@ -278,6 +286,7 @@ YACC_ACE = ABIContractExecutor(
     QUESTIONABLE_CONTRACT,  # same JSON contract as QUESTIONABLE
     argument_strategy=RandomABIStrategyHalfSized,
     dry_runs=NUM_ROUTER_DRYRUNS,
+    handle_selector=True,
 )
 
 YACC_CLEAR_ACE = ABIContractExecutor(
@@ -285,6 +294,7 @@ YACC_CLEAR_ACE = ABIContractExecutor(
     QUESTIONABLE_CONTRACT,
     argument_strategy=RandomABIStrategyHalfSized,
     dry_runs=NUM_ROUTER_DRYRUNS,
+    handle_selector=True,
 )
 
 
@@ -484,7 +494,7 @@ on_complete={on_complete!r}
 dr_prop={dr_property}
 invariant={invariant}"""
 
-    invariants = Invariant.as_invariants(invariants)
+    predicates = Invariant.as_invariants(invariants)
     for is_app_create, on_complete in call_types:
         inspectors = ace.dry_run_on_sequence(
             algod,
@@ -492,7 +502,7 @@ invariant={invariant}"""
             is_app_create=is_app_create,
             on_complete=on_complete,
         )
-        for dr_property, invariant in invariants.items():
+        for dr_property, invariant in predicates.items():
             invariant.validates(dr_property, inspectors, msg=msg())
 
 
@@ -537,7 +547,6 @@ def method_or_barecall_negative_test_runner(
         if iac_n_oc not in call_types
     ]
     good_inputs = ace.generate_inputs(method)
-    good_arg_types = ace.argument_types(method)
 
     is_app_create = on_complete = None
 
@@ -545,8 +554,7 @@ def method_or_barecall_negative_test_runner(
         inputs = kwargs.get("inputs")
         assert inputs
 
-        validate_inputs = kwargs.get("validate_inputs", True)
-        arg_types = kwargs.get("arg_types")
+        validation = kwargs.get("validation", True)
 
         return ace.dry_run_on_sequence(
             algod,
@@ -554,8 +562,7 @@ def method_or_barecall_negative_test_runner(
             is_app_create=is_app_create,
             on_complete=on_complete,
             inputs=inputs,
-            validate_inputs=validate_inputs,
-            arg_types=arg_types,
+            validation=validation,
         )
 
     def msg():
@@ -612,19 +619,19 @@ invariant={invariant}"""
 
     scenario = "II(a). inserting an extra random byte into method selector"
     if selectors_inserted:
-        inspectors = dry_runner(inputs=selectors_inserted, validate_inputs=False)
+        inspectors = dry_runner(inputs=selectors_inserted, validation=False)
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
             invariant.validates(dr_prop, inspectors, msg=msg())
 
     scenario = "II(b). removing a random byte from method selector"
     if selectors_deleted:
-        inspectors = dry_runner(inputs=selectors_deleted, validate_inputs=False)
+        inspectors = dry_runner(inputs=selectors_deleted, validation=False)
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
             invariant.validates(dr_prop, inspectors, msg=msg())
 
     scenario = "II(c). replacing a random byte in method selector"
     if selectors_modded:
-        inspectors = dry_runner(inputs=selectors_modded, validate_inputs=False)
+        inspectors = dry_runner(inputs=selectors_modded, validation=False)
         for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
             invariant.validates(dr_prop, inspectors, msg=msg())
 
@@ -632,16 +639,13 @@ invariant={invariant}"""
     # (extra args testing is omitted as this is prevented by SDK's cf. https://github.com/algorand/algorand-sdk-testing/issues/190)
     if good_inputs and good_inputs[0]:
         missing_arg = [args[:-1] for args in good_inputs]
-        missing_arg_types = good_arg_types[:-1]
         if not missing_arg[0]:
             # skip this, as this becomes a bare app call case which is tested elsewhere
             return
 
         for is_app_create, on_complete in call_types:
             scenario = "III. removing the final argument"
-            inspectors = dry_runner(
-                inputs=missing_arg, validate_inputs=False, arg_types=missing_arg_types
-            )
+            inspectors = dry_runner(inputs=missing_arg, validation=False)
             for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
                 invariant.validates(dr_prop, inspectors, msg=msg())
 

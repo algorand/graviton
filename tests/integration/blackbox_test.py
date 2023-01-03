@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Sequence, Union
 
 import pytest
 
@@ -13,7 +14,8 @@ from graviton.blackbox import (
     ExecutionMode,
     mode_has_property,
 )
-from graviton.invariant import Invariant
+from graviton.invariant import Invariant, InvariantType
+from graviton.models import PyTypes
 
 
 from tests.clients import get_algod
@@ -170,7 +172,46 @@ load 1""",
     )
 
 
-APP_SCENARIOS = {
+def test_as_invariants():
+    empty = {}
+    with pytest.raises(AssertionError) as ae:
+        Invariant.as_invariants(empty)
+
+    assert "must provide at least one invariant but `predicates` is empty" == str(
+        ae.value
+    )
+
+    not_invariants = {
+        "some random key": True,
+    }
+    with pytest.raises(AssertionError) as ae:
+        Invariant.as_invariants(not_invariants)
+
+    assert (
+        "each key must be a DryRunProperty appropriate to ExecutionMode.Application. This is not the case for key 'some random key'"
+        == str(ae.value)
+    )
+
+    app_invariants = {
+        DRProp.lastLog: "hello",
+    }
+
+    invariants = Invariant.as_invariants(app_invariants)
+    assert len(invariants) == 1
+    assert DRProp.lastLog in invariants
+
+    with pytest.raises(AssertionError) as ae:
+        Invariant.as_invariants(app_invariants, ExecutionMode.Signature)
+
+    assert (
+        "each key must be a DryRunProperty appropriate to ExecutionMode.Signature. This is not the case for key 'DryRunProperty.lastLog'"
+        == str(ae.value)
+    )
+
+
+APP_SCENARIOS: dict[
+    str, dict[str, Union[list[Sequence[PyTypes]], dict[DRProp, InvariantType]]]
+] = {
     "app_exp": {
         "inputs": [()],
         # since only a single input, just assert a constant in each case
@@ -181,7 +222,7 @@ APP_SCENARIOS = {
             DRProp.lastLog: Encoder.hex(2**10),
             # dicts have a special meaning as invariants. So in the case of "finalScratch"
             # which is supposed to _ALSO_ output a dict, we need to use a lambda as a work-around
-            DRProp.finalScratch: lambda _: {0: 2**10},
+            DRProp.finalScratch: lambda _: {0: 2**10},  # type: ignore
             DRProp.stackTop: 2**10,
             DRProp.maxStackHeight: 2,
             DRProp.status: "PASS",
@@ -217,7 +258,7 @@ APP_SCENARIOS = {
             DRProp.budgetConsumed: 14,
             DRProp.budgetAdded: 0,
             DRProp.lastLog: {(i,): Encoder.hex(i * i) for i in range(100)},
-            DRProp.finalScratch: lambda args: (
+            DRProp.finalScratch: lambda args: (  # type: ignore
                 {0: args[0], 1: args[0] ** 2} if args[0] else {}
             ),
             DRProp.stackTop: lambda args: args[0] ** 2,
@@ -235,7 +276,7 @@ APP_SCENARIOS = {
             DRProp.budgetConsumed: 27,
             DRProp.budgetAdded: 0,
             DRProp.lastLog: Encoder.hex(1337),
-            DRProp.finalScratch: lambda args: {
+            DRProp.finalScratch: lambda args: {  # type: ignore
                 0: 4,
                 1: 5,
                 2: Encoder.hex0x(args[0]),
@@ -259,7 +300,7 @@ APP_SCENARIOS = {
             DRProp.budgetAdded: 0,
             DRProp.lastLog: (lambda args: Encoder.hex(args[0] * args[1])),
             # due to dryrun 0-scratchvar artifact, special case for i == 0:
-            DRProp.finalScratch: lambda args: (
+            DRProp.finalScratch: lambda args: (  # type: ignore
                 {
                     0: 5,
                     1: args[1],
@@ -293,10 +334,10 @@ APP_SCENARIOS = {
                 actual - 40 <= 17 * args[0] <= actual + 40
             ),
             DRProp.budgetAdded: 0,
-            DRProp.lastLog: lambda args: (
+            DRProp.lastLog: lambda args: (  # type: ignore
                 Encoder.hex(fac_with_overflow(args[0])) if args[0] < 21 else None
             ),
-            DRProp.finalScratch: lambda args: (
+            DRProp.finalScratch: lambda args: (  # type: ignore
                 {0: args[0], 1: fac_with_overflow(args[0])}
                 if 0 < args[0] < 21
                 else (
@@ -323,7 +364,7 @@ APP_SCENARIOS = {
                 fib_cost(args) if args[0] < 17 else 70_000
             ),
             DRProp.budgetAdded: 0,
-            DRProp.lastLog: lambda args: (
+            DRProp.lastLog: lambda args: (  # type: ignore
                 Encoder.hex(fib(args[0])) if args[0] < 17 else None
             ),
             DRProp.finalScratch: lambda args, actual: (
@@ -357,9 +398,10 @@ def test_app_with_report(filebase: str):
     mode, scenario = ExecutionMode.Application, APP_SCENARIOS[filebase]
 
     # 0. Validate that the scenarios are well defined:
-    inputs, invariants = Invariant.inputs_and_invariants(
-        scenario, mode, raw_predicates=True  # type: ignore
-    )
+    inputs = scenario["inputs"]
+    invariants = scenario["invariants"]
+    assert inputs and isinstance(inputs, list)
+    assert invariants and isinstance(invariants, dict)
 
     algod = get_algod()
 
@@ -378,7 +420,7 @@ def test_app_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun responses:
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)  # type: ignore
+    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
@@ -387,18 +429,16 @@ def test_app_with_report(filebase: str):
     print(f"Saved Dry Run CSV report to {csvpath}")
 
     # 4. Sequential invariants (if provided any)
-    for i, type_n_invariant in enumerate(invariants.items()):
-        dr_property, invariant = type_n_invariant
-
+    for i, (dr_property, invariant) in enumerate(invariants.items()):
         assert mode_has_property(
             mode, dr_property
         ), f"assert_type {dr_property} is not applicable for {mode}. Please REMOVE or MODIFY"
 
-        invariant = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{dr_property}")
+        inv = Invariant(invariant, name=f"{case_name}[{i}]@{mode}-{dr_property}")
         print(
-            f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant}>>"
+            f"{i+1}. Semantic invariant for {case_name}-{mode}: {dr_property} <<{invariant!r}>>"
         )
-        invariant.validates(dr_property, dryrun_results)
+        inv.validates(dr_property, dryrun_results)
 
 
 def test_app_itxn_with_report():
@@ -418,9 +458,10 @@ def test_app_itxn_with_report():
     mode = ExecutionMode.Application
 
     # 0. Validate that the scenario is well defined:
-    inputs, invariants = Invariant.inputs_and_invariants(
-        scenario_success, mode, raw_predicates=True  # type: ignore
-    )
+    inputs = scenario_success["inputs"]
+    invariants = scenario_success["invariants"]
+    assert inputs and isinstance(inputs, list)
+    assert invariants and isinstance(invariants, dict)
 
     algod = get_algod()
 
@@ -440,7 +481,9 @@ def test_app_itxn_with_report():
             amount_without_pending_rewards=10500000,
         )
     ]
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs, dryrun_accounts=accounts)  # type: ignore
+    dryrun_results = Executor.dryrun_app_on_sequence(
+        algod, teal, inputs, dryrun_accounts=accounts
+    )
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{case_name}.csv"
@@ -477,11 +520,12 @@ def test_app_itxn_with_report():
         },
     }
 
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)  # type: ignore
+    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)
 
-    inputs, invariants = Invariant.inputs_and_invariants(
-        scenario_failure, mode, raw_predicates=True  # type: ignore
-    )
+    inputs = scenario_failure["inputs"]
+    invariants = scenario_failure["invariants"]
+    assert inputs and isinstance(inputs, list)
+    assert invariants and isinstance(invariants, dict)
 
     csvpath = path / f"{case_name}.csv"
     with open(csvpath, "w") as f:
@@ -650,9 +694,10 @@ def test_logicsig_with_report(filebase: str):
     mode, scenario = ExecutionMode.Signature, LOGICSIG_SCENARIOS[filebase]
 
     # 0. Validate that the scenarios are well defined:
-    inputs, invariants = Invariant.inputs_and_invariants(
-        scenario, mode, raw_predicates=True  # type: ignore
-    )
+    inputs = scenario["inputs"]
+    invariants = scenario["invariants"]
+    assert inputs and isinstance(inputs, list)
+    assert invariants and isinstance(invariants, dict)
 
     algod = get_algod()
 
@@ -671,7 +716,7 @@ def test_logicsig_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun resonses:
-    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)  # type: ignore
+    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
