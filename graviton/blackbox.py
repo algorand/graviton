@@ -975,9 +975,6 @@ class DryRunEncoder:
 
 @dataclass(frozen=True)
 class DryRunTransactionParams:
-    """
-    TODO: Replace all usages of txn_params with this type ???
-    """
 
     # generic:
     sender: Optional[Stringy] = None
