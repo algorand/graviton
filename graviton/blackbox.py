@@ -1151,10 +1151,6 @@ class DryRunExecutor:
         txn_params: Optional[DryRunTransactionParams] = None,
         verbose: bool = False,
     ) -> Union[Sequence[DryRunInspector], DryRunInspector]:
-        """
-        TODO: eliminate type-switch on inputs using
-        functools: singledispatch + partial
-        """
         executor = self._executor(txn_params, verbose)
         if isinstance(inputs, tuple):
             return executor(inputs)
@@ -1407,8 +1403,6 @@ class ABIContractExecutor:
         return [gen_args() for _ in range(self.dry_runs)]
 
     def validate_inputs(self, method: Optional[str], inputs: List[Sequence[PyTypes]]):
-        """TODO: add type validation for arguments"""
-
         if not method:
             assert not any(
                 inputs
