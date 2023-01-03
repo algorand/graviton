@@ -283,6 +283,12 @@ class DryRunEncoder:
 
             abi_types (optional) - When present this list needs to be the same length as `args`.
                 When `None` is supplied as the abi_type, the corresponding element of `args` is not encoded.
+
+            validation (optional) - This should usually be left `True` which
+                ensures that -in the case of ABI typing- the number of types is
+                exactly the number of args. However, in the case that the 0'th argument
+                already includes the method selector, `validation` can be set `False`
+                which allows the automatic prepending of `None` to the ABI types list.
         """
         a_len = len(args)
         if abi_types:
