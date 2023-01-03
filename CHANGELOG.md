@@ -22,6 +22,7 @@ before calling a dry run executing methods.
 ### Breaking changes
 
 In [#42](https://github.com/algorand/graviton/pull/42):
+
 * Inside `graviton/blackbox.py`: Removing the parameters `abi_argument_types` and `abi_return_type` from dry run execution methods, in favor of the unified `abi_method_signature` parameter. Also adding `omit_method_selector` and `validation` parameters to allow running non-ARC-4 compliant teal code that use ABI types.
 * Deleting orphaned code mostly brought over from original py-algorand-sdk code:
   * Entire file: `graviton/deprecated_dryrun.py`
