@@ -1,29 +1,48 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
-## `v0.7.0` (_aka_ 🦒)
+
+## `v0.8.0` (_aka_ 🦛)
 
 ### Breaking changes
-
-In [#42](https://github.com/algorand/graviton/pull/42):
-
-* Inside `graviton/blackbox.py`: Removing the parameters `abi_argument_types` and `abi_return_type` from dry run execution methods, in favor of the unified `abi_method_signature` parameter. Also adding `omit_method_selector` and `validation` parameters to allow running non-ARC-4 compliant teal code that use ABI types.
-* Deleting all code previously marked with the `deprecated_` (or `Deprecated`) prefix. This includes:
-  * `graviton/deprecated_dryrun.py`
-  * `graviton/deprecated_dryrun_mixin.py`
-  * `tests/integration/dryrun_mixin_docs_test.py`
-* Deleting method `Invariant.inputs_and_invariants()`
-* Inside `graviton/dryrun.py`: marked as deprecated for future removal with prefix `deprecated_` code that is orphaned after the deletion of the above
 
 In [#44](https://github.com/algorand/graviton/pull/44):
 * `DryRunExecutor` has been refactored. All the class methods `dryrun_*` have been removed in favor of the instance methods `run()`, and the more user-friendly `run_one()` and `run_sequence()`.
 In particular, it is now required to instantiate a `DryRunExecutor` object 
-before calling the dry run exection methods.
+before calling a dry run executing methods.
 * `DryRunInspector` no longer accepts `args` as a second parameter and uses `self.args` instead.
+* Migration path to the above: it is recommended that calls be re-written to use the new API. If you find that this causes too much friction, please open an issue.
+
 
 ### Added
-
 * Adding `budget_added` and `budget_consumed` to `DryRunInspector.csv_row()` thus addressing Issue [#38](https://github.com/algorand/graviton/issues/38). ([#44](https://github.com/algorand/graviton/pull/44))
+
+## `v0.7.0` (_aka_ 🦒)
+
+### Breaking changes
+
+* Deleting orphaned code mostly brought over from original py-algorand-sdk code:
+  * Entire file: `graviton/deprecated_dryrun.py`
+  * Entire file: `graviton/deprecated_dryrun_mixin.py`
+  * Entire file: `tests/integration/dryrun_mixin_docs_test.py`
+  * The following functions and methods in `graviton/dryrun.py`:
+    * `_fail()`
+    * `assert_pass()`
+    * `assert_reject()`
+    * `assert_status()`
+    * `assert_global_state_contains()`
+    * `assert_local_state_contains()`
+    * `DryRunHelper._guess()`
+    * `DryRunHelper.format_stack()`
+    * `DryRunHelper.find_delta_value()`
+    * `DryRunHelper.save_dryrun_request()`
+  * Recommended actions in case you are currently using the above:
+    * Consider opening an issue alerting us of the impact
+    * The original code is mostly available [in py-algorand v1.20.2](https://github.com/algorand/py-algorand-sdk/blob/v1.20.2/algosdk/testing/dryrun.py)
+* Deleting method `Invariant.inputs_and_invariants()`
+  * Recommended migration path: It is recommended that inputs and invariants be accessed directly from the
+  dictionary that contains them (e.g. [this example](https://github.com/algorand/graviton/blob/7aed927405d8c7fc27ee34cfd05caa001b89ea36/tests/integration/blackbox_test.py#L463)) or that
+  `Invariant.full_validation()` be employed instead (e.g. [this example](https://github.com/algorand/graviton/blob/d84fc612a0ad9ec23a6ec14a167fa9f2c898bd2e/tests/integration/identical_test.py#L123)).
 
 ## `v0.6.0` (_aka_ 🐸)
 
