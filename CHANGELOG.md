@@ -1,6 +1,10 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## `v0.7.1`
+
+* Upgrade to `py-algorand-sdk` v2 ([#46](https://github.com/algorand/graviton/pull/46))
+
 ## `v0.7.0` (_aka_ 🦒)
 
 ### Breaking changes
