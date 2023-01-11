@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Optional, Sequence, Union
 
-from algosdk.transaction import OnComplete
 from algosdk.encoding import encode_address
+from algosdk.transaction import OnComplete
 from algosdk.v2client.models.account import Account
 from algosdk.v2client.models.teal_key_value import TealKeyValue
 
