@@ -725,7 +725,7 @@ class DryRunExecutor:
             args = tuple(args)
 
             if method.returns.type != abi.Returns.VOID:
-                abi_return_type = method.returns.type
+                abi_return_type = cast(abi.ABIType, method.returns.type)
 
         encoded_args = DryRunEncoder.encode_args(
             args, abi_types=abi_argument_types, validation=validation
@@ -746,7 +746,7 @@ class DryRunExecutor:
         if verbose:
             print(f"{cls}::execute_one_dryrun(): {dryrun_resp=}")
         return DryRunInspector.from_single_response(
-            dryrun_resp, args, encoded_args, abi_type=abi_return_type
+            dryrun_resp, args, encoded_args, abi_type=cast(abi.ABIType, abi_return_type)
         )
 
     @classmethod
@@ -851,7 +851,10 @@ class ABIContractExecutor:
         if not method:
             return []
 
-        return [arg.type for arg in self.contract.get_method_by_name(method).args]
+        return [
+            cast(abi.ABIType, arg.type)
+            for arg in self.contract.get_method_by_name(method).args
+        ]
 
     def generate_inputs(self, method: Optional[str]) -> List[Sequence[PyTypes]]:
         """
@@ -890,7 +893,7 @@ class ABIContractExecutor:
             return
 
         arg_types = self.argument_types(method)
-        selector_if_needed: Optional[str] = None
+        selector_if_needed: Optional[bytes] = None
         if self.handle_selector:
             selector_if_needed = self.contract.get_method_by_name(method).get_selector()
 
@@ -904,7 +907,7 @@ class ABIContractExecutor:
                     break
 
                 if targs[0] != selector_if_needed:
-                    error = f"{pfx}expected selector={selector_if_needed} at arg 0 but got {targs[0]!r}"
+                    error = f"{pfx}expected selector={selector_if_needed!r} at arg 0 but got {targs[0]!r}"
                     break
 
         assert not error, error
@@ -1018,7 +1021,7 @@ class DryRunInspector:
         txn_index: int,
         args: Sequence[PyTypes],
         encoded_args: List[ArgType],
-        abi_type: abi.ABIType = None,
+        abi_type: Optional[abi.ABIType] = None,
     ):
         txns = dryrun_resp.get("txns", [])
         assert txns, "Dry Run response is missing transactions"
@@ -1091,7 +1094,7 @@ class DryRunInspector:
         dryrun_resp: dict,
         args: Sequence[PyTypes],
         encoded_args: List[ArgType],
-        abi_type: abi.ABIType = None,
+        abi_type: Optional[abi.ABIType] = None,
     ) -> "DryRunInspector":
         error = dryrun_resp.get("error")
         assert not error, f"dryrun response included the following error: [{error}]"
