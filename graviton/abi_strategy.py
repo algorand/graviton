@@ -114,12 +114,12 @@ class RandomABIStrategy(ABIStrategy):
 
     def map(
         self,
-        waterfall: Dict[abi.ABIType, Callable[..., PyTypes]],
+        waterfall: Dict[type[abi.ABIType] | str, Callable[..., PyTypes]],
         *args,
         **kwargs,
     ) -> PyTypes:
         for abi_type, call in waterfall.items():
-            if isinstance(self.abi_type, abi_type):
+            if isinstance(abi_type, type) and isinstance(self.abi_type, abi_type):
                 return call(*args, **kwargs)
         return waterfall["DEFAULT"](*args, **kwargs)
 
@@ -140,11 +140,14 @@ class RandomABIStrategy(ABIStrategy):
                 )
             )
 
-        waterfall = OrderedDict(
+        waterfall: Dict[type[abi.ABIType] | str, Callable[..., PyTypes]] = OrderedDict(
             [
                 (abi.UfixedType, not_implemented),
                 (abi.BoolType, lambda x: not x),
-                (abi.UintType, lambda x: (1 << self.abi_type.bit_size) - 1 - x),
+                (
+                    abi.UintType,
+                    lambda x: (1 << cast(abi.UintType, self.abi_type).bit_size) - 1 - x,
+                ),
                 (
                     abi.ByteType,
                     lambda x: RandomABIStrategy(abi.UintType(8)).mutate_for_roundtrip(
@@ -155,14 +158,16 @@ class RandomABIStrategy(ABIStrategy):
                     abi.TupleType,
                     lambda x: [
                         RandomABIStrategy(child_type).mutate_for_roundtrip(x[i])
-                        for i, child_type in enumerate(self.abi_type.child_types)
+                        for i, child_type in enumerate(
+                            cast(abi.TupleType, self.abi_type).child_types
+                        )
                     ],
                 ),
                 (
                     abi.ArrayStaticType,
                     lambda x: [
                         RandomABIStrategy(
-                            self.abi_type.child_type
+                            cast(abi.ArrayStaticType, self.abi_type).child_type
                         ).mutate_for_roundtrip(y)
                         for y in x
                     ],
@@ -172,7 +177,7 @@ class RandomABIStrategy(ABIStrategy):
                     abi.ArrayDynamicType,
                     lambda x: [
                         RandomABIStrategy(
-                            self.abi_type.child_type
+                            cast(abi.ArrayDynamicType, self.abi_type).child_type
                         ).mutate_for_roundtrip(y)
                         for y in x
                     ],
@@ -199,4 +204,6 @@ class RandomABIStrategyHalfSized(RandomABIStrategy):
         if not isinstance(self.abi_type, abi.UintType):
             return full_random
 
-        return full_random % (1 << (self.abi_type.bit_size // 2))
+        return cast(int, full_random) % (
+            1 << (cast(abi.UintType, self.abi_type).bit_size // 2)
+        )

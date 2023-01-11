@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Optional, Sequence, Union
 
+from algosdk.transaction import OnComplete
 from algosdk.encoding import encode_address
-from algosdk.future import transaction
-from algosdk.v2client.models import Account, TealKeyValue
+from algosdk.v2client.models.account import Account
+from algosdk.v2client.models.teal_key_value import TealKeyValue
 
 ZERO_ADDRESS = encode_address(bytes(32))
 
@@ -24,9 +25,7 @@ def get_run_mode(app):
         on_complete = (
             app.get("on_complete") if isinstance(app, dict) else app.on_complete
         )
-        run_mode = (
-            "clearp" if on_complete == transaction.OnComplete.ClearStateOC else "approv"
-        )
+        run_mode = "clearp" if on_complete == OnComplete.ClearStateOC else "approv"
     return run_mode
 
 
