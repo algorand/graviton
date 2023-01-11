@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 import random
 import string
-from typing import Callable, Dict, List, Optional, cast
+from typing import Callable, Dict, List, Optional, Union, cast
 
 from algosdk import abi, encoding
 
@@ -114,7 +114,7 @@ class RandomABIStrategy(ABIStrategy):
 
     def map(
         self,
-        waterfall: Dict[type[abi.ABIType] | str, Callable[..., PyTypes]],
+        waterfall: Dict[Union[type[abi.ABIType], str], Callable[..., PyTypes]],
         *args,
         **kwargs,
     ) -> PyTypes:
@@ -140,7 +140,9 @@ class RandomABIStrategy(ABIStrategy):
                 )
             )
 
-        waterfall: Dict[type[abi.ABIType] | str, Callable[..., PyTypes]] = OrderedDict(
+        waterfall: Dict[
+            Union[type[abi.ABIType], str], Callable[..., PyTypes]
+        ] = OrderedDict(
             [
                 (abi.UfixedType, not_implemented),
                 (abi.BoolType, lambda x: not x),
