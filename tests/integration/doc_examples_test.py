@@ -110,7 +110,8 @@ assert 8 == 4"""  # noqa: W293
 
 
 def test_step6_and_7():
-    from graviton.blackbox import DryRunExecutor, DryRunInspector, ExecutionMode
+    from graviton.blackbox import DryRunExecutor, ExecutionMode
+    from graviton.inspector import DryRunInspector
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -124,10 +125,10 @@ def test_step6_and_7():
     for i, inspector in enumerate(run_results):
         args = inputs[i]
         x = args[0]
-        inspector.stack_top() == x**2
-        inspector.max_stack_height() == 2
-        inspector.status() == ("REJECT" if x == 0 else "PASS")
-        inspector.final_scratch() == ({} if x == 0 else {0: x})
+        assert inspector.stack_top() == x**2
+        assert inspector.max_stack_height() == 2
+        assert inspector.status() == ("REJECT" if x == 0 else "PASS")
+        assert inspector.final_scratch() == ({} if x == 0 else {0: x})
 
 
 def test_step8():
@@ -149,11 +150,8 @@ def test_step8():
 
 
 def test_step9():
-    from graviton.blackbox import (
-        DryRunExecutor,
-        DryRunProperty as DRProp,
-        ExecutionMode,
-    )
+    from graviton.blackbox import DryRunExecutor
+    from graviton.inspector import DryRunProperty as DRProp
     from graviton.invariant import Invariant
     from tests.clients import get_algod
 
@@ -186,11 +184,8 @@ def test_step9():
 
 @pytest.mark.parametrize("exercise", ["A", "B"])
 def test_exercises(exercise):
-    from graviton.blackbox import (
-        DryRunExecutor,
-        DryRunProperty as DRProp,
-        ExecutionMode,
-    )
+    from graviton.blackbox import DryRunExecutor
+    from graviton.inspector import DryRunProperty as DRProp
     from graviton.invariant import Invariant
     from tests.clients import get_algod
 

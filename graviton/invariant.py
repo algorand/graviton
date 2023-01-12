@@ -2,13 +2,9 @@ from enum import Enum
 from inspect import getsource, signature
 from typing import cast, Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
-from graviton.abi_strategy import PyTypes
-from graviton.blackbox import (
-    DryRunInspector,
-    DryRunProperty,
-    ExecutionMode,
-    mode_has_property,
-)
+from graviton.blackbox import ExecutionMode
+from graviton.inspector import DryRunInspector, DryRunProperty, mode_has_property
+from graviton.models import PyTypes
 
 
 class PredicateKind(Enum):

@@ -4,10 +4,9 @@ Inspired by Hypothesis' Strategies.
 TODO: Leverage Hypothesis!
 """
 from abc import ABC, abstractmethod
-from collections import OrderedDict
 import random
 import string
-from typing import Callable, Dict, List, Optional, cast
+from typing import List, Optional, Sequence, cast
 
 from algosdk import abi, encoding
 
@@ -112,17 +111,6 @@ class RandomABIStrategy(ABIStrategy):
 
         raise ValueError(f"Unexpected abi_type {self.abi_type}")
 
-    def map(
-        self,
-        waterfall: Dict[abi.ABIType, Callable[..., PyTypes]],
-        *args,
-        **kwargs,
-    ) -> PyTypes:
-        for abi_type, call in waterfall.items():
-            if isinstance(self.abi_type, abi_type):
-                return call(*args, **kwargs)
-        return waterfall["DEFAULT"](*args, **kwargs)
-
     def mutate_for_roundtrip(self, py_abi_instance: PyTypes) -> PyTypes:
         def not_implemented(_):
             raise NotImplementedError(f"Currently cannot handle type {self.abi_type}")
@@ -140,49 +128,42 @@ class RandomABIStrategy(ABIStrategy):
                 )
             )
 
-        waterfall = OrderedDict(
-            [
-                (abi.UfixedType, not_implemented),
-                (abi.BoolType, lambda x: not x),
-                (abi.UintType, lambda x: (1 << self.abi_type.bit_size) - 1 - x),
-                (
-                    abi.ByteType,
-                    lambda x: RandomABIStrategy(abi.UintType(8)).mutate_for_roundtrip(
-                        x
-                    ),
-                ),
-                (
-                    abi.TupleType,
-                    lambda x: [
-                        RandomABIStrategy(child_type).mutate_for_roundtrip(x[i])
-                        for i, child_type in enumerate(self.abi_type.child_types)
-                    ],
-                ),
-                (
-                    abi.ArrayStaticType,
-                    lambda x: [
-                        RandomABIStrategy(
-                            self.abi_type.child_type
-                        ).mutate_for_roundtrip(y)
-                        for y in x
-                    ],
-                ),
-                (abi.AddressType, address_logic),
-                (
-                    abi.ArrayDynamicType,
-                    lambda x: [
-                        RandomABIStrategy(
-                            self.abi_type.child_type
-                        ).mutate_for_roundtrip(y)
-                        for y in x
-                    ],
-                ),
-                (abi.StringType, lambda x: "".join(reversed(x))),
-                ("DEFAULT", unexpected_type),
+        if isinstance(self.abi_type, abi.UfixedType):
+            return not_implemented(py_abi_instance)
+        elif isinstance(self.abi_type, abi.BoolType):
+            return not py_abi_instance
+        elif isinstance(self.abi_type, abi.UintType):
+            assert isinstance(py_abi_instance, int)
+            return (1 << self.abi_type.bit_size) - 1 - py_abi_instance
+        elif isinstance(self.abi_type, abi.ByteType):
+            return RandomABIStrategy(abi.UintType(8)).mutate_for_roundtrip(
+                py_abi_instance
+            )
+        elif isinstance(self.abi_type, abi.TupleType):
+            assert isinstance(py_abi_instance, Sequence)
+            return [
+                RandomABIStrategy(child_type).mutate_for_roundtrip(py_abi_instance[i])
+                for i, child_type in enumerate(self.abi_type.child_types)
             ]
-        )
-
-        return self.map(waterfall, py_abi_instance)
+        elif isinstance(self.abi_type, abi.ArrayStaticType):
+            assert isinstance(py_abi_instance, Sequence)
+            return [
+                RandomABIStrategy(self.abi_type.child_type).mutate_for_roundtrip(y)
+                for y in py_abi_instance
+            ]
+        elif isinstance(self.abi_type, abi.AddressType):
+            return address_logic(py_abi_instance)
+        elif isinstance(self.abi_type, abi.ArrayDynamicType):
+            assert isinstance(py_abi_instance, Sequence)
+            return [
+                RandomABIStrategy(self.abi_type.child_type).mutate_for_roundtrip(y)
+                for y in py_abi_instance
+            ]
+        elif isinstance(self.abi_type, abi.StringType):
+            assert isinstance(py_abi_instance, str)
+            return "".join(reversed(py_abi_instance))
+        else:
+            return unexpected_type(py_abi_instance)
 
 
 class RandomABIStrategyHalfSized(RandomABIStrategy):
@@ -199,4 +180,6 @@ class RandomABIStrategyHalfSized(RandomABIStrategy):
         if not isinstance(self.abi_type, abi.UintType):
             return full_random
 
-        return full_random % (1 << (self.abi_type.bit_size // 2))
+        return cast(int, full_random) % (
+            1 << (cast(abi.UintType, self.abi_type).bit_size // 2)
+        )

@@ -2,11 +2,8 @@ from copy import deepcopy
 import pytest
 
 
-from graviton.blackbox import (
-    DryRunProperty as DRProp,
-    DryRunExecutor as DRExecutor,
-    ExecutionMode,
-)
+from graviton.blackbox import DryRunExecutor as DRExecutor
+from graviton.inspector import DryRunProperty as DRProp
 from graviton.invariant import Invariant, PredicateKind
 
 from tests.clients import get_algod

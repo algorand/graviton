@@ -17,6 +17,11 @@ In [#48](https://github.com/algorand/graviton/pull/48), the following classes we
 
 ### Added
 * Adding `budget_added` and `budget_consumed` to `DryRunInspector.csv_row()` thus addressing Issue [#38](https://github.com/algorand/graviton/issues/38). ([#44](https://github.com/algorand/graviton/pull/44))
+## `v0.7.1`
+
+### Breaking changes
+
+* Upgrade to `py-algorand-sdk` v2 ([#46](https://github.com/algorand/graviton/pull/46))
 
 ## `v0.7.0` (_aka_ 🦒)
 
