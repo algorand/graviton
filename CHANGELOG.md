@@ -13,6 +13,7 @@ before calling a dry run executing methods.
 * `DryRunInspector` no longer accepts `args` as a second parameter and uses `self.args` instead.
 * Migration path to the above: it is recommended that calls be re-written to use the new API. If you find that this causes too much friction, please open an issue.
 
+In [#48](https://github.com/algorand/graviton/pull/48), the following classes were pulled out of `graviton/blackbox.py` and into a new file `graviton/inspector.py`
 
 ### Added
 * Adding `budget_added` and `budget_consumed` to `DryRunInspector.csv_row()` thus addressing Issue [#38](https://github.com/algorand/graviton/issues/38). ([#44](https://github.com/algorand/graviton/pull/44))
