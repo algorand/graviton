@@ -60,7 +60,7 @@ local-blackbox: local-blackbox-smoke integration-test
 NOTEBOOK = notebooks/quadratic_factoring_game.ipynb
 # assumes already ran `make pip-notebooks`
 local-notebook:
-	 jupyter retro $(NOTEBOOK)
+	jupyter retro $(NOTEBOOK)
 
 # assumes act is installed, e.g. via `brew install act`:
 local-gh-simulate:
