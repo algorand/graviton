@@ -9,9 +9,11 @@ from algosdk.logic import get_application_address
 from graviton.blackbox import (
     DryRunEncoder as Encoder,
     DryRunExecutor as Executor,
-    DryRunProperty as DRProp,
-    DryRunInspector as Inspector,
     ExecutionMode,
+)
+from graviton.inspector import (
+    DryRunInspector as Inspector,
+    DryRunProperty as DRProp,
     mode_has_property,
 )
 from graviton.invariant import Invariant, InvariantType

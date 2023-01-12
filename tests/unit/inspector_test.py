@@ -1,6 +1,6 @@
 import pytest
 
-from graviton.blackbox import DryRunInspector
+from graviton.inspector import DryRunInspector
 
 
 def test_from_single_response_errors():

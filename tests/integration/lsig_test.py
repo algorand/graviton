@@ -12,10 +12,8 @@ from pathlib import Path
 import pytest
 
 
-from graviton.blackbox import (
-    DryRunExecutor as Executor,
-    DryRunInspector as Inspector,
-)
+from graviton.blackbox import DryRunExecutor as Executor
+from graviton.inspector import DryRunInspector as Inspector
 
 from tests.clients import get_algod
 

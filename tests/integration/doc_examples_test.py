@@ -114,7 +114,8 @@ assert 8 == 4
 
 
 def test_step6_and_7():
-    from graviton.blackbox import DryRunExecutor, DryRunInspector
+    from graviton.blackbox import DryRunExecutor
+    from graviton.inspector import DryRunInspector
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -149,10 +150,8 @@ def test_step8():
 
 
 def test_step9():
-    from graviton.blackbox import (
-        DryRunExecutor,
-        DryRunProperty as DRProp,
-    )
+    from graviton.blackbox import DryRunExecutor
+    from graviton.inspector import DryRunProperty as DRProp
     from graviton.invariant import Invariant
     from tests.clients import get_algod
 

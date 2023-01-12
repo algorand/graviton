@@ -28,8 +28,8 @@ from graviton.blackbox import (
     ABIContractExecutor,
     DryRunExecutor as DRE,
     DryRunEncoder,
-    DryRunProperty as DRProp,
 )
+from graviton.inspector import DryRunProperty as DRProp
 from graviton.abi_strategy import RandomABIStrategy, RandomABIStrategyHalfSized
 from graviton.invariant import Invariant
 
