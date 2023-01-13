@@ -22,8 +22,8 @@ In [#48](https://github.com/algorand/graviton/pull/48), the following classes we
 * Adding `budget_added` and `budget_consumed` to `DryRunInspector.csv_row()`
 
 ### Addressed
-* [#45](https://github.com/algorand/graviton/pull/45): addresses #38 and #40
-* [#48](https://github.com/algorand/graviton/pull/48): addresses #14 and #29
+* [#45](https://github.com/algorand/graviton/pull/45): addresses [#38](https://github.com/algorand/graviton/issues/38) and [#40](https://github.com/algorand/graviton/issues/40)
+* [#48](https://github.com/algorand/graviton/pull/48): addresses [#14](https://github.com/algorand/graviton/issues/14) and [#29](https://github.com/algorand/graviton/issues/29)
 
 ## `v0.7.1`
 
