@@ -42,6 +42,15 @@ notebooks-test:
 
 all-tests: lint unit-test integration-test notebooks-test
 
+###### Algod / Docker #####
+
+algod-start:
+	docker compose up -d algod --wait
+
+algod-stop:
+	docker compose stop algod
+
+
 ###### Local Only ######
 
 # assumes installations of pipx, build and tox via:
