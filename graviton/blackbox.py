@@ -306,8 +306,7 @@ class DryRunTransactionParams:
 
 class DryRunExecutor:
 
-    """Methods to package up and kick off dry run executions
-    """
+    """Methods to package up and kick off dry run executions"""
 
     # for usage convenience, copy constants over into the class
     CREATION_APP_CALL = CREATION_APP_CALL
