@@ -308,10 +308,6 @@ class DryRunTransactionParams:
 class DryRunExecutor:
 
     """Methods to package up and kick off dry run executions
-
-    When executing an A.B.I. compliant dry-run specify `abi_argument_types` as well as an `abi_return_type`:
-       * `abi_argument_types` are handed off to the `DryRunEncoder` for encoding purposes
-       * `abi_return_type` is given the `DryRunInspector`'s resulting from execution for ABI-decoding into Python
     """
 
     # for usage convenience, copy constants over into the class
