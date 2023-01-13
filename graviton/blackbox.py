@@ -11,6 +11,7 @@ from typing import (
     Sequence,
     Tuple,
     Type,
+    TypeVar,
     Union,
     cast,
 )
@@ -38,6 +39,10 @@ from graviton.models import (
 )
 
 TealAndMethodType = Union[Tuple[str], Tuple[str, str]]
+
+T = TypeVar("T")
+
+OneOrMany = Union[T, Sequence[T]]
 
 
 MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
@@ -358,18 +363,23 @@ class DryRunExecutor:
         return [
             cast(
                 Sequence[DryRunInspector],
-                e.run(inputs, txn_params=txn_params, verbose=verbose),
+                e._run(inputs, txn_params=txn_params, verbose=verbose),
             )
             for e in execs
         ]
 
-    def run(
+    def _run(
         self,
-        inputs: Union[Sequence[Sequence[PyTypes]], Sequence[PyTypes]],
+        inputs: OneOrMany[Sequence[PyTypes]],
         *,
         txn_params: Optional[DryRunTransactionParams] = None,
         verbose: bool = False,
-    ) -> Union[Sequence[DryRunInspector], DryRunInspector]:
+    ) -> OneOrMany[DryRunInspector]:
+        """
+        Be careful when using this private method. Its behavior depends on the following type-switch:
+        * when `inputs` is a tuple ---> interpret this to be a single `args` tuple and run a single dry run
+        * otherwise ---> we require `inputs` to either be a `list` or a `map`, and take a dry-run for every element in the sequence
+        """
         executor = self._executor(txn_params, verbose)
         if isinstance(inputs, tuple):
             return executor(inputs)
@@ -397,10 +407,10 @@ class DryRunExecutor:
         txn_params: Optional[DryRunTransactionParams] = None,
         verbose: bool = False,
     ) -> DryRunInspector:
-        """Convenience method for easier typing"""
+        """Convenience method for easier typing - executes a single dry run"""
         return cast(
             DryRunInspector,
-            self.run(tuple(args), txn_params=txn_params, verbose=verbose),
+            self._run(tuple(args), txn_params=txn_params, verbose=verbose),
         )
 
     def run_sequence(
@@ -410,10 +420,10 @@ class DryRunExecutor:
         txn_params: Optional[DryRunTransactionParams] = None,
         verbose: bool = False,
     ) -> Sequence[DryRunInspector]:
-        """Convenience method for easier typing"""
+        """Convenience method for easier typing - executes dry run sequence"""
         return cast(
             Sequence[DryRunInspector],
-            self.run(
+            self._run(
                 [tuple(args) for args in inputs], txn_params=txn_params, verbose=verbose
             ),
         )
@@ -683,7 +693,7 @@ class ABIContractExecutor:
                     abi_method_signature=self.method_signature(method),
                     omit_method_selector=False,
                     validation=validation,
-                ).run(
+                )._run(
                     inputs,
                     txn_params=DryRunTransactionParams.for_app(
                         is_app_create=is_app_create,
