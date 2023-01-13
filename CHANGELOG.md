@@ -14,9 +14,18 @@ before calling a dry run executing methods.
 * Migration path to the above: it is recommended that calls be re-written to use the new API. If you find that this causes too much friction, please open an issue.
 
 In [#48](https://github.com/algorand/graviton/pull/48), the following classes were pulled out of `graviton/blackbox.py` and into a new file `graviton/inspector.py`
+* `TealVal`
+* `DryRunResults` (renamed from `BlackboxResults`)
+* `DryRunInspector`
 
 ### Added
-* Adding `budget_added` and `budget_consumed` to `DryRunInspector.csv_row()` thus addressing Issue [#38](https://github.com/algorand/graviton/issues/38). ([#44](https://github.com/algorand/graviton/pull/44))
+* Adding `budget_added` and `budget_consumed` to `DryRunInspector.csv_row()`
+
+### Addressed
+* [#45](https://github.com/algorand/graviton/pull/45): addresses #38 and #40
+* [#48](https://github.com/algorand/graviton/pull/48): addresses #14 and #29
+
+  thus addressing Issue [#38](https://github.com/algorand/graviton/issues/38). ([#44](https://github.com/algorand/graviton/pull/44))
 ## `v0.7.1`
 
 ### Breaking changes
