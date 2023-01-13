@@ -25,7 +25,6 @@ In [#48](https://github.com/algorand/graviton/pull/48), the following classes we
 * [#45](https://github.com/algorand/graviton/pull/45): addresses #38 and #40
 * [#48](https://github.com/algorand/graviton/pull/48): addresses #14 and #29
 
-  thus addressing Issue [#38](https://github.com/algorand/graviton/issues/38). ([#44](https://github.com/algorand/graviton/pull/44))
 ## `v0.7.1`
 
 ### Breaking changes
