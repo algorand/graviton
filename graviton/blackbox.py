@@ -458,7 +458,7 @@ class DryRunExecutor:
                     self.program, encoded_args, txn_params_d
                 )
             if verbose:
-                print(f"{type(self)}.run(): {dryrun_req=}")
+                print(f"{type(self)}._run(): {dryrun_req=}")
             dryrun_resp = self.algod.dryrun(dryrun_req)
             if verbose:
                 print(f"{type(self)}::execute_one_dryrun(): {dryrun_resp=}")
