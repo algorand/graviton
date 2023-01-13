@@ -5,6 +5,7 @@ import pytest
 from graviton.blackbox import DryRunExecutor as DRExecutor
 from graviton.inspector import DryRunProperty as DRProp
 from graviton.invariant import Invariant, PredicateKind
+from graviton.models import ExecutionMode
 
 from tests.clients import get_algod
 

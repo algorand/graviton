@@ -6,18 +6,14 @@ import pytest
 from algosdk.v2client.models import Account
 from algosdk.logic import get_application_address
 
-from graviton.blackbox import (
-    DryRunEncoder as Encoder,
-    DryRunExecutor as Executor,
-    ExecutionMode,
-)
+from graviton.blackbox import DryRunEncoder as Encoder, DryRunExecutor as Executor
 from graviton.inspector import (
     DryRunInspector as Inspector,
     DryRunProperty as DRProp,
     mode_has_property,
 )
 from graviton.invariant import Invariant, InvariantType
-from graviton.models import PyTypes
+from graviton.models import ExecutionMode, PyTypes
 
 
 from tests.clients import get_algod

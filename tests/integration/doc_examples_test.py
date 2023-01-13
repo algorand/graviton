@@ -16,7 +16,8 @@ retsub"""
 
 
 def test_step4():
-    from graviton.blackbox import DryRunExecutor, ExecutionMode
+    from graviton.blackbox import DryRunExecutor
+    from graviton.models import ExecutionMode
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -36,7 +37,8 @@ def test_step4():
 
 
 def test_step5():
-    from graviton.blackbox import DryRunExecutor, ExecutionMode
+    from graviton.blackbox import DryRunExecutor
+    from graviton.models import ExecutionMode
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -110,7 +112,8 @@ assert 8 == 4"""  # noqa: W293
 
 
 def test_step6_and_7():
-    from graviton.blackbox import DryRunExecutor, ExecutionMode
+    from graviton.blackbox import DryRunExecutor
+    from graviton.models import ExecutionMode
     from graviton.inspector import DryRunInspector
     from tests.clients import get_algod
 
@@ -132,7 +135,8 @@ def test_step6_and_7():
 
 
 def test_step8():
-    from graviton.blackbox import DryRunExecutor, ExecutionMode
+    from graviton.blackbox import DryRunExecutor
+    from graviton.models import ExecutionMode
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -153,6 +157,7 @@ def test_step9():
     from graviton.blackbox import DryRunExecutor
     from graviton.inspector import DryRunProperty as DRProp
     from graviton.invariant import Invariant
+    from graviton.models import ExecutionMode
     from tests.clients import get_algod
 
     algod = get_algod()
@@ -187,6 +192,7 @@ def test_exercises(exercise):
     from graviton.blackbox import DryRunExecutor
     from graviton.inspector import DryRunProperty as DRProp
     from graviton.invariant import Invariant
+    from graviton.models import ExecutionMode
     from tests.clients import get_algod
 
     algod = get_algod()

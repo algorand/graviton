@@ -24,14 +24,11 @@ from typing import Any, Dict, List, Optional, Tuple
 from algosdk import abi
 from algosdk.transaction import OnComplete
 
-from graviton.blackbox import (
-    ABIContractExecutor,
-    DryRunExecutor as DRE,
-    DryRunEncoder,
-)
-from graviton.inspector import DryRunProperty as DRProp
 from graviton.abi_strategy import RandomABIStrategy, RandomABIStrategyHalfSized
+from graviton.blackbox import ABIContractExecutor, DryRunExecutor as DRE, DryRunEncoder
+from graviton.inspector import DryRunProperty as DRProp
 from graviton.invariant import Invariant
+from graviton.models import ExecutionMode
 
 from tests.clients import get_algod
 

@@ -13,8 +13,12 @@ from typing import cast
 import pytest
 
 
-from graviton.blackbox import DryRunExecutor as Executor
+from graviton.blackbox import (
+    DryRunExecutor as Executor,
+    DryRunTransactionParams as TxParams,
+)
 from graviton.inspector import DryRunInspector as Inspector
+from graviton.models import ExecutionMode
 
 from tests.clients import get_algod
 
