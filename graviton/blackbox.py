@@ -1,10 +1,5 @@
 from copy import copy
 from dataclasses import asdict, dataclass, field
-from graviton.abi_strategy import PyTypes, ABIStrategy, RandomABIStrategy
-from graviton.dryrun import DryRunHelper
-from graviton.inspector import DryRunInspector
-from graviton.models import ZERO_ADDRESS, ArgType, DryRunAccountType, ExecutionMode
-
 
 from typing import (
     Any,
@@ -30,17 +25,19 @@ from algosdk.transaction import (
     SuggestedParams,
 )
 
-from algosdk import atomic_transaction_composer as atc
-
 from graviton.abi_strategy import ABIStrategy, RandomABIStrategy
-from graviton.dryrun import (
-    assert_error,
-    assert_no_error,
+from graviton.dryrun import DryRunHelper
+from graviton.inspector import DryRunInspector, EncodingType
+from graviton.models import (
+    ArgType,
+    DryRunAccountType,
+    ExecutionMode,
+    PyTypes,
+    Stringy,
+    ZERO_ADDRESS,
 )
-from graviton.models import ZERO_ADDRESS, ArgType, DryRunAccountType, PyTypes, Stringy
 
 TealAndMethodType = Union[Tuple[str], Tuple[str, str]]
-EncodingType = Union[abi.ABIType, str, None]
 
 
 MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
@@ -337,7 +334,7 @@ class DryRunExecutor:
 
         self.is_app: bool
         self.abi_argument_types: Optional[List[EncodingType]]
-        self.abi_return_type: Optional[Union[abi.ABIType, str]]
+        self.abi_return_type: Optional[EncodingType]
         self.method: Optional[abi.Method]
         self.selector: Optional[bytes]
 
@@ -534,6 +531,7 @@ class DryRunExecutor:
         abi_argument_types: Optional[List[EncodingType]] = None
         abi_return_type: Optional[Union[abi.ABIType, str]] = None
 
+        method: Optional[abi.Method]
         if abi_method_signature:
             method = abi.Method.from_signature(abi_method_signature)
             selector = method.get_selector()
@@ -588,7 +586,7 @@ class ABIContractExecutor:
 
         return self.contract.get_method_by_name(method).get_signature()
 
-    def argument_types(self, method: Optional[str] = None) -> List[abi.ABIType]:
+    def argument_types(self, method: Optional[str] = None) -> List[EncodingType]:
         """
         Argument types (excluding selector)
         """
@@ -632,7 +630,7 @@ class ABIContractExecutor:
             return
 
         arg_types = self.argument_types(method)
-        selector_if_needed: Optional[str] = None
+        selector_if_needed: Optional[bytes] = None
         if self.handle_selector:
             selector_if_needed = self.contract.get_method_by_name(method).get_selector()
 
@@ -646,7 +644,7 @@ class ABIContractExecutor:
                     break
 
                 if targs[0] != selector_if_needed:
-                    error = f"{pfx}expected selector={selector_if_needed} at arg 0 but got {targs[0]!r}"
+                    error = f"{pfx}expected selector={selector_if_needed!r} at arg 0 but got {targs[0]!r}"
                     break
 
         assert not error, error

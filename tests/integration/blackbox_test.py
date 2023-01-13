@@ -6,7 +6,11 @@ import pytest
 from algosdk.v2client.models import Account
 from algosdk.logic import get_application_address
 
-from graviton.blackbox import DryRunEncoder as Encoder, DryRunExecutor as Executor
+from graviton.blackbox import (
+    DryRunEncoder as Encoder,
+    DryRunExecutor as Executor,
+    DryRunTransactionParams as TxParams,
+)
 from graviton.inspector import (
     DryRunInspector as Inspector,
     DryRunProperty as DRProp,
@@ -483,9 +487,7 @@ def test_app_itxn_with_report():
     ]
     dryrun_results = Executor(algod, ExecutionMode.Application, teal).run_sequence(
         inputs,
-        txn_params=DryRunTransactionParams.for_app(
-            dryrun_accounts=accounts,
-        ),
+        txn_params=TxParams.for_app(dryrun_accounts=accounts),
     )
 
     # 3. Generate statistical report of all the runs:

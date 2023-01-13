@@ -43,6 +43,7 @@ class DryRunProperty(Enum):
 
 
 DRProp = DryRunProperty
+EncodingType = Union[abi.ABIType, str, None]
 
 
 def mode_has_property(mode: ExecutionMode, assertion_type: "DryRunProperty") -> bool:
@@ -311,7 +312,7 @@ class DryRunInspector:
         txn_index: int,
         args: Sequence[PyTypes],
         encoded_args: List[ArgType],
-        abi_type: Optional[abi.ABIType] = None,
+        abi_type: Optional[EncodingType] = None,
     ):
         txns = dryrun_resp.get("txns", [])
         assert txns, "Dry Run response is missing transactions"
@@ -384,7 +385,7 @@ class DryRunInspector:
         dryrun_resp: dict,
         args: Sequence[PyTypes],
         encoded_args: List[ArgType],
-        abi_type: Optional[abi.ABIType] = None,
+        abi_type: Optional[EncodingType] = None,
     ) -> "DryRunInspector":
         error = dryrun_resp.get("error")
         assert not error, f"dryrun response included the following error: [{error}]"
@@ -428,7 +429,7 @@ class DryRunInspector:
                 if self.has_abi_prefix:
                     # skip the first 8 hex char's == first 4 bytes:
                     last_log = last_log[8:]
-                return self.abi_type.decode(bytes.fromhex(last_log))
+                return cast(abi.ABIType, self.abi_type).decode(bytes.fromhex(last_log))
             except Exception as e:
                 if self.show_internal_errors_on_log:
                     return str(e)
@@ -710,31 +711,31 @@ class DryRunInspector:
     Local Delta:
     {self.local_deltas()}
     ===============
-    TXN AS ROW: {self.csv_row(row, args)}
+    TXN AS ROW: {self.csv_row(row)}
     ===============
     <<<<<<<<<<<{msg}>>>>>>>>>>>
     ===============
     """
 
-    def csv_row(
-        self, row_num: int, args: Sequence[PyTypes]
-    ) -> Dict[str, Optional[PyTypes]]:
+    def csv_row(self, row_num: int) -> Dict[str, Optional[PyTypes]]:
         return {
             " Run": row_num,
+            " budget_added": self.budget_added(),
+            " budget_consumed": self.budget_consumed(),
             " cost": self.cost(),
             # back-tick needed to keep Excel/Google sheets from stumbling over hex
             " last_log": f"`{self.last_log()}",
             " final_message": self.last_message(),
             " Status": self.status(),
             **self.black_box_results.final_as_row(),
-            **{f"Arg_{i:02}": arg for i, arg in enumerate(args)},
+            **{f"Arg_{i:02}": arg for i, arg in enumerate(self.args)},
         }
 
     @classmethod
     def csv_report(
         cls,
         inputs: List[Sequence[PyTypes]],
-        dr_resps: List["DryRunInspector"],
+        dr_resps: Sequence["DryRunInspector"],
         txns: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         """Produce a Comma Separated Values report string capturing important statistics
@@ -775,7 +776,7 @@ class DryRunInspector:
                 txns
             ), f"cannot produce CSV with unmatching size of inputs ({len(inputs)}) v. txns ({len(txns)})"
 
-        _drrs = [resp.csv_row(i + 1, inputs[i]) for i, resp in enumerate(dr_resps)]
+        _drrs = [resp.csv_row(i + 1) for i, resp in enumerate(dr_resps)]
 
         def row(i):
             return {**_drrs[i], **(txns[i] if txns else {})}

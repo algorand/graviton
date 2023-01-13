@@ -107,7 +107,7 @@ class Invariant:
         msg = ""
         if not invariant:
             expected = (
-                self.expected(actual, has_external_expected)
+                self.expected(actual, external_expected)
                 if has_external_expected
                 else self.expected(args)
             )
