@@ -15,6 +15,10 @@ from graviton.models import PyTypes
 
 class ABIStrategy(ABC):
     @abstractmethod
+    def __init__(self, abi_instance: abi.ABIType, dynamic_length: Optional[int] = None):
+        pass
+
+    @abstractmethod
     def get(self) -> PyTypes:
         pass
 
