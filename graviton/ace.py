@@ -18,8 +18,9 @@ class ABIContractExecutor:
         teal: str,
         contract: str,
         argument_strategy: Optional[Type[ABIStrategy]] = RandomABIStrategy,
-        dry_runs: int = 1,
-        handle_selector: bool = False,
+        num_dryruns: int = 1,
+        *,
+        handle_selector: bool = True,
     ):
         """
         teal - The program to run
@@ -31,9 +32,11 @@ class ABIContractExecutor:
         dry_runs (default=1) - the number of dry runs to run
             (generates different inputs each time)
 
-        handle_selector - usually we'll want to let `DryRunExecutor.execute_one_dryrun()`
+        handle_selector (default=True) - usually we'll want to let
+            `ABIContractExecutor.dryrun_on_sequence()`
             handle adding the method selector so this param
-            should _probably_ be left False. But when set True, when providing `inputs`
+            should _probably_ be left True.
+            But if set False: when providing `inputs`
             ensure that the 0'th argument for method calls is the selector.
             And when set True, when NOT providing `inputs`, the selector arg
             at index 0 will be added automatically.
@@ -41,7 +44,7 @@ class ABIContractExecutor:
         self.program = teal
         self.contract: abi.Contract = abi.Contract.from_json(contract)
         self.argument_strategy: Optional[Type[ABIStrategy]] = argument_strategy
-        self.dry_runs = dry_runs
+        self.num_dryruns = num_dryruns
         self.handle_selector = handle_selector
 
     def method_signature(self, method: Optional[str]) -> Optional[str]:
@@ -75,7 +78,7 @@ class ABIContractExecutor:
 
         if not method:
             # bare calls receive no arguments
-            return [tuple() for _ in range(self.dry_runs)]
+            return [tuple() for _ in range(self.num_dryruns)]
 
         arg_types = self.argument_types(method)
 
@@ -92,7 +95,7 @@ class ABIContractExecutor:
                 ]
             )
 
-        return [gen_args() for _ in range(self.dry_runs)]
+        return [gen_args() for _ in range(self.num_dryruns)]
 
     def validate_inputs(self, method: Optional[str], inputs: List[Sequence[PyTypes]]):
         if not method:
@@ -102,26 +105,26 @@ class ABIContractExecutor:
             return
 
         arg_types = self.argument_types(method)
-        selector_if_needed: Optional[bytes] = None
-        if self.handle_selector:
-            selector_if_needed = self.contract.get_method_by_name(method).get_selector()
 
         error = None
-        for i, args in enumerate(inputs):
-            targs = cast(tuple, args)
-            if selector_if_needed:
-                pfx = f"args at index {i=}: "
-                if len(targs) != 1 + len(arg_types):
-                    error = f"{pfx}length {len(targs)} should include method selector and so have length 1 + {len(arg_types)}"
-                    break
+        if self.handle_selector:
+            selector = self.contract.get_method_by_name(method).get_selector()
 
-                if targs[0] != selector_if_needed:
-                    error = f"{pfx}expected selector={selector_if_needed!r} at arg 0 but got {targs[0]!r}"
-                    break
+            for i, args in enumerate(inputs):
+                targs = cast(tuple, args)
+                if selector:
+                    pfx = f"args at index {i=}: "
+                    if len(targs) != 1 + len(arg_types):
+                        error = f"{pfx}length {len(targs)} should include method selector and so have length 1 + {len(arg_types)}"
+                        break
+
+                    if targs[0] != selector:
+                        error = f"{pfx}expected selector={selector!r} at arg 0 but got {targs[0]!r}"
+                        break
 
         assert not error, error
 
-    def dry_run_on_sequence(
+    def dryrun_on_sequence(
         self,
         algod: AlgodClient,
         method: Optional[str] = None,
