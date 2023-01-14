@@ -25,7 +25,8 @@ from algosdk import abi
 from algosdk.transaction import OnComplete
 
 from graviton.abi_strategy import RandomABIStrategy, RandomABIStrategyHalfSized
-from graviton.blackbox import ABIContractExecutor, DryRunExecutor as DRE, DryRunEncoder
+from graviton.ace import ABIContractExecutor
+from graviton.blackbox import DryRunExecutor as DRE, DryRunEncoder
 from graviton.inspector import DryRunProperty as DRProp
 from graviton.invariant import Invariant
 from graviton.models import ExecutionMode
@@ -151,7 +152,7 @@ def test_unit_abi_strategy_get_random(roundtrip_app):
     abi_str, length, abi_instance, abi_strat, _ = process_filename(filename)
     rand = abi_strat.get()
     encoded = DryRunEncoder.encode_args([rand], abi_types=[abi_instance])
-    decoded = abi_instance.decode(encoded[0])
+    decoded = abi_instance.decode(encoded[0])  # type: ignore
     assert decoded == rand
 
     print(
@@ -319,9 +320,11 @@ QUESTIONABLE_CASES: List[
         None,
         {
             DRProp.passed: lambda args: args[1] >= args[2],
-            DRProp.lastLog: lambda args, actual: True
-            if args[1] < args[2]
-            else actual == args[1] - args[2],
+            DRProp.lastLog: (
+                lambda args, actual: True
+                if args[1] < args[2]
+                else actual == args[1] - args[2]
+            ),
         },
     ),
     (
