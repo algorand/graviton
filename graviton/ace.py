@@ -33,7 +33,7 @@ class ABIContractExecutor:
             (generates different inputs each time)
 
         handle_selector (default=True) - usually we'll want to let
-            `ABIContractExecutor.dryrun_on_sequence()`
+            `ABIContractExecutor.run_sequence()`
             handle adding the method selector so this param.
             But if set False: when providing `inputs`
             ensure that the 0'th argument for method calls is the selector.
@@ -125,7 +125,7 @@ class ABIContractExecutor:
 
         assert not error, error
 
-    def dryrun_on_sequence(
+    def run_sequence(
         self,
         algod: AlgodClient,
         method: Optional[str] = None,

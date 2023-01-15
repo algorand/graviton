@@ -77,6 +77,8 @@ YACC_CLEAR_ACE = ABIContractExecutor(
 )
 
 
+TYPICAL_IAC_OC = (False, OnComplete.NoOpOC)
+
 # LEGEND FOR TEST CASES (*_CASES and *_CLEAR_CASES):
 #
 # * @0 - method: str | None
@@ -93,12 +95,12 @@ QUESTIONABLE_CASES: List[
 ] = [
     (
         "add",
-        None,
+        [TYPICAL_IAC_OC],
         {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] + args[2]},
     ),
     (
         "sub",
-        None,
+        [TYPICAL_IAC_OC],
         {
             DRProp.passed: lambda args: args[1] >= args[2],
             DRProp.lastLog: (
@@ -110,22 +112,22 @@ QUESTIONABLE_CASES: List[
     ),
     (
         "mul",
-        None,
+        [TYPICAL_IAC_OC],
         {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] * args[2]},
     ),
     (
         "div",
-        None,
+        [TYPICAL_IAC_OC],
         {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] // args[2]},
     ),
     (
         "mod",
-        None,
+        [TYPICAL_IAC_OC],
         {DRProp.passed: True, DRProp.lastLog: lambda args: args[1] % args[2]},
     ),
     (
         "all_laid_to_args",
-        None,
+        [TYPICAL_IAC_OC],
         {DRProp.passed: True, DRProp.lastLog: lambda args: sum(args[1:])},
     ),
     (
@@ -259,10 +261,8 @@ def method_or_barecall_positive_test_runner(ace, method, call_types, invariants)
     """
     algod = get_algod()
 
-    if call_types is None:
-        call_types = [(False, OnComplete.NoOpOC)]
-
     if not call_types:
+        # TODO: silly hack to not actually test clear cases
         return
 
     def msg():
@@ -274,7 +274,7 @@ is_app_create={is_app_create}
 on_complete={on_complete!r}"""
 
     for is_app_create, on_complete in call_types:
-        inspectors = ace.dryrun_on_sequence(
+        inspectors = ace.run_sequence(
             algod,
             method=method,
             is_app_create=is_app_create,
@@ -312,9 +312,6 @@ def method_or_barecall_negative_test_runner(
     """
     algod = get_algod()
 
-    if call_types is None:
-        call_types = [(False, OnComplete.NoOpOC)]
-
     # iac_n_oc --> (is_app_create, on_complete)
     call_types_negation = [
         iac_n_oc
@@ -331,7 +328,7 @@ def method_or_barecall_negative_test_runner(
 
         validation = kwargs.get("validation", True)
 
-        return ace.dryrun_on_sequence(
+        return ace.run_sequence(
             algod,
             method=method,
             is_app_create=is_app_create,
