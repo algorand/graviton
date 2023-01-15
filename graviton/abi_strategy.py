@@ -10,10 +10,17 @@ from typing import List, Optional, Sequence, cast
 
 from algosdk import abi, encoding
 
+
 from graviton.models import PyTypes
 
 
 class ABIStrategy(ABC):
+    """
+    TODO: when incorporating hypothesis strategies, we'll need a more holistic
+    approach that looks at relationships amongst various args.
+    Current approach only looks at each argument as a completely independent entity.
+    """
+
     @abstractmethod
     def __init__(self, abi_instance: abi.ABIType, dynamic_length: Optional[int] = None):
         pass
@@ -171,6 +178,15 @@ class RandomABIStrategy(ABIStrategy):
 
 
 class RandomABIStrategyHalfSized(RandomABIStrategy):
+    """
+    This strategy only generates data that is half the size that _ought_ to be possible.
+    This is useful in the case that operations involving the generated arguments
+    could overflow due to multiplication.
+
+    Since this only makes sense for `abi.UintType`, it degenerates to the standard
+    `RandomABIStrategy` for other types.
+    """
+
     def __init__(
         self,
         abi_instance: abi.ABIType,

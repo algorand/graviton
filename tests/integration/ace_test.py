@@ -271,11 +271,8 @@ TEST CASE:
 test_function={inspect.stack()[2][3]}
 method={method}
 is_app_create={is_app_create}
-on_complete={on_complete!r}
-dr_prop={dr_property}
-invariant={invariant}"""
+on_complete={on_complete!r}"""
 
-    predicates = Invariant.as_invariants(invariants)
     for is_app_create, on_complete in call_types:
         inspectors = ace.dryrun_on_sequence(
             algod,
@@ -283,8 +280,7 @@ invariant={invariant}"""
             is_app_create=is_app_create,
             on_complete=on_complete,
         )
-        for dr_property, invariant in predicates.items():
-            invariant.validates(dr_property, inspectors, msg=msg())
+        Invariant.full_validation(invariants, inspectors, msg=msg())
 
 
 # cf. https://death.andgravity.com/f-re for an explanation of verbose regex'es
@@ -295,15 +291,13 @@ EXPECTED_ERR_PATTERN = r"""
 |   extraction\ end\ [0-9]+\ is\ beyond\ length # failing because couldn't extract from jammed in tuple
 """
 
-NEGATIVE_INVARIANTS = Invariant.as_invariants(
-    {
-        DRProp.rejected: True,
-        DRProp.error: True,
-        DRProp.errorMessage: lambda _, actual: (
-            bool(re.search(EXPECTED_ERR_PATTERN, actual, re.VERBOSE))
-        ),
-    }
-)
+NEGATIVE_INVARIANTS = {
+    DRProp.rejected: True,
+    DRProp.error: True,
+    DRProp.errorMessage: lambda _, actual: (
+        bool(re.search(EXPECTED_ERR_PATTERN, actual, re.VERBOSE))
+    ),
+}
 
 
 def method_or_barecall_negative_test_runner(
@@ -331,7 +325,7 @@ def method_or_barecall_negative_test_runner(
 
     is_app_create = on_complete = None
 
-    def dryrunner(**kwargs):
+    def dryrun(**kwargs):
         inputs = kwargs.get("inputs")
         assert inputs
 
@@ -354,16 +348,13 @@ is_clear_state_program={is_clear_state_program}
 scenario={scenario}
 method={method}
 is_app_create={is_app_create}
-on_complete={on_complete!r}
-dr_prop={dr_prop}
-invariant={invariant}"""
+on_complete={on_complete!r}"""
 
     if not is_clear_state_program:
         scenario = "I. explore all UNEXPECTED (is_app_create, on_complete) combos"
         for is_app_create, on_complete in call_types_negation:
-            inspectors = dryrunner(inputs=good_inputs)
-            for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-                invariant.validates(dr_prop, inspectors, msg=msg())
+            inspectors = dryrun(inputs=good_inputs)
+            Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
 
     # II. explore changing method selector arg[0] by edit distance 1
     if good_inputs and good_inputs[0]:
@@ -400,21 +391,18 @@ invariant={invariant}"""
 
     scenario = "II(a). inserting an extra random byte into method selector"
     if selectors_inserted:
-        inspectors = dryrunner(inputs=selectors_inserted, validation=False)
-        for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-            invariant.validates(dr_prop, inspectors, msg=msg())
+        inspectors = dryrun(inputs=selectors_inserted, validation=False)
+        Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
 
     scenario = "II(b). removing a random byte from method selector"
     if selectors_deleted:
-        inspectors = dryrunner(inputs=selectors_deleted, validation=False)
-        for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-            invariant.validates(dr_prop, inspectors, msg=msg())
+        inspectors = dryrun(inputs=selectors_deleted, validation=False)
+        Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
 
     scenario = "II(c). replacing a random byte in method selector"
     if selectors_modded:
-        inspectors = dryrunner(inputs=selectors_modded, validation=False)
-        for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-            invariant.validates(dr_prop, inspectors, msg=msg())
+        inspectors = dryrun(inputs=selectors_modded, validation=False)
+        Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
 
     # III. explore changing the number of args over the 'good' call_types
     # (extra args testing is omitted as this is prevented by SDK's cf. https://github.com/algorand/algorand-sdk-testing/issues/190)
@@ -426,9 +414,8 @@ invariant={invariant}"""
 
         for is_app_create, on_complete in call_types:
             scenario = "III. removing the final argument"
-            inspectors = dryrunner(inputs=missing_arg, validation=False)
-            for dr_prop, invariant in NEGATIVE_INVARIANTS.items():
-                invariant.validates(dr_prop, inspectors, msg=msg())
+            inspectors = dryrun(inputs=missing_arg, validation=False)
+            Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
 
 
 # ---- ABI Router Dry Run Testing - TESTS ---- #

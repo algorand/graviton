@@ -17,9 +17,9 @@ class ABIContractExecutor:
         self,
         teal: str,
         contract: str,
+        *,
         argument_strategy: Optional[Type[ABIStrategy]] = RandomABIStrategy,
         num_dryruns: int = 1,
-        *,
         handle_selector: bool = True,
     ):
         """
@@ -27,18 +27,17 @@ class ABIContractExecutor:
 
         contract - ABI Contract JSON
 
-        argument_strategy (optional) - strategy for generating arguments
+        argument_strategy (optional) - ABI strategy for generating arguments
 
         dry_runs (default=1) - the number of dry runs to run
             (generates different inputs each time)
 
         handle_selector (default=True) - usually we'll want to let
             `ABIContractExecutor.dryrun_on_sequence()`
-            handle adding the method selector so this param
-            should _probably_ be left True.
+            handle adding the method selector so this param.
             But if set False: when providing `inputs`
             ensure that the 0'th argument for method calls is the selector.
-            And when set True, when NOT providing `inputs`, the selector arg
+            And when set True: when NOT providing `inputs`, the selector arg
             at index 0 will be added automatically.
         """
         self.program = teal
@@ -87,6 +86,8 @@ class ABIContractExecutor:
             prefix = [self.contract.get_method_by_name(method).get_selector()]
 
         def gen_args():
+            # TODO: when incorporating hypothesis strategies, we'll need a more holistic
+            # approach that looks at relationships amongst various args
             return tuple(
                 prefix
                 + [
