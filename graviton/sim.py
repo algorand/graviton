@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence, TypeVar
+from typing import Any, Dict, Iterable, List, Optional, Sequence, TypeVar, Union, cast
 
 from algosdk.v2client.algod import AlgodClient
 
+from graviton.abi_args_strategy import ABIArgsStrategy
 from graviton.blackbox import DryRunExecutor, DryRunTransactionParams as TxParams
 from graviton.inspector import DryRunProperty as DRProp, DryRunInspector
 from graviton.invariant import Invariant
@@ -10,7 +11,7 @@ from graviton.models import ExecutionMode, PyTypes
 
 # TODO: this will encompass strategies, composed of
 # hypothesis strategies as well as home grown ABIStrategy sub-types
-InputStrategy = Iterable[Sequence[PyTypes]]
+InputStrategy = Union[Iterable[Sequence[PyTypes]], ABIArgsStrategy]
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class Simulation:
         self,
         inputs: InputStrategy,
         *,
+        method: Optional[str] = None,
         txn_params: Optional[TxParams],
         verbose: bool = False,
         msg: str = "",
@@ -76,7 +78,21 @@ class Simulation:
                 return xs
             return list(xs)
 
-        inputs_l = listify(inputs)
+        if method:
+            assert isinstance(
+                inputs, ABIArgsStrategy
+            ), "when providing a method, inputs must be an ABIArgsStrategy"
+
+        inputs_iter: Iterable[PyTypes]
+        if isinstance(inputs, ABIArgsStrategy):
+            assert (
+                method != ""
+            ), "when generating ABI Args, must provide a non-empty method name"
+            inputs_iter = inputs.generate(method)
+        else:
+            inputs_iter = cast(Iterable[Sequence[PyTypes]], inputs)
+
+        inputs_l = listify(inputs_iter)
         simulate_inspectors = listify(
             self.simulate_dre.run_sequence(
                 inputs_l, txn_params=txn_params, verbose=verbose

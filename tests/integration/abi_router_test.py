@@ -2,7 +2,6 @@ from dataclasses import dataclass
 import inspect
 from itertools import product
 from pathlib import Path
-import random
 import re
 from typing import Any, Dict, List, Tuple
 
@@ -11,10 +10,9 @@ import pytest
 from algosdk.transaction import OnComplete
 
 from graviton.abi_strategy import RandomABIStrategyHalfSized
-from graviton.abi_args_strategy import ABIArgsStrategy
+from graviton.abi_args_strategy import ABIArgsMod, ABIArgsStrategy
 from graviton.blackbox import DryRunEncoder, DryRunTransactionParams as TxParams
 from graviton.inspector import DryRunProperty as DRProp
-from graviton.invariant import Invariant
 from graviton.models import ExecutionMode
 from graviton.sim import Simulation
 
@@ -238,6 +236,16 @@ YACC_CASES = yaccify(QUESTIONABLE_CASES)
 ALL_CASES = QUESTIONABLE_CASES + YACC_CASES
 
 
+def get_aa_strat(method_runner, abi_args_mod=None) -> ABIArgsStrategy:
+    return ABIArgsStrategy(
+        method_runner.teal,
+        method_runner.contract,
+        RandomABIStrategyHalfSized,
+        num_dryruns=NUM_ROUTER_DRYRUNS,
+        abi_args_mod=abi_args_mod,
+    )
+
+
 @pytest.mark.parametrize(
     "approval_runner, approval_call_types, clear_runner, clear_call_types, invariants",
     ALL_CASES,
@@ -250,16 +258,11 @@ def test_pos(
         * method or bare call
         * OnComplete value
         * number of arguments
-    that the app call succeeds according to the provided _invariants success definition_
+    that the app call succeeds according to the provided _invariants_ success definition
     """
 
     def run_positive(is_approve, method_runner, call_types, invariants):
-        ace = ABIArgsStrategy(
-            method_runner.teal,
-            method_runner.contract,
-            RandomABIStrategyHalfSized,
-            num_dryruns=NUM_ROUTER_DRYRUNS,
-        )
+        good_abi_args = get_aa_strat(method_runner)
 
         algod = get_algod()
 
@@ -272,7 +275,7 @@ def test_pos(
             ExecutionMode.Application,
             method_runner.teal,
             invariants,
-            abi_method_signature=ace.method_signature(method),
+            abi_method_signature=good_abi_args.method_signature(method),
             omit_method_selector=False,
             validation=False,
         )
@@ -287,7 +290,8 @@ def test_pos(
 
         for is_app_create, on_complete in call_types:
             sim_result = sim.run_and_assert(
-                ace.generate_inputs(method),
+                good_abi_args,
+                method=method,
                 txn_params=TxParams.for_app(
                     is_app_create=is_app_create,
                     on_complete=on_complete,
@@ -295,16 +299,6 @@ def test_pos(
                 msg=msg(),
             )
             assert sim_result.succeeded
-            # inspectors = ace.run_sequence(
-            #     algod,
-            #     method=method,
-            #     is_app_create=is_app_create,
-            #     on_complete=on_complete,
-            # )
-            # TODO: the following is redundant and should be removed soon!
-            Invariant.full_validation(
-                invariants, sim_result.simulate_inspectors, msg=msg()
-            )
 
     run_positive(True, approval_runner, approval_call_types, invariants)
     run_positive(False, clear_runner, clear_call_types, invariants)
@@ -341,12 +335,7 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
     """
 
     def run_negative(is_approve, method_runner, call_types):
-        ace = ABIArgsStrategy(
-            method_runner.teal,
-            method_runner.contract,
-            RandomABIStrategyHalfSized,
-            num_dryruns=NUM_ROUTER_DRYRUNS,
-        )
+        good_abi_args = get_aa_strat(method_runner)
 
         algod = get_algod()
 
@@ -356,7 +345,7 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
             ExecutionMode.Application,
             method_runner.teal,
             NEGATIVE_INVARIANTS,
-            abi_method_signature=ace.method_signature(method),
+            abi_method_signature=good_abi_args.method_signature(method),
             omit_method_selector=False,
             validation=False,
         )
@@ -367,37 +356,7 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
             for iac_n_oc in product((True, False), OnComplete)
             if iac_n_oc not in call_types
         ]
-        good_inputs = ace.generate_inputs(method)
-
-        def simulate_with_invariants_check(**kwargs):
-            inputs = kwargs.get("inputs")
-            app_create = kwargs.get("is_app_create")
-            oc = kwargs.get("on_complete")
-            assert inputs
-
-            # validation = kwargs.get("validation", True)
-
-            sim_result = sim.run_and_assert(
-                inputs,
-                txn_params=TxParams.for_app(
-                    is_app_create=app_create,
-                    on_complete=oc,
-                ),
-            )
-            assert sim_result.succeeded
-
-            return sim_result.simulate_inspectors
-            # return ace.run_sequence(
-            #     algod,
-            #     method=method,
-            #     is_app_create=app_create,
-            #     on_complete=oc,
-            #     inputs=inputs,
-            #     validation=validation,
-            # )
-
         is_approval = method_runner.approval
-
         is_app_create = on_complete = None
 
         def msg():
@@ -413,98 +372,99 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
         if is_approval:
             scenario = "I. explore all UNEXPECTED (is_app_create, on_complete) combos"
             for is_app_create, on_complete in call_types_negation:
-                inspectors = simulate_with_invariants_check(
-                    inputs=good_inputs,
-                    is_app_create=is_app_create,
-                    on_complete=on_complete,
+                sim_result = sim.run_and_assert(
+                    good_abi_args,
+                    method=method,
+                    txn_params=TxParams.for_app(
+                        is_app_create=is_app_create,
+                        on_complete=on_complete,
+                    ),
+                    msg=msg(),
                 )
-                # TODO: the following is redundant and should be removed soon!
-                Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
+                assert sim_result.succeeded
 
+        # for the remainder: default to a single (is_app_create, on_complete) combo
+        # as opposed to iterating over all combinations
         is_app_create, on_complete = (
             call_types[0] if call_types else (False, OnComplete.NoOpOC)
         )
 
-        # II. explore changing method selector arg[0] by edit distance 1
-        if good_inputs and good_inputs[0]:
-
-            def factory(action):
-                def selector_mod(args):
-                    args = args[:]
-                    selector = args[0]
-                    idx = random.randint(0, 4)
-                    prefix, suffix = selector[:idx], selector[idx:]
-                    if action == "insert":
-                        selector = prefix + random.randbytes(1) + suffix
-                    elif action == "delete":
-                        selector = (prefix[:-1] + suffix) if prefix else (suffix[:-1])
-                    else:  # "replace"
-                        assert (
-                            action == "replace"
-                        ), f"expected action=replace but got [{action}]"
-                        idx = random.randint(0, 3)
-                        selector = (
-                            selector[:idx]
-                            + bytes([(selector[idx] + 1) % 256])
-                            + selector[idx + 1 :]
-                        )
-                    return (selector,) + args[1:]
-
-                return selector_mod
-
-            selectors_inserted = list(map(factory("insert"), good_inputs))
-            selectors_deleted = list(map(factory("delete"), good_inputs))
-            selectors_modded = list(map(factory("replace"), good_inputs))
-        else:
-            selectors_inserted = selectors_deleted = selectors_modded = None
-
-        scenario = "II(a). inserting an extra random byte into method selector"
-        if selectors_inserted:
-            inspectors = simulate_with_invariants_check(
-                inputs=selectors_inserted,
-                is_app_create=is_app_create,
-                on_complete=on_complete,
-            )
-            # TODO: the following is redundant and should be removed soon!
-            Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
-
-        scenario = "II(b). removing a random byte from method selector"
-        if selectors_deleted:
-            inspectors = simulate_with_invariants_check(
-                inputs=selectors_deleted,
-                is_app_create=is_app_create,
-                on_complete=on_complete,
-            )
-            # TODO: the following is redundant and should be removed soon!
-            Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
-
-        scenario = "II(c). replacing a random byte in method selector"
-        if selectors_modded:
-            inspectors = simulate_with_invariants_check(
-                inputs=selectors_modded,
-                is_app_create=is_app_create,
-                on_complete=on_complete,
-            )
-            # TODO: the following is redundant and should be removed soon!
-            Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
-
-        # III. explore changing the number of args over the 'good' call_types
-        # (extra args testing is omitted as this is prevented by SDK's cf. https://github.com/algorand/algorand-sdk-testing/issues/190)
-        if good_inputs and good_inputs[0]:
-            missing_arg = [args[:-1] for args in good_inputs]
-            if not missing_arg[0]:
-                # skip this, as this becomes a bare app call case which is tested elsewhere
-                return
-
-            for is_app_create, on_complete in call_types:
-                scenario = "III. removing the final argument"
-                inspectors = simulate_with_invariants_check(
-                    inputs=missing_arg,
+        if method is None:
+            # II. the case of bare-app-calls
+            scenario = "II. adding an argument to a bare app call"
+            args_strat = get_aa_strat(method_runner, ABIArgsMod.parameter_append)
+            sim_result = sim.run_and_assert(
+                args_strat,
+                method=method,
+                txn_params=TxParams.for_app(
                     is_app_create=is_app_create,
                     on_complete=on_complete,
-                )
-                # TODO: the following is redundant and should be removed soon!
-                Invariant.full_validation(NEGATIVE_INVARIANTS, inspectors, msg=msg())
+                ),
+                msg=msg(),
+            )
+            assert sim_result.succeeded
+            return
+
+        # For the rest, we may assume method calls (non bare-app-call)
+        # III. explore changing method selector arg[0] by edit distance 1
+        scenario = "III(a). inserting an extra random byte into method selector"
+        args_strat = get_aa_strat(method_runner, ABIArgsMod.selector_byte_insert)
+        sim_result = sim.run_and_assert(
+            args_strat,
+            method=method,
+            txn_params=TxParams.for_app(
+                is_app_create=is_app_create,
+                on_complete=on_complete,
+            ),
+            msg=msg(),
+        )
+        assert sim_result.succeeded
+
+        scenario = "III(b). removing a random byte from method selector"
+        args_strat = get_aa_strat(method_runner, ABIArgsMod.selector_byte_delete)
+        sim_result = sim.run_and_assert(
+            args_strat,
+            method=method,
+            txn_params=TxParams.for_app(
+                is_app_create=is_app_create,
+                on_complete=on_complete,
+            ),
+            msg=msg(),
+        )
+        assert sim_result.succeeded
+
+        scenario = "III(c). replacing a random byte in method selector"
+        args_strat = get_aa_strat(method_runner, ABIArgsMod.selector_byte_replace)
+        sim_result = sim.run_and_assert(
+            args_strat,
+            method=method,
+            txn_params=TxParams.for_app(
+                is_app_create=is_app_create,
+                on_complete=on_complete,
+            ),
+            msg=msg(),
+        )
+        assert sim_result.succeeded
+
+        # IV. explore changing the number of args over the 'good' call_types
+        # Extra args testing is omitted as this is prevented by SDK's
+        # cf. https://github.com/algorand/algorand-sdk-testing/issues/190)
+
+        args_strat = get_aa_strat(method_runner, ABIArgsMod.parameter_delete)
+        if args_strat.num_args() == 0:
+            # skip this, as it's a bare app call case which is tested in II
+            return
+        scenario = "IV. removing the final argument"
+        sim_result = sim.run_and_assert(
+            args_strat,
+            method=method,
+            txn_params=TxParams.for_app(
+                is_app_create=is_app_create,
+                on_complete=on_complete,
+            ),
+            msg=msg(),
+        )
+        assert sim_result.succeeded
 
     run_negative(True, approval_runner, approval_call_types)
     run_negative(False, clear_runner, clear_call_types)
