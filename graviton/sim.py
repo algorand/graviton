@@ -57,6 +57,8 @@ class Simulation:
             )
         self.predicates: Dict[DRProp, Any] = predicates
 
+        assert self.predicates, "must provide actual predicates to assert with!"
+
     def run_and_assert(
         self,
         inputs: InputStrategy,
@@ -65,6 +67,8 @@ class Simulation:
         verbose: bool = False,
         msg: str = "",
     ) -> SimulationResults:
+        assert inputs, "must provide actual inputs to run against!"
+
         T = TypeVar("T")
 
         def listify(xs: Iterable[T]) -> List[T]:
