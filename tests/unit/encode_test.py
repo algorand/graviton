@@ -244,10 +244,11 @@ def test_executor_prep(
     assert validation is False
     assert aats_out_is_none is False, "already considered this"
 
+    start_from: int = 1 - int(omit_method_selector)
     try:
         encoded_args = DryRunEncoder.encode_args(
-            args[1 - int(omit_method_selector) :],
-            dre.abi_argument_types[1 - int(omit_method_selector) :],
+            args[start_from:],
+            dre.abi_argument_types[start_from:],
             validation=validation,
         )
     except AssertionError as encode_args_ae:
@@ -258,6 +259,5 @@ def test_executor_prep(
         return
 
     args_out, encoded_args_out = dre._executor_prep(args)
-    bidx = 1 - int(omit_method_selector)
-    assert args_out[bidx:] == args[bidx:]
-    assert encoded_args_out[bidx:] == encoded_args
+    assert args_out[start_from:] == args[start_from:]
+    assert encoded_args_out[start_from:] == encoded_args
