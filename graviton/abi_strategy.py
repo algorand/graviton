@@ -306,7 +306,7 @@ class ABIMethodCallStrategy:
         mutating = self.abi_args_mod is not None
 
         if not (self.method or mutating):
-            # bare calls receive no arguments
+            # bare calls receive no arguments (unless mutating)
             return [tuple() for _ in range(self.num_dryruns)]
 
         arg_types = self.argument_types()
