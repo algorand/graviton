@@ -487,7 +487,6 @@ class DryRunExecutor:
     def _executor_prep(
         self, args: Tuple[PyTypes, ...]
     ) -> Tuple[Tuple[PyTypes, ...], List[ArgType]]:
-        """ """
         abi_argument_types = self.abi_argument_types
         if self.abi_method_signature:
             args, abi_argument_types = self._abi_adapter(args)
