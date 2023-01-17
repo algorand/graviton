@@ -24,14 +24,11 @@ from typing import Any, Dict, List, Optional, Tuple
 from algosdk import abi
 from algosdk.transaction import OnComplete
 
-from graviton.blackbox import (
-    ABIContractExecutor,
-    DryRunExecutor as DRE,
-    DryRunEncoder,
-)
-from graviton.inspector import DryRunProperty as DRProp
 from graviton.abi_strategy import RandomABIStrategy, RandomABIStrategyHalfSized
+from graviton.blackbox import ABIContractExecutor, DryRunExecutor as DRE, DryRunEncoder
+from graviton.inspector import DryRunProperty as DRProp
 from graviton.invariant import Invariant
+from graviton.models import ExecutionMode
 
 from tests.clients import get_algod
 
@@ -93,12 +90,12 @@ retsub
 def test_dynamic_array_sum():
     algod = get_algod()
     args = ([1, 2, 3, 4, 5],)
-    inspector = DRE.dryrun_app(
+    inspector = DRE(
         algod,
+        ExecutionMode.Application,
         DYNAMIC_ARRAY_SUM_TEAL,
-        args,
         abi_method_signature="abi_sum(uint64[])uint64",
-    )
+    ).run_one(args)
     # with default config:
     assert inspector.abi_type
     assert inspector.suppress_abi is False
@@ -196,13 +193,13 @@ def test_roundtrip_abi_strategy(roundtrip_app):
     with open(filename) as f:
         roundtrip_teal = f.read()
 
-    inspector = DRE.dryrun_app(
+    inspector = DRE(
         algod,
+        ExecutionMode.Application,
         roundtrip_teal,
-        args,
         abi_method_signature=method_sig,
         omit_method_selector=True,
-    )
+    ).run_one(args)
 
     cost = inspector.cost()
     passed = inspector.passed()

@@ -1,11 +1,8 @@
-from graviton.abi_strategy import PyTypes, ABIStrategy, RandomABIStrategy
-from graviton.dryrun import DryRunHelper
-from graviton.inspector import DryRunInspector
-from graviton.models import ZERO_ADDRESS, ArgType, DryRunAccountType, ExecutionMode
-
-
+from copy import copy
+from dataclasses import asdict, dataclass, field
 from typing import (
     Any,
+    Callable,
     Dict,
     Final,
     List,
@@ -13,6 +10,7 @@ from typing import (
     Sequence,
     Tuple,
     Type,
+    TypeVar,
     Union,
     cast,
 )
@@ -27,12 +25,36 @@ from algosdk.transaction import (
     SuggestedParams,
 )
 
+from graviton.abi_strategy import ABIStrategy, RandomABIStrategy
+from graviton.dryrun import DryRunHelper
+from graviton.inspector import DryRunInspector, EncodingType
+from graviton.models import (
+    ArgType,
+    DryRunAccountType,
+    ExecutionMode,
+    PyTypes,
+    Stringy,
+    ZERO_ADDRESS,
+)
 
 TealAndMethodType = Union[Tuple[str], Tuple[str, str]]
-EncodingType = Union[abi.ABIType, str, None]
+
+T = TypeVar("T")
+
+OneOrMany = Union[T, Sequence[T]]
 
 
 MAX_APP_ARG_LIMIT = atc.AtomicTransactionComposer.MAX_APP_ARG_LIMIT
+# `CREATION_APP_CALL` and `EXISTING_APP_CALL` are enum-like constants used to denote whether a dry run
+# execution will simulate calling during on-creation vs post-creation.
+# In the default case that a dry run is executed without a provided application id (aka `index`), the `index`
+# supplied will be:
+# * `CREATION_APP_CALL` in the case of `is_app_create == True`
+# * `EXISTING_APP_CALL` in the case of `is_app_create == False`
+CREATION_APP_CALL: Final[int] = 0
+EXISTING_APP_CALL: Final[int] = 42
+
+SUGGESTED_PARAMS = SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
 
 
 class DryRunEncoder:
@@ -64,7 +86,7 @@ class DryRunEncoder:
                 which allows the automatic prepending of `None` to the ABI types list.
         """
         a_len = len(args)
-        if abi_types:
+        if abi_types is not None:
             t_len = len(abi_types)
             if validation:
                 assert (
@@ -174,394 +196,91 @@ class DryRunEncoder:
         return None
 
 
-class DryRunExecutor:
-    """Methods to package up and kick off dry run executions
+@dataclass(frozen=True)
+class DryRunTransactionParams:
 
-    When executing an A.B.I. compliant dry-run specify `abi_argument_types` as well as an `abi_return_type`:
-       * `abi_argument_types` are handed off to the `DryRunEncoder` for encoding purposes
-       * `abi_return_type` is given the `DryRunInspector`'s resulting from execution for ABI-decoding into Python
-    """
-
-    # `CREATION_APP_CALL` and `EXISTING_APP_CALL` are enum-like constants used to denote whether a dry run
-    # execution will simulate calling during on-creation vs post-creation.
-    # In the default case that a dry run is executed without a provided application id (aka `index`), the `index`
-    # supplied will be:
-    # * `CREATION_APP_CALL` in the case of `is_app_create == True`
-    # * `EXISTING_APP_CALL` in the case of `is_app_create == False`
-    CREATION_APP_CALL: Final[int] = 0
-    EXISTING_APP_CALL: Final[int] = 42
-
-    SUGGESTED_PARAMS = SuggestedParams(int(1000), int(1), int(100), "", flat_fee=True)
-
-    @classmethod
-    def dryrun_app(
-        cls,
-        algod: AlgodClient,
-        teal: str,
-        args: Sequence[PyTypes],
-        is_app_create: bool = False,
-        on_complete: OnComplete = OnComplete.NoOpOC,
-        *,
-        abi_method_signature: Optional[str] = None,
-        omit_method_selector: Optional[bool] = False,
-        validation: bool = True,
-        sender: Optional[str] = None,
-        sp: Optional[SuggestedParams] = None,
-        index: Optional[int] = None,
-        local_schema: Optional[StateSchema] = None,
-        global_schema: Optional[StateSchema] = None,
-        approval_program: Optional[str] = None,
-        clear_program: Optional[str] = None,
-        app_args: Optional[Sequence[Union[str, int]]] = None,
-        accounts: Optional[List[str]] = None,
-        foreign_apps: Optional[List[str]] = None,
-        foreign_assets: Optional[List[str]] = None,
-        note: Optional[str] = None,
-        lease: Optional[str] = None,
-        rekey_to: Optional[str] = None,
-        extra_pages: Optional[int] = None,
-        dryrun_accounts: List[DryRunAccountType] = [],
-    ) -> "DryRunInspector":
-        """
-        Execute a dry run to simulate an app call using provided:
-
-            * algod
-            * teal program for the approval (or clear in the case `on_complete=OnComplete.ClearStateOC`)
-            * args - the application arguments as Python types
-            * abi_argument_types - ABI types of the arguments, in the case of an ABI method call
-            * abi_return_type - the ABI type returned, in the case of an ABI method call
-            * is_app_create to indicate whether or not to simulate an app create call
-            * on_complete - the OnComplete that should be provided in the app call transaction
-
-        Additional application call transaction parameters can be provided as well
-        """
-        return cls.execute_one_dryrun(
-            algod,
-            teal,
-            args,
-            ExecutionMode.Application,
-            abi_method_signature=abi_method_signature,
-            omit_method_selector=omit_method_selector,
-            validation=validation,
-            txn_params=cls.transaction_params(
-                sender=ZERO_ADDRESS if sender is None else sender,
-                sp=cls.SUGGESTED_PARAMS if sp is None else sp,
-                note=note,
-                lease=lease,
-                rekey_to=rekey_to,
-                index=(
-                    (cls.CREATION_APP_CALL if is_app_create else cls.EXISTING_APP_CALL)
-                    if index is None
-                    else index
-                ),
-                on_complete=on_complete,
-                local_schema=local_schema,
-                global_schema=global_schema,
-                approval_program=approval_program,
-                clear_program=clear_program,
-                app_args=app_args,
-                accounts=accounts,
-                foreign_apps=foreign_apps,
-                foreign_assets=foreign_assets,
-                extra_pages=extra_pages,
-            ),
-            accounts=dryrun_accounts,
-        )
+    # generic:
+    sender: Optional[Stringy] = None
+    sp: Optional[SuggestedParams] = None
+    note: Optional[Stringy] = None
+    lease: Optional[Stringy] = None
+    rekey_to: Optional[Stringy] = None
+    # payments
+    receiver: Optional[Stringy] = None
+    amt: Optional[int] = None
+    close_remainder_to: Optional[Stringy] = None
+    # apps
+    index: Optional[int] = None
+    on_complete: Optional[OnComplete] = None
+    local_schema: Optional[StateSchema] = None
+    global_schema: Optional[StateSchema] = None
+    approval_program: Optional[str] = None
+    clear_program: Optional[str] = None
+    app_args: Optional[Sequence[ArgType]] = None
+    accounts: Optional[List[str]] = None
+    foreign_apps: Optional[List[str]] = None
+    foreign_assets: Optional[List[str]] = None
+    extra_pages: Optional[int] = None
+    dryrun_accounts: List[DryRunAccountType] = field(
+        default_factory=list
+    )  # belongs here???
+    # future:
+    box_refs: Optional[List[Tuple[int, str]]] = None
 
     @classmethod
-    def dryrun_logicsig(
+    def for_logicsig(
         cls,
-        algod: AlgodClient,
-        teal: str,
-        args: Sequence[PyTypes],
-        *,
-        abi_method_signature: Optional[str] = None,
-        omit_method_selector: Optional[bool] = False,
-        validation: bool = True,
-        sender: str = ZERO_ADDRESS,
+        sender: Optional[Stringy] = None,
         sp: Optional[SuggestedParams] = None,
-        receiver: Optional[str] = None,
+        note: Optional[Stringy] = None,
+        lease: Optional[Stringy] = None,
+        rekey_to: Optional[Stringy] = None,
+        receiver: Optional[Stringy] = None,
         amt: Optional[int] = None,
-        close_remainder_to: Optional[str] = None,
-        note: Optional[str] = None,
-        lease: Optional[str] = None,
-        rekey_to: Optional[str] = None,
-    ) -> "DryRunInspector":
-        return cls.execute_one_dryrun(
-            algod,
-            teal,
-            args,
-            ExecutionMode.Signature,
-            abi_method_signature=abi_method_signature,
-            omit_method_selector=omit_method_selector,
-            validation=validation,
-            txn_params=cls.transaction_params(
-                sender=ZERO_ADDRESS if sender is None else sender,
-                sp=cls.SUGGESTED_PARAMS if sp is None else sp,
-                note=note,
-                lease=lease,
-                rekey_to=rekey_to,
-                receiver=ZERO_ADDRESS if receiver is None else receiver,
-                amt=0 if amt is None else amt,
-                close_remainder_to=close_remainder_to,
-            ),
+        close_remainder_to: Optional[Stringy] = None,
+    ) -> "DryRunTransactionParams":
+        return cls(
+            sender=sender or ZERO_ADDRESS,
+            sp=sp or SUGGESTED_PARAMS,
+            note=note,
+            lease=lease,
+            rekey_to=rekey_to,
+            receiver=receiver or ZERO_ADDRESS,
+            amt=0 if amt is None else amt,
+            close_remainder_to=close_remainder_to,
         )
 
     @classmethod
-    def dryrun_app_pair_on_sequence(
+    def for_app(
         cls,
-        algod: AlgodClient,
-        teal_and_method1: TealAndMethodType,
-        teal_and_method2: TealAndMethodType,
-        inputs: List[Sequence[PyTypes]],
-        *,
         is_app_create: bool = False,
-        on_complete: OnComplete = OnComplete.NoOpOC,
-        dryrun_accounts: List[DryRunAccountType] = [],
-        omit_method_selector: Optional[bool] = False,
-        validation: bool = True,
-    ) -> Tuple[Sequence["DryRunInspector"], Sequence["DryRunInspector"]]:
-        return tuple(  # type: ignore
-            cls.dryrun_multiapps_on_sequence(
-                algod=algod,
-                multi_teal_method_pairs=[teal_and_method1, teal_and_method2],
-                inputs=inputs,
-                is_app_create=is_app_create,
-                on_complete=on_complete,
-                dryrun_accounts=dryrun_accounts,
-                omit_method_selector=omit_method_selector,
-                validation=validation,
-            )
-        )
-
-    @classmethod
-    def dryrun_multiapps_on_sequence(
-        cls,
-        algod: AlgodClient,
-        multi_teal_method_pairs: List[TealAndMethodType],
-        inputs: List[Sequence[PyTypes]],
-        *,
-        is_app_create: bool = False,
-        on_complete: OnComplete = OnComplete.NoOpOC,
-        dryrun_accounts: List[DryRunAccountType] = [],
-        omit_method_selector: Optional[bool] = False,
-        validation: bool = True,
-    ) -> List[Sequence["DryRunInspector"]]:
-        def runner(teal_method_pair):
-            teal = teal_method_pair[0]
-            abi_method = None
-            if len(teal_method_pair) > 1:
-                abi_method = teal_method_pair[1]
-
-            return cls.dryrun_app_on_sequence(
-                algod=algod,
-                teal=teal,
-                inputs=inputs,
-                abi_method_signature=abi_method,
-                omit_method_selector=omit_method_selector,
-                validation=validation,
-                is_app_create=is_app_create,
-                on_complete=on_complete,
-                dryrun_accounts=dryrun_accounts,
-            )
-
-        return list(map(runner, multi_teal_method_pairs))
-
-    @classmethod
-    def dryrun_app_on_sequence(
-        cls,
-        algod: AlgodClient,
-        teal: str,
-        inputs: List[Sequence[PyTypes]],
-        *,
-        abi_method_signature: Optional[str] = None,
-        omit_method_selector: Optional[bool] = False,
-        validation: bool = True,
-        is_app_create: bool = False,
-        on_complete: OnComplete = OnComplete.NoOpOC,
-        dryrun_accounts: List[DryRunAccountType] = [],
-    ) -> List["DryRunInspector"]:
-        # TODO: handle txn_params
-        return list(
-            map(
-                lambda args: cls.dryrun_app(
-                    algod=algod,
-                    teal=teal,
-                    args=args,
-                    abi_method_signature=abi_method_signature,
-                    omit_method_selector=omit_method_selector,
-                    validation=validation,
-                    is_app_create=is_app_create,
-                    on_complete=on_complete,
-                    dryrun_accounts=dryrun_accounts,
-                ),
-                inputs,
-            )
-        )
-
-    @classmethod
-    def dryrun_logicsig_on_sequence(
-        cls,
-        algod: AlgodClient,
-        teal: str,
-        inputs: List[Sequence[PyTypes]],
-        *,
-        abi_method_signature: Optional[str] = None,
-        omit_method_selector: Optional[bool] = False,
-        validation: bool = True,
-    ) -> List["DryRunInspector"]:
-        # TODO: handle txn_params
-        return list(
-            map(
-                lambda args: cls.dryrun_logicsig(
-                    algod=algod,
-                    teal=teal,
-                    args=args,
-                    abi_method_signature=abi_method_signature,
-                    omit_method_selector=omit_method_selector,
-                    validation=validation,
-                ),
-                inputs,
-            )
-        )
-
-    @classmethod
-    def execute_one_dryrun(
-        cls,
-        algod: AlgodClient,
-        teal: str,
-        args: Sequence[PyTypes],
-        mode: ExecutionMode,
-        *,
-        abi_method_signature: Optional[str] = None,
-        omit_method_selector: Optional[bool] = False,
-        validation: bool = True,
-        txn_params: dict = {},
-        accounts: List[DryRunAccountType] = [],
-        verbose: bool = False,
-    ) -> "DryRunInspector":
-        assert (
-            len(ExecutionMode) == 2
-        ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
-        assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
-        is_app = mode == ExecutionMode.Application
-
-        abi_argument_types: Optional[List[EncodingType]] = None
-        abi_return_type: Optional[abi.ABIType] = None
-        if abi_method_signature:
-            """
-            Try to do the right thing.
-            When `omit_method_selector is False`:
-                * if provided with the same number of args as expected arg types
-                    --> prepend `None` to the types and `selector` to args
-                * if provided with |arg types| + 1 args
-                    --> assert that `args[0] == selector`
-                * otherwise
-                    --> there is a cardinality mismatch, so fail
-            When `omit_method_selector is True`:
-                * if provided with the same number of args as expected arg types
-                    --> good to go
-                * if provided with |arg types| + 1 args
-                    --> assert that `args[0] == selector` but DROP it from the args
-                * otherwise
-                    --> there is a cardinality mismatch, so fail
-            """
-            method = abi.Method.from_signature(abi_method_signature)
-            selector = method.get_selector()
-            abi_argument_types = [a.type for a in method.args]
-
-            if validation:
-                args = list(args)
-                if len(args) == len(abi_argument_types):
-                    if not omit_method_selector:
-                        # the method selector is not abi-encoded, hence its abi-type is set to None
-                        abi_argument_types = [None] + abi_argument_types  # type: ignore
-                        args = [selector] + args
-
-                elif len(args) == len(abi_argument_types) + 1:
-                    assert (
-                        args[0] == selector
-                    ), f"{args[0]=} should have been the {selector=}"
-
-                    if omit_method_selector:
-                        args = args[1:]
-                    else:
-                        abi_argument_types = [None] + abi_argument_types  # type: ignore
-
-                else:
-                    raise AssertionError(
-                        f"{len(args)=} is incompatible with {len(method.args)=}: LEFT should be equal or exactly RIGHT + 1"
-                    )
-            elif not omit_method_selector:
-                abi_argument_types = [None] + abi_argument_types  # type: ignore
-
-            args = tuple(args)
-
-            if method.returns.type != abi.Returns.VOID:
-                abi_return_type = cast(abi.ABIType, method.returns.type)
-
-        encoded_args = DryRunEncoder.encode_args(
-            args, abi_types=abi_argument_types, validation=validation
-        )
-
-        dryrun_req: DryrunRequest
-        if is_app:
-            dryrun_req = DryRunHelper.singleton_app_request(
-                teal, encoded_args, txn_params, accounts
-            )
-        else:
-            dryrun_req = DryRunHelper.singleton_logicsig_request(
-                teal, encoded_args, txn_params
-            )
-        if verbose:
-            print(f"{cls}::execute_one_dryrun(): {dryrun_req=}")
-        dryrun_resp = algod.dryrun(dryrun_req)
-        if verbose:
-            print(f"{cls}::execute_one_dryrun(): {dryrun_resp=}")
-        return DryRunInspector.from_single_response(
-            dryrun_resp, args, encoded_args, abi_type=cast(abi.ABIType, abi_return_type)
-        )
-
-    @classmethod
-    def transaction_params(
-        cls,
-        *,
-        # generic:
-        sender: Optional[str] = None,
+        sender: Optional[Stringy] = None,
         sp: Optional[SuggestedParams] = None,
-        note: Optional[str] = None,
-        lease: Optional[str] = None,
-        rekey_to: Optional[str] = None,
-        # payments:
-        receiver: Optional[str] = None,
-        amt: Optional[int] = None,
-        close_remainder_to: Optional[str] = None,
-        # apps:
+        note: Optional[Stringy] = None,
+        lease: Optional[Stringy] = None,
+        rekey_to: Optional[Stringy] = None,
         index: Optional[int] = None,
         on_complete: Optional[OnComplete] = None,
         local_schema: Optional[StateSchema] = None,
         global_schema: Optional[StateSchema] = None,
         approval_program: Optional[str] = None,
         clear_program: Optional[str] = None,
-        app_args: Optional[Sequence[Union[str, int]]] = None,
+        app_args: Optional[Sequence[ArgType]] = None,
         accounts: Optional[List[str]] = None,
         foreign_apps: Optional[List[str]] = None,
         foreign_assets: Optional[List[str]] = None,
         extra_pages: Optional[int] = None,
-    ) -> Dict[str, Any]:
-        """
-        Returns a `dict` with keys the same as method params, after removing all `None` values
-        """
-        params = dict(
-            sender=sender,
-            sp=sp,
+        dryrun_accounts: List[DryRunAccountType] = [],
+    ):
+        return cls(
+            sender=sender or ZERO_ADDRESS,
+            sp=sp or SUGGESTED_PARAMS,
             note=note,
             lease=lease,
             rekey_to=rekey_to,
-            receiver=receiver,
-            amt=amt,
-            close_remainder_to=close_remainder_to,
-            index=index,
+            index=(CREATION_APP_CALL if is_app_create else EXISTING_APP_CALL)
+            if index is None
+            else index,
             on_complete=on_complete,
             local_schema=local_schema,
             global_schema=global_schema,
@@ -572,8 +291,287 @@ class DryRunExecutor:
             foreign_apps=foreign_apps,
             foreign_assets=foreign_assets,
             extra_pages=extra_pages,
+            dryrun_accounts=dryrun_accounts,
         )
-        return {k: v for k, v in params.items() if v is not None}
+
+    def asdict(self, drop_nones: bool = True) -> Dict[str, Any]:
+        d = asdict(self)
+        del d["dryrun_accounts"]
+        del d["box_refs"]
+        if not drop_nones:
+            return d
+
+        return {k: v for k, v in d.items() if v is not None}
+
+
+class DryRunExecutor:
+
+    """Methods to package up and kick off dry run executions"""
+
+    # for usage convenience, copy constants over into the class
+    CREATION_APP_CALL = CREATION_APP_CALL
+    EXISTING_APP_CALL = EXISTING_APP_CALL
+
+    SUGGESTED_PARAMS = SUGGESTED_PARAMS
+
+    def __init__(
+        self,
+        algod: AlgodClient,
+        mode: ExecutionMode,
+        teal: str,
+        *,
+        abi_method_signature: Optional[str] = None,
+        omit_method_selector: bool = False,
+        validation: bool = True,
+    ):
+        self.algod: AlgodClient = algod
+        self.mode: ExecutionMode = mode
+        self.program: str = teal
+        self.abi_method_signature: Optional[str] = abi_method_signature
+        self.omit_method_selector: bool = omit_method_selector
+        self.validation: bool = validation
+
+        self.is_app: bool
+        self.abi_argument_types: Optional[List[EncodingType]]
+        self.abi_return_type: Optional[EncodingType]
+        self.method: Optional[abi.Method]
+        self.selector: Optional[bytes]
+
+        (
+            self.is_app,
+            self.abi_argument_types,
+            self.abi_return_type,
+            self.method,
+            self.selector,
+        ) = self._init_impl(self.mode, self.abi_method_signature)
+
+    @classmethod
+    def _init_impl(
+        cls, mode: ExecutionMode, abi_method_signature: Optional[str]
+    ) -> Tuple[
+        bool,
+        Optional[List[EncodingType]],
+        Optional[Union[abi.ABIType, str]],
+        Optional[abi.Method],
+        Optional[bytes],
+    ]:
+        assert (
+            len(ExecutionMode) == 2
+        ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
+        assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
+        is_app = mode == ExecutionMode.Application
+
+        method: Optional[abi.Method] = None
+        selector: Optional[bytes] = None
+        abi_argument_types: Optional[List[EncodingType]] = None
+        abi_return_type: Optional[Union[abi.ABIType, str]] = None
+
+        if abi_method_signature:
+            method = abi.Method.from_signature(abi_method_signature)
+            selector = method.get_selector()
+            abi_argument_types = [a.type for a in method.args]
+
+            if method.returns.type != abi.Returns.VOID:
+                abi_return_type = method.returns.type
+
+        return is_app, abi_argument_types, abi_return_type, method, selector
+
+    def run_one(
+        self,
+        args: Sequence[PyTypes],
+        *,
+        txn_params: Optional[DryRunTransactionParams] = None,
+        verbose: bool = False,
+    ) -> DryRunInspector:
+        """Convenience method for easier typing - executes a single dry run"""
+        return cast(
+            DryRunInspector,
+            self._run(tuple(args), txn_params=txn_params, verbose=verbose),
+        )
+
+    def run_sequence(
+        self,
+        inputs: Sequence[Sequence[PyTypes]],
+        *,
+        txn_params: Optional[DryRunTransactionParams] = None,
+        verbose: bool = False,
+    ) -> Sequence[DryRunInspector]:
+        """Convenience method for easier typing - executes dry run sequence"""
+        return cast(
+            Sequence[DryRunInspector],
+            self._run(
+                [tuple(args) for args in inputs], txn_params=txn_params, verbose=verbose
+            ),
+        )
+
+    @classmethod
+    def multi_exec(
+        cls,
+        execs: List["DryRunExecutor"],
+        inputs: Sequence[Sequence[PyTypes]],
+        *,
+        txn_params: Optional[DryRunTransactionParams] = None,
+        verbose: bool = False,
+    ) -> Sequence[Sequence[DryRunInspector]]:
+        return [
+            cast(
+                Sequence[DryRunInspector],
+                e._run(inputs, txn_params=txn_params, verbose=verbose),
+            )
+            for e in execs
+        ]
+
+    def _run(
+        self,
+        inputs: OneOrMany[Sequence[PyTypes]],
+        *,
+        txn_params: Optional[DryRunTransactionParams] = None,
+        verbose: bool = False,
+    ) -> OneOrMany[DryRunInspector]:
+        """
+        Be careful when using this private method. Its behavior depends on the following type-switch:
+        * when `inputs` is a tuple ---> interpret this to be a single `args` tuple and run a single dry run
+        * otherwise ---> we require `inputs` to either be a `list` or a `map`, and take a dry-run for every element in the sequence
+        """
+        executor = self._executor(txn_params, verbose)
+        if isinstance(inputs, tuple):
+            return executor(inputs)
+
+        assert isinstance(
+            inputs, (list, map)
+        ), f"inputs must be of type list or map (for multiple args) or tuple (for single args) but was {type(inputs)}"
+        if isinstance(inputs, map):
+            inputs = list(inputs)
+
+        assert inputs, "must provide at least one input args tuple"
+
+        for i, args in enumerate(inputs):
+            assert isinstance(
+                args, tuple
+            ), f"each args in inputs list must be a tuple but at index {i=} we have {type(args)}"
+
+        inputs = cast(List[Tuple[PyTypes, ...]], inputs)
+        return list(map(executor, inputs))
+
+    def _executor(
+        self,
+        txn_params: Optional[DryRunTransactionParams],
+        verbose: bool,
+    ) -> Callable[[Tuple[PyTypes, ...]], DryRunInspector]:
+        def executor(args: Tuple[PyTypes, ...]) -> DryRunInspector:
+            args, encoded_args = self._executor_prep(args)
+
+            dryrun_req: DryrunRequest
+            txn_params_d = txn_params.asdict() if txn_params else {}
+            dr_acts = txn_params.dryrun_accounts if txn_params else []
+            if self.is_app:
+                dryrun_req = DryRunHelper.singleton_app_request(
+                    self.program,
+                    encoded_args,
+                    txn_params_d,
+                    dr_acts,
+                )
+            else:
+                dryrun_req = DryRunHelper.singleton_logicsig_request(
+                    self.program, encoded_args, txn_params_d
+                )
+            if verbose:
+                print(f"{type(self)}._run(): {dryrun_req=}")
+            dryrun_resp = self.algod.dryrun(dryrun_req)
+            if verbose:
+                print(f"{type(self)}::_executor(): {dryrun_resp=}")
+            return DryRunInspector.from_single_response(
+                dryrun_resp, args, encoded_args, abi_type=self.abi_return_type
+            )
+
+        return executor
+
+    def _executor_prep(
+        self, args: Tuple[PyTypes, ...]
+    ) -> Tuple[Tuple[PyTypes, ...], List[ArgType]]:
+        abi_argument_types = self.abi_argument_types
+        if self.abi_method_signature:
+            args, abi_argument_types = self._abi_adapter(args)
+
+        encoded_args = DryRunEncoder.encode_args(
+            args, abi_types=abi_argument_types, validation=self.validation
+        )
+        return args, encoded_args
+
+    def _abi_adapter(
+        self, args: Sequence[PyTypes]
+    ) -> Tuple[Tuple[PyTypes, ...], Optional[List[EncodingType]]]:
+        """
+        Validate and possibly return modified versions of:
+        * args
+        * abi_argument_types
+        """
+        args_out = list(args)
+        aats_out = copy(self.abi_argument_types)
+        nope: EncodingType = None
+        if self.validation:
+            assert aats_out is not None, "unexpected None"
+            assert self.method is not None, "unexpected None"
+            assert self.selector is not None, "unexpected None"
+            aats_out = cast(List[EncodingType], aats_out)
+            method = cast(abi.Method, self.method)
+            selector = cast(PyTypes, self.selector)
+            if len(args_out) == len(aats_out):
+                if not self.omit_method_selector:
+                    # the method selector is not abi-encoded, hence its abi-type is set to None
+                    aats_out = [None] + aats_out
+                    args_out = [selector] + args_out
+
+            elif len(args_out) == len(aats_out) + 1:
+                assert (
+                    args_out[0] == selector
+                ), f"{args_out[0]=} should have been the {selector=}"
+
+                if self.omit_method_selector:
+                    args_out = args_out[1:]
+                else:
+                    aats_out = [nope] + aats_out
+
+            else:
+                raise AssertionError(
+                    f"{len(args_out)=} is incompatible with {len(method.args)=}: LEFT should be equal or exactly RIGHT + 1"
+                )
+        elif not self.omit_method_selector:
+            assert aats_out is not None
+            aats_out = [nope] + cast(List[EncodingType], aats_out)
+        # else: not validating + omitting method selector ==> aats_out == abi_argument_types
+
+        return tuple(args_out), aats_out
+
+    @classmethod
+    def _prerun_validation(
+        cls, mode: ExecutionMode, abi_method_signature: Optional[str]
+    ) -> Tuple[
+        bool,
+        Optional[List[EncodingType]],
+        Optional[Union[abi.ABIType, str]],
+        Optional[abi.Method],
+        Optional[bytes],
+    ]:
+        assert (
+            len(ExecutionMode) == 2
+        ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
+        assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
+        is_app = mode == ExecutionMode.Application
+
+        method: Optional[abi.Method] = None
+        selector: Optional[bytes] = None
+        abi_argument_types: Optional[List[EncodingType]] = None
+        abi_return_type: Optional[Union[abi.ABIType, str]] = None
+
+        if abi_method_signature:
+            method = abi.Method.from_signature(abi_method_signature)
+            selector = method.get_selector()
+            abi_argument_types = [a.type for a in method.args]
+            if method.returns.type != abi.Returns.VOID:
+                abi_return_type = method.returns.type
+
+        return is_app, abi_argument_types, abi_return_type, method, selector
 
 
 class ABIContractExecutor:
@@ -597,7 +595,7 @@ class ABIContractExecutor:
         dry_runs (default=1) - the number of dry runs to run
             (generates different inputs each time)
 
-        handle_selector - usually we'll want to let `DryRunExecutor.execute_one_dryrun()`
+        handle_selector - usually we'll want to let `DryRunExecutor.run_*()`
             handle adding the method selector so this param
             should _probably_ be left False. But when set True, when providing `inputs`
             ensure that the 0'th argument for method calls is the selector.
@@ -617,17 +615,14 @@ class ABIContractExecutor:
 
         return self.contract.get_method_by_name(method).get_signature()
 
-    def argument_types(self, method: Optional[str] = None) -> List[abi.ABIType]:
+    def argument_types(self, method: Optional[str] = None) -> List[EncodingType]:
         """
         Argument types (excluding selector)
         """
         if not method:
             return []
 
-        return [
-            cast(abi.ABIType, arg.type)
-            for arg in self.contract.get_method_by_name(method).args
-        ]
+        return [arg.type for arg in self.contract.get_method_by_name(method).args]
 
     def generate_inputs(self, method: Optional[str]) -> List[Sequence[PyTypes]]:
         """
@@ -657,8 +652,6 @@ class ABIContractExecutor:
         return [gen_args() for _ in range(self.dry_runs)]
 
     def validate_inputs(self, method: Optional[str], inputs: List[Sequence[PyTypes]]):
-        """TODO: add type validation for arguments"""
-
         if not method:
             assert not any(
                 inputs
@@ -695,14 +688,13 @@ class ABIContractExecutor:
         *,
         validation: bool = True,
         dryrun_accounts: List[DryRunAccountType] = [],
-    ) -> List["DryRunInspector"]:
+    ) -> List[DryRunInspector]:
         """ARC-4 Compliant Dry Run
         When inputs aren't provided, you should INSTEAD SHOULD HAVE PROVIDED
         an `argument_strategy` upon construction.
         When inputs ARE provided, don't include the method selector as that
         is automatically generated.
         """
-        # TODO: handle txn_params
 
         if inputs is None:
             inputs = self.generate_inputs(method)
@@ -710,14 +702,23 @@ class ABIContractExecutor:
         if validation:
             self.validate_inputs(method, inputs)
 
-        return DryRunExecutor.dryrun_app_on_sequence(
-            algod,
-            self.program,
-            inputs,
-            abi_method_signature=self.method_signature(method),
-            omit_method_selector=False,
-            validation=validation,
-            is_app_create=is_app_create,
-            on_complete=on_complete,
-            dryrun_accounts=dryrun_accounts,
+        return list(
+            cast(
+                Sequence[DryRunInspector],
+                DryRunExecutor(
+                    algod,
+                    ExecutionMode.Application,
+                    self.program,
+                    abi_method_signature=self.method_signature(method),
+                    omit_method_selector=False,
+                    validation=validation,
+                )._run(
+                    inputs,
+                    txn_params=DryRunTransactionParams.for_app(
+                        is_app_create=is_app_create,
+                        on_complete=on_complete,
+                        dryrun_accounts=dryrun_accounts,
+                    ),
+                ),
+            )
         )

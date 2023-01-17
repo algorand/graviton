@@ -9,7 +9,7 @@ from algosdk.logic import get_application_address
 from graviton.blackbox import (
     DryRunEncoder as Encoder,
     DryRunExecutor as Executor,
-    ExecutionMode,
+    DryRunTransactionParams as TxParams,
 )
 from graviton.inspector import (
     DryRunInspector as Inspector,
@@ -17,7 +17,7 @@ from graviton.inspector import (
     mode_has_property,
 )
 from graviton.invariant import Invariant, InvariantType
-from graviton.models import PyTypes
+from graviton.models import ExecutionMode, PyTypes
 
 
 from tests.clients import get_algod
@@ -86,17 +86,17 @@ load 1""",
     )
 
     x = 9
-    args = [x]
+    args = (x,)
 
     app_res, app_log_res = list(
         map(
-            lambda teal: Executor.dryrun_app(algod, teal, args),
+            lambda teal: Executor(algod, ExecutionMode.Application, teal).run_one(args),
             [teal_app, teal_app_log],
         )
     )
     lsig_res, bad_lsig_res = list(
         map(
-            lambda teal: Executor.dryrun_logicsig(algod, teal, args),
+            lambda teal: Executor(algod, ExecutionMode.Signature, teal).run_one(args),
             [teal_lsig, bad_teal_lsig],
         )
     )
@@ -422,7 +422,9 @@ def test_app_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun responses:
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run_sequence(
+        inputs
+    )
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"
     with open(csvpath, "w") as f:
@@ -483,8 +485,9 @@ def test_app_itxn_with_report():
             amount_without_pending_rewards=10500000,
         )
     ]
-    dryrun_results = Executor.dryrun_app_on_sequence(
-        algod, teal, inputs, dryrun_accounts=accounts
+    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run_sequence(
+        inputs,
+        txn_params=TxParams.for_app(dryrun_accounts=accounts),
     )
 
     # 3. Generate statistical report of all the runs:
@@ -522,7 +525,9 @@ def test_app_itxn_with_report():
         },
     }
 
-    dryrun_results = Executor.dryrun_app_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Application, teal).run_sequence(
+        inputs
+    )
 
     inputs = scenario_failure["inputs"]
     invariants = scenario_failure["invariants"]
@@ -718,7 +723,7 @@ def test_logicsig_with_report(filebase: str):
     )
 
     # 2. Run the requests to obtain sequence of Dryrun resonses:
-    dryrun_results = Executor.dryrun_logicsig_on_sequence(algod, teal, inputs)
+    dryrun_results = Executor(algod, ExecutionMode.Signature, teal).run_sequence(inputs)
 
     # 3. Generate statistical report of all the runs:
     csvpath = path / f"{filebase}.csv"

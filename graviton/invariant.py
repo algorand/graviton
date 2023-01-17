@@ -2,9 +2,8 @@ from enum import Enum
 from inspect import getsource, signature
 from typing import cast, Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
-from graviton.blackbox import ExecutionMode
 from graviton.inspector import DryRunInspector, DryRunProperty, mode_has_property
-from graviton.models import PyTypes
+from graviton.models import ExecutionMode, PyTypes
 
 
 class PredicateKind(Enum):
@@ -95,9 +94,10 @@ class Invariant:
         **kwargs,
     ) -> Tuple[bool, str]:
         has_external_expected: bool = False
+        external_expected: Optional[PyTypes] = None
         if kwargs and (ee_key := "external_expected") in kwargs:
             has_external_expected = True
-            external_expected: Optional[PyTypes] = kwargs[ee_key]
+            external_expected = kwargs[ee_key]
         invariant = (
             self.predicate(args, actual, external_expected)
             if has_external_expected
