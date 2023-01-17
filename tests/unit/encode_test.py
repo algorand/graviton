@@ -1,10 +1,19 @@
 import pytest
+from typing import Optional
 from unittest.mock import Mock
 
-from algosdk.abi import TupleType, BoolType, UintType, ArrayDynamicType
+from json.decoder import JSONDecodeError
+
+from algosdk.abi import ArrayDynamicType, BoolType, Contract, TupleType, UintType
 from algosdk.error import ABIEncodingError
 from algosdk.v2client.algod import AlgodClient
 
+from graviton.abi_strategy import (
+    ABIArgsMod,
+    ABIMethodCallStrategy,
+    RandomABIStrategy,
+    RandomABIStrategyHalfSized,
+)
 from graviton.blackbox import DryRunEncoder, DryRunExecutor
 from graviton.models import ExecutionMode
 
@@ -149,7 +158,6 @@ def test_executor_init(mode, abi_method_signature, omit_method_selector, validat
     return dre
 
 
-# @pytest.mark.skip("wip")
 @pytest.mark.parametrize("mode", ExecutionMode)
 @pytest.mark.parametrize(
     "abi_method_signature",
@@ -262,3 +270,101 @@ def test_executor_prep(
     bidx = 1 - int(omit_method_selector)
     assert args_out[bidx:] == args[bidx:]
     assert encoded_args_out[bidx:] == encoded_args
+
+
+def test_ABIMethodCallStrategy_init():
+    teal = "blah some teal"
+    contract = "very bad contract"
+    method: Optional[str] = "non existant method"
+    argument_strategy = RandomABIStrategyHalfSized
+    num_dryruns = Mock(int)
+    handle_selector = Mock(bool)
+    abi_args_mod: Optional[ABIArgsMod] = None
+
+    # fail as the contract is garbage
+    with pytest.raises(JSONDecodeError):
+        ABIMethodCallStrategy(
+            teal,
+            contract,
+            method,
+            argument_strategy,
+            num_dryruns=num_dryruns,
+            handle_selector=handle_selector,
+            abi_args_mod=abi_args_mod,
+        )
+
+    # ok, let's give a real contract
+    # but we'll fail because the method is garbage so doesn't exist in the contract
+    contract = '{"name":"ExampleContract","desc":"This is an example contract","networks":{"wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=":{"appID":1234},"SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=":{"appID":5678}},"methods":[{"name":"add","args":[{"type":"uint32"},{"type":"uint32"}],"returns":{"type":"uint32"}}]}'
+    with pytest.raises(KeyError) as ke:
+        ABIMethodCallStrategy(
+            teal,
+            contract,
+            method,
+            argument_strategy,
+            num_dryruns=num_dryruns,
+            handle_selector=handle_selector,
+            abi_args_mod=abi_args_mod,
+        )
+    assert f"found 0 methods for {method}" in str(ke.value)
+
+    # finally pass with an actual contract method:
+    method = "add"
+    amcs = ABIMethodCallStrategy(
+        teal,
+        contract,
+        method,
+        argument_strategy,
+        num_dryruns=num_dryruns,
+        handle_selector=handle_selector,
+        abi_args_mod=abi_args_mod,
+    )
+    assert amcs.program is teal
+    assert (
+        isinstance(amcs.contract, Contract)
+        and "add" == amcs.contract.dictify()["methods"][0]["name"]
+    )
+    assert amcs.method is method
+    assert amcs.argument_strategy is argument_strategy
+    assert amcs.num_dryruns == num_dryruns
+    assert amcs.handle_selector is handle_selector
+    assert amcs.abi_args_mod is abi_args_mod
+
+    # bare app call:
+    method = None
+    amcs = ABIMethodCallStrategy(
+        teal,
+        contract,
+        method,
+        argument_strategy,
+        num_dryruns=num_dryruns,
+        handle_selector=handle_selector,
+        abi_args_mod=abi_args_mod,
+    )
+    assert amcs.program is teal
+    assert (
+        isinstance(amcs.contract, Contract)
+        and "add" == amcs.contract.dictify()["methods"][0]["name"]
+    )
+    assert amcs.method is method
+    assert amcs.argument_strategy is argument_strategy
+    assert amcs.num_dryruns == num_dryruns
+    assert amcs.handle_selector is handle_selector
+    assert amcs.abi_args_mod is abi_args_mod
+
+    # what about defaults?
+    amcs = ABIMethodCallStrategy(
+        teal,
+        contract,
+        method,
+    )
+    assert amcs.program is teal
+    assert (
+        isinstance(amcs.contract, Contract)
+        and "add" == amcs.contract.dictify()["methods"][0]["name"]
+    )
+    assert amcs.method is method
+    assert amcs.argument_strategy is RandomABIStrategy
+    assert amcs.num_dryruns == 1
+    assert amcs.handle_selector is True
+    assert amcs.abi_args_mod is None
