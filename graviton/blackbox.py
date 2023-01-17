@@ -489,7 +489,6 @@ class DryRunExecutor:
     def _executor_prep(
         self, args: Tuple[PyTypes, ...]
     ) -> Tuple[Tuple[PyTypes, ...], List[ArgType]]:
-        """ """
         abi_argument_types = self.abi_argument_types
         if self.abi_method_signature:
             args, abi_argument_types = self._abi_adapter(args)
@@ -560,19 +559,17 @@ class DryRunExecutor:
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
 
+        method: Optional[abi.Method] = None
+        selector: Optional[bytes] = None
         abi_argument_types: Optional[List[EncodingType]] = None
         abi_return_type: Optional[Union[abi.ABIType, str]] = None
 
-        method: Optional[abi.Method]
         if abi_method_signature:
             method = abi.Method.from_signature(abi_method_signature)
             selector = method.get_selector()
             abi_argument_types = [a.type for a in method.args]
-
             if method.returns.type != abi.Returns.VOID:
                 abi_return_type = method.returns.type
-        else:  # logic sigs always land here:
-            method = selector = None
 
         return is_app, abi_argument_types, abi_return_type, method, selector
 
