@@ -73,7 +73,7 @@ def qc_runner(m):
 
 TYPICAL_IAC_OC = (False, OnComplete.NoOpOC)
 
-# LEGEND FOR TEST CASES (*_CASES and *_CLEAR_CASES):
+# LEGEND FOR TEST CASES:
 #
 # * @0 - approval method_runner: MethodRunner(name: str, approval: bool, teal: str, contract: str, method: str)
 #   method == `None` indicates bare app call
