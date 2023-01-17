@@ -241,7 +241,6 @@ ALL_CASES = QUESTIONABLE_CASES + YACC_CASES
 
 def get_aa_strat(method_runner, abi_args_mod=None) -> ABIMethodCallStrategy:
     return ABIMethodCallStrategy(
-        method_runner.teal,
         method_runner.contract,
         method_runner.method,
         RandomABIStrategyHalfSized,

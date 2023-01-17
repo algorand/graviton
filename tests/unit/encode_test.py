@@ -273,7 +273,6 @@ def test_executor_prep(
 
 
 def test_ABIMethodCallStrategy_init():
-    teal = "blah some teal"
     contract = "very bad contract"
     method: Optional[str] = "non existant method"
     argument_strategy = RandomABIStrategyHalfSized
@@ -284,7 +283,6 @@ def test_ABIMethodCallStrategy_init():
     # fail as the contract is garbage
     with pytest.raises(JSONDecodeError):
         ABIMethodCallStrategy(
-            teal,
             contract,
             method,
             argument_strategy,
@@ -298,7 +296,6 @@ def test_ABIMethodCallStrategy_init():
     contract = '{"name":"ExampleContract","desc":"This is an example contract","networks":{"wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=":{"appID":1234},"SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=":{"appID":5678}},"methods":[{"name":"add","args":[{"type":"uint32"},{"type":"uint32"}],"returns":{"type":"uint32"}}]}'
     with pytest.raises(KeyError) as ke:
         ABIMethodCallStrategy(
-            teal,
             contract,
             method,
             argument_strategy,
@@ -311,7 +308,6 @@ def test_ABIMethodCallStrategy_init():
     # finally pass with an actual contract method:
     method = "add"
     amcs = ABIMethodCallStrategy(
-        teal,
         contract,
         method,
         argument_strategy,
@@ -319,7 +315,6 @@ def test_ABIMethodCallStrategy_init():
         handle_selector=handle_selector,
         abi_args_mod=abi_args_mod,
     )
-    assert amcs.program is teal
     assert (
         isinstance(amcs.contract, Contract)
         and "add" == amcs.contract.dictify()["methods"][0]["name"]
@@ -333,7 +328,6 @@ def test_ABIMethodCallStrategy_init():
     # bare app call:
     method = None
     amcs = ABIMethodCallStrategy(
-        teal,
         contract,
         method,
         argument_strategy,
@@ -341,7 +335,6 @@ def test_ABIMethodCallStrategy_init():
         handle_selector=handle_selector,
         abi_args_mod=abi_args_mod,
     )
-    assert amcs.program is teal
     assert (
         isinstance(amcs.contract, Contract)
         and "add" == amcs.contract.dictify()["methods"][0]["name"]
@@ -354,11 +347,9 @@ def test_ABIMethodCallStrategy_init():
 
     # what about defaults?
     amcs = ABIMethodCallStrategy(
-        teal,
         contract,
         method,
     )
-    assert amcs.program is teal
     assert (
         isinstance(amcs.contract, Contract)
         and "add" == amcs.contract.dictify()["methods"][0]["name"]

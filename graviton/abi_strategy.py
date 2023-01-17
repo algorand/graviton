@@ -224,7 +224,6 @@ class ABIMethodCallStrategy:
 
     def __init__(
         self,
-        teal: str,
         contract: str,
         method: Optional[str],
         argument_strategy: Type[ABIStrategy] = RandomABIStrategy,
@@ -234,11 +233,9 @@ class ABIMethodCallStrategy:
         abi_args_mod: Optional[ABIArgsMod] = None,
     ):
         """
-        teal - The program to run
-
         contract - ABI Contract JSON
 
-        method - The method for calling (`None` for bare app call)
+        method - The method's name for calling (`None` for bare app call)
 
         argument_strategy (default=RandomABIStrategy) - ABI strategy for generating arguments
 
@@ -255,7 +252,6 @@ class ABIMethodCallStrategy:
 
         abi_args_mod (optional) - when desiring to mutate the args, provide an ABIArgsMod value
         """
-        self.program = teal
         self.contract: abi.Contract = abi.Contract.from_json(contract)
         self.method: Optional[str] = method
         self.argument_strategy: Optional[Type[ABIStrategy]] = argument_strategy
