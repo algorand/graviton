@@ -225,7 +225,6 @@ class ABIMethodCallStrategy:
     def __init__(
         self,
         contract: str,
-        method: Optional[str],
         argument_strategy: Type[ABIStrategy] = RandomABIStrategy,
         *,
         num_dryruns: int = 1,
@@ -234,8 +233,6 @@ class ABIMethodCallStrategy:
     ):
         """
         contract - ABI Contract JSON
-
-        method - The method's name for calling (`None` for bare app call)
 
         argument_strategy (default=RandomABIStrategy) - ABI strategy for generating arguments
 
@@ -253,44 +250,41 @@ class ABIMethodCallStrategy:
         abi_args_mod (optional) - when desiring to mutate the args, provide an ABIArgsMod value
         """
         self.contract: abi.Contract = abi.Contract.from_json(contract)
-        self.method: Optional[str] = method
         self.argument_strategy: Optional[Type[ABIStrategy]] = argument_strategy
         self.num_dryruns = num_dryruns
         self.handle_selector = handle_selector
         self.abi_args_mod = abi_args_mod
 
-        assert self.method is None or self.method_signature()
+    def abi_method(self, method: Optional[str]) -> abi.Method:
+        assert method, "cannot get abi.Method for bare app call"
 
-    def abi_method(self) -> abi.Method:
-        assert self.method, "cannot get abi.Method for bare app call"
+        return self.contract.get_method_by_name(method)
 
-        return self.contract.get_method_by_name(self.method)
-
-    def method_signature(self) -> Optional[str]:
+    def method_signature(self, method: Optional[str]) -> Optional[str]:
         """Returns None, for a bare app call (method=None signals this)"""
-        if self.method is None:
+        if method is None:
             return None
 
-        return self.abi_method().get_signature()
+        return self.abi_method(method).get_signature()
 
-    def method_selector(self) -> bytes:
-        assert self.method, "cannot get method_selector for bare app call"
+    def method_selector(self, method: Optional[str]) -> bytes:
+        assert method, "cannot get method_selector for bare app call"
 
-        return self.abi_method().get_selector()
+        return self.abi_method(method).get_selector()
 
-    def argument_types(self) -> List[abi.ABIType]:
+    def argument_types(self, method: Optional[str]) -> List[abi.ABIType]:
         """
         Argument types (excluding selector)
         """
-        if self.method is None:
+        if method is None:
             return []
 
-        return [cast(abi.ABIType, arg.type) for arg in self.abi_method().args]
+        return [cast(abi.ABIType, arg.type) for arg in self.abi_method(method).args]
 
-    def num_args(self) -> int:
-        return len(self.argument_types())
+    def num_args(self, method: Optional[str]) -> int:
+        return len(self.argument_types(method))
 
-    def generate(self) -> List[Sequence[PyTypes]]:
+    def generate(self, method: Optional[str]) -> List[Sequence[PyTypes]]:
         """
         Generates inputs appropriate for bare app calls and method calls
         according to available argument_strategy.
@@ -301,15 +295,15 @@ class ABIMethodCallStrategy:
 
         mutating = self.abi_args_mod is not None
 
-        if not (self.method or mutating):
+        if not (method or mutating):
             # bare calls receive no arguments (unless mutating)
             return [tuple() for _ in range(self.num_dryruns)]
 
-        arg_types = self.argument_types()
+        arg_types = self.argument_types(method)
 
         prefix: List[bytes] = []
-        if self.handle_selector and self.method:
-            prefix = [self.method_selector()]
+        if self.handle_selector and method:
+            prefix = [self.method_selector(method)]
 
         modify_selector = False
         if (action := self.abi_args_mod) in (

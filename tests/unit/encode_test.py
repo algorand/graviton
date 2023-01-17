@@ -274,7 +274,6 @@ def test_executor_prep(
 
 def test_ABIMethodCallStrategy_init():
     contract = "very bad contract"
-    method: Optional[str] = "non existant method"
     argument_strategy = RandomABIStrategyHalfSized
     num_dryruns = Mock(int)
     handle_selector = Mock(bool)
@@ -284,7 +283,6 @@ def test_ABIMethodCallStrategy_init():
     with pytest.raises(JSONDecodeError):
         ABIMethodCallStrategy(
             contract,
-            method,
             argument_strategy,
             num_dryruns=num_dryruns,
             handle_selector=handle_selector,
@@ -292,54 +290,19 @@ def test_ABIMethodCallStrategy_init():
         )
 
     # ok, let's give a real contract
-    # but we'll fail because the method is garbage so doesn't exist in the contract
     contract = '{"name":"ExampleContract","desc":"This is an example contract","networks":{"wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=":{"appID":1234},"SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=":{"appID":5678}},"methods":[{"name":"add","args":[{"type":"uint32"},{"type":"uint32"}],"returns":{"type":"uint32"}}]}'
-    with pytest.raises(KeyError) as ke:
-        ABIMethodCallStrategy(
-            contract,
-            method,
-            argument_strategy,
-            num_dryruns=num_dryruns,
-            handle_selector=handle_selector,
-            abi_args_mod=abi_args_mod,
-        )
-    assert f"found 0 methods for {method}" in str(ke.value)
-
-    # finally pass with an actual contract method:
-    method = "add"
     amcs = ABIMethodCallStrategy(
         contract,
-        method,
         argument_strategy,
         num_dryruns=num_dryruns,
         handle_selector=handle_selector,
         abi_args_mod=abi_args_mod,
     )
-    assert (
-        isinstance(amcs.contract, Contract)
-        and "add" == amcs.contract.dictify()["methods"][0]["name"]
-    )
-    assert amcs.method is method
-    assert amcs.argument_strategy is argument_strategy
-    assert amcs.num_dryruns == num_dryruns
-    assert amcs.handle_selector is handle_selector
-    assert amcs.abi_args_mod is abi_args_mod
 
-    # bare app call:
-    method = None
-    amcs = ABIMethodCallStrategy(
-        contract,
-        method,
-        argument_strategy,
-        num_dryruns=num_dryruns,
-        handle_selector=handle_selector,
-        abi_args_mod=abi_args_mod,
-    )
     assert (
         isinstance(amcs.contract, Contract)
         and "add" == amcs.contract.dictify()["methods"][0]["name"]
     )
-    assert amcs.method is method
     assert amcs.argument_strategy is argument_strategy
     assert amcs.num_dryruns == num_dryruns
     assert amcs.handle_selector is handle_selector
@@ -348,14 +311,53 @@ def test_ABIMethodCallStrategy_init():
     # what about defaults?
     amcs = ABIMethodCallStrategy(
         contract,
-        method,
     )
     assert (
         isinstance(amcs.contract, Contract)
         and "add" == amcs.contract.dictify()["methods"][0]["name"]
     )
-    assert amcs.method is method
     assert amcs.argument_strategy is RandomABIStrategy
     assert amcs.num_dryruns == 1
     assert amcs.handle_selector is True
     assert amcs.abi_args_mod is None
+
+
+def test_ABIMethoCallStrategy_method_etc():
+    contract = '{"name":"ExampleContract","desc":"This is an example contract","networks":{"wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=":{"appID":1234},"SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=":{"appID":5678}},"methods":[{"name":"add","args":[{"type":"uint32"},{"type":"uint32"}],"returns":{"type":"uint32"}}]}'
+    argument_strategy = RandomABIStrategyHalfSized
+    num_dryruns = Mock(int)
+    handle_selector = Mock(bool)
+    abi_args_mod: Optional[ABIArgsMod] = None
+
+    amcs = ABIMethodCallStrategy(
+        contract,
+        argument_strategy,
+        num_dryruns=num_dryruns,
+        handle_selector=handle_selector,
+        abi_args_mod=abi_args_mod,
+    )
+
+    # but we'll fail because the method is garbage so doesn't exist in the contract
+    method = "doesn't exist"
+    with pytest.raises(KeyError) as ke:
+        amcs.abi_method(method)
+    assert f"found 0 methods for {method}" in str(ke.value)
+
+    # finally pass with an actual contract method:
+    method = "add"
+    abi_method = amcs.abi_method(method)
+    assert abi_method.name == method
+
+    # bare app call:
+    with pytest.raises(AssertionError) as ae:
+        amcs.abi_method(None)
+    assert "cannot get abi.Method for bare app call" == str(ae.value)
+
+    with pytest.raises(AssertionError) as ae:
+        amcs.method_selector(None)
+    assert "cannot get method_selector for bare app call" == str(ae.value)
+
+    # falsey:
+    assert not amcs.method_signature(None)
+    assert not amcs.argument_types(None)
+    assert not amcs.num_args(None)

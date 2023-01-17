@@ -79,7 +79,8 @@ class Simulation:
 
         inputs_iter: Iterable[PyTypes]
         if isinstance(inputs, ABIMethodCallStrategy):
-            inputs_iter = inputs.generate()
+            method = m.name if (m := self.simulate_dre.method) else None
+            inputs_iter = inputs.generate(method)
         else:
             inputs_iter = cast(Iterable[Sequence[PyTypes]], inputs)
 

@@ -242,7 +242,6 @@ ALL_CASES = QUESTIONABLE_CASES + YACC_CASES
 def get_aa_strat(method_runner, abi_args_mod=None) -> ABIMethodCallStrategy:
     return ABIMethodCallStrategy(
         method_runner.contract,
-        method_runner.method,
         RandomABIStrategyHalfSized,
         num_dryruns=NUM_ROUTER_DRYRUNS,
         abi_args_mod=abi_args_mod,
@@ -278,7 +277,7 @@ def test_positive(
             ExecutionMode.Application,
             method_runner.teal,
             invariants,
-            abi_method_signature=good_abi_args.method_signature(),
+            abi_method_signature=good_abi_args.method_signature(method),
         )
 
         def msg():
@@ -347,7 +346,7 @@ def test_negative(
             ExecutionMode.Application,
             method_runner.teal,
             NEGATIVE_INVARIANTS,
-            abi_method_signature=good_abi_args.method_signature(),
+            abi_method_signature=good_abi_args.method_signature(method),
             validation=False,  # set validation to False to allow intentionally bad input
         )
 
@@ -447,7 +446,7 @@ def test_negative(
         # cf. https://github.com/algorand/algorand-sdk-testing/issues/190)
 
         args_strat = get_aa_strat(method_runner, ABIArgsMod.parameter_delete)
-        if args_strat.num_args() == 0:
+        if args_strat.num_args(method_runner.method) == 0:
             # skip this, as it's a bare app call case which is tested in II
             return
         scenario = "IV. removing the final argument"
