@@ -84,7 +84,7 @@ class DryRunEncoder:
                 which allows the automatic prepending of `None` to the ABI types list.
         """
         a_len = len(args)
-        if abi_types:
+        if abi_types is not None:
             t_len = len(abi_types)
             if validation:
                 assert (
@@ -341,7 +341,67 @@ class DryRunExecutor:
             self.abi_return_type,
             self.method,
             self.selector,
-        ) = self._prerun_validation(self.mode, self.abi_method_signature)
+        ) = self._init_impl(self.mode, self.abi_method_signature)
+
+    @classmethod
+    def _init_impl(
+        cls, mode: ExecutionMode, abi_method_signature: Optional[str]
+    ) -> Tuple[
+        bool,
+        Optional[List[EncodingType]],
+        Optional[Union[abi.ABIType, str]],
+        Optional[abi.Method],
+        Optional[bytes],
+    ]:
+        assert (
+            len(ExecutionMode) == 2
+        ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
+        assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
+        is_app = mode == ExecutionMode.Application
+
+        abi_argument_types: Optional[List[EncodingType]] = None
+        abi_return_type: Optional[Union[abi.ABIType, str]] = None
+
+        method: Optional[abi.Method]
+        if abi_method_signature:
+            method = abi.Method.from_signature(abi_method_signature)
+            selector = method.get_selector()
+            abi_argument_types = [a.type for a in method.args]
+
+            if method.returns.type != abi.Returns.VOID:
+                abi_return_type = method.returns.type
+        else:  # logic sigs always land here:
+            method = selector = None
+
+        return is_app, abi_argument_types, abi_return_type, method, selector
+
+    def run_one(
+        self,
+        args: Sequence[PyTypes],
+        *,
+        txn_params: Optional[DryRunTransactionParams] = None,
+        verbose: bool = False,
+    ) -> DryRunInspector:
+        """Convenience method for easier typing - executes a single dry run"""
+        return cast(
+            DryRunInspector,
+            self._run(tuple(args), txn_params=txn_params, verbose=verbose),
+        )
+
+    def run_sequence(
+        self,
+        inputs: Sequence[Sequence[PyTypes]],
+        *,
+        txn_params: Optional[DryRunTransactionParams] = None,
+        verbose: bool = False,
+    ) -> Sequence[DryRunInspector]:
+        """Convenience method for easier typing - executes dry run sequence"""
+        return cast(
+            Sequence[DryRunInspector],
+            self._run(
+                [tuple(args) for args in inputs], txn_params=txn_params, verbose=verbose
+            ),
+        )
 
     @classmethod
     def multi_exec(
@@ -392,54 +452,13 @@ class DryRunExecutor:
         inputs = cast(List[Tuple[PyTypes, ...]], inputs)
         return list(map(executor, inputs))
 
-    def run_one(
-        self,
-        args: Sequence[PyTypes],
-        *,
-        txn_params: Optional[DryRunTransactionParams] = None,
-        verbose: bool = False,
-    ) -> DryRunInspector:
-        """Convenience method for easier typing - executes a single dry run"""
-        return cast(
-            DryRunInspector,
-            self._run(tuple(args), txn_params=txn_params, verbose=verbose),
-        )
-
-    def run_sequence(
-        self,
-        inputs: Sequence[Sequence[PyTypes]],
-        *,
-        txn_params: Optional[DryRunTransactionParams] = None,
-        verbose: bool = False,
-    ) -> Sequence[DryRunInspector]:
-        """Convenience method for easier typing - executes dry run sequence"""
-        return cast(
-            Sequence[DryRunInspector],
-            self._run(
-                [tuple(args) for args in inputs], txn_params=txn_params, verbose=verbose
-            ),
-        )
-
     def _executor(
         self,
         txn_params: Optional[DryRunTransactionParams],
         verbose: bool,
     ) -> Callable[[Tuple[PyTypes, ...]], DryRunInspector]:
         def executor(args: Tuple[PyTypes, ...]) -> DryRunInspector:
-            abi_argument_types = self.abi_argument_types
-            if self.abi_method_signature:
-                args, abi_argument_types = self._abi_adapter(
-                    args,
-                    self.abi_argument_types,
-                    self.omit_method_selector,
-                    self.validation,
-                    self.method,
-                    self.selector,
-                )
-
-            encoded_args = DryRunEncoder.encode_args(
-                args, abi_types=abi_argument_types, validation=self.validation
-            )
+            args, encoded_args = self._executor_prep(args)
 
             dryrun_req: DryrunRequest
             txn_params_d = txn_params.asdict() if txn_params else {}
@@ -466,15 +485,21 @@ class DryRunExecutor:
 
         return executor
 
-    @classmethod
+    def _executor_prep(
+        self, args: Tuple[PyTypes, ...]
+    ) -> Tuple[Tuple[PyTypes, ...], List[ArgType]]:
+        """ """
+        abi_argument_types = self.abi_argument_types
+        if self.abi_method_signature:
+            args, abi_argument_types = self._abi_adapter(args)
+
+        encoded_args = DryRunEncoder.encode_args(
+            args, abi_types=abi_argument_types, validation=self.validation
+        )
+        return args, encoded_args
+
     def _abi_adapter(
-        cls,
-        args: Sequence[PyTypes],
-        abi_argument_types: Optional[List[EncodingType]],
-        omit_method_selector: bool,
-        validation: bool,
-        method: Optional[abi.Method],
-        selector: Optional[PyTypes],
+        self, args: Sequence[PyTypes]
     ) -> Tuple[Tuple[PyTypes, ...], Optional[List[EncodingType]]]:
         """
         Validate and possibly return modified versions of:
@@ -482,14 +507,17 @@ class DryRunExecutor:
         * abi_argument_types
         """
         args_out = list(args)
-        aats_out = copy(abi_argument_types)
+        aats_out = copy(self.abi_argument_types)
         nope: EncodingType = None
-        if validation:
-            aats_out = cast(list, aats_out)
-            method = cast(abi.Method, method)
-            selector = cast(PyTypes, selector)
+        if self.validation:
+            assert aats_out is not None, "unexpected None"
+            assert self.method is not None, "unexpected None"
+            assert self.selector is not None, "unexpected None"
+            aats_out = cast(List[EncodingType], aats_out)
+            method = cast(abi.Method, self.method)
+            selector = cast(PyTypes, self.selector)
             if len(args_out) == len(aats_out):
-                if not omit_method_selector:
+                if not self.omit_method_selector:
                     # the method selector is not abi-encoded, hence its abi-type is set to None
                     aats_out = [None] + aats_out
                     args_out = [selector] + args_out
@@ -499,7 +527,7 @@ class DryRunExecutor:
                     args_out[0] == selector
                 ), f"{args_out[0]=} should have been the {selector=}"
 
-                if omit_method_selector:
+                if self.omit_method_selector:
                     args_out = args_out[1:]
                 else:
                     aats_out = [nope] + aats_out
@@ -508,40 +536,9 @@ class DryRunExecutor:
                 raise AssertionError(
                     f"{len(args_out)=} is incompatible with {len(method.args)=}: LEFT should be equal or exactly RIGHT + 1"
                 )
-        elif not omit_method_selector:
-            aats_out = cast(list, aats_out)
-            aats_out = [nope] + aats_out
+        elif not self.omit_method_selector:
+            assert aats_out is not None
+            aats_out = [nope] + cast(List[EncodingType], aats_out)
+        # else: not validating + omitting method selector ==> aats_out == abi_argument_types
 
         return tuple(args_out), aats_out
-
-    @classmethod
-    def _prerun_validation(
-        cls, mode: ExecutionMode, abi_method_signature: Optional[str]
-    ) -> Tuple[
-        bool,
-        Optional[List[EncodingType]],
-        Optional[Union[abi.ABIType, str]],
-        Optional[abi.Method],
-        Optional[bytes],
-    ]:
-        assert (
-            len(ExecutionMode) == 2
-        ), f"assuming only 2 ExecutionMode's but have {len(ExecutionMode)}"
-        assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
-        is_app = mode == ExecutionMode.Application
-
-        abi_argument_types: Optional[List[EncodingType]] = None
-        abi_return_type: Optional[Union[abi.ABIType, str]] = None
-
-        method: Optional[abi.Method]
-        if abi_method_signature:
-            method = abi.Method.from_signature(abi_method_signature)
-            selector = method.get_selector()
-            abi_argument_types = [a.type for a in method.args]
-
-            if method.returns.type != abi.Returns.VOID:
-                abi_return_type = method.returns.type
-        else:  # logic sigs always land here:
-            method = selector = None
-
-        return is_app, abi_argument_types, abi_return_type, method, selector
