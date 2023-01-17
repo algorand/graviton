@@ -149,7 +149,6 @@ def test_executor_init(mode, abi_method_signature, omit_method_selector, validat
     return dre
 
 
-# @pytest.mark.skip("wip")
 @pytest.mark.parametrize("mode", ExecutionMode)
 @pytest.mark.parametrize(
     "abi_method_signature",
