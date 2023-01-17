@@ -479,7 +479,7 @@ class DryRunExecutor:
                 print(f"{type(self)}._run(): {dryrun_req=}")
             dryrun_resp = self.algod.dryrun(dryrun_req)
             if verbose:
-                print(f"{type(self)}::execute_one_dryrun(): {dryrun_resp=}")
+                print(f"{type(self)}::_executor(): {dryrun_resp=}")
             return DryRunInspector.from_single_response(
                 dryrun_resp, args, encoded_args, abi_type=self.abi_return_type
             )
@@ -598,7 +598,7 @@ class ABIContractExecutor:
         dry_runs (default=1) - the number of dry runs to run
             (generates different inputs each time)
 
-        handle_selector - usually we'll want to let `DryRunExecutor.execute_one_dryrun()`
+        handle_selector - usually we'll want to let `DryRunExecutor.run_*()`
             handle adding the method selector so this param
             should _probably_ be left False. But when set True, when providing `inputs`
             ensure that the 0'th argument for method calls is the selector.
