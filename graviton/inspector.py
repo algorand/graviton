@@ -312,7 +312,7 @@ class DryRunInspector:
         txn_index: int,
         args: Sequence[PyTypes],
         encoded_args: List[ArgType],
-        abi_type: Optional[EncodingType] = None,
+        abi_type: EncodingType = None,
     ):
         txns = dryrun_resp.get("txns", [])
         assert txns, "Dry Run response is missing transactions"
@@ -385,7 +385,7 @@ class DryRunInspector:
         dryrun_resp: dict,
         args: Sequence[PyTypes],
         encoded_args: List[ArgType],
-        abi_type: Optional[EncodingType] = None,
+        abi_type: EncodingType = None,
     ) -> "DryRunInspector":
         error = dryrun_resp.get("error")
         assert not error, f"dryrun response included the following error: [{error}]"
