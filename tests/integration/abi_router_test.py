@@ -9,8 +9,11 @@ import pytest
 
 from algosdk.transaction import OnComplete
 
-from graviton.abi_strategy import RandomABIStrategyHalfSized
-from graviton.abi_args_strategy import ABIArgsMod, ABIArgsStrategy
+from graviton.abi_strategy import (
+    ABIArgsMod,
+    ABIMethodCallStrategy,
+    RandomABIStrategyHalfSized,
+)
 from graviton.blackbox import DryRunEncoder, DryRunTransactionParams as TxParams
 from graviton.inspector import DryRunProperty as DRProp
 from graviton.models import ExecutionMode
@@ -236,10 +239,11 @@ YACC_CASES = yaccify(QUESTIONABLE_CASES)
 ALL_CASES = QUESTIONABLE_CASES + YACC_CASES
 
 
-def get_aa_strat(method_runner, abi_args_mod=None) -> ABIArgsStrategy:
-    return ABIArgsStrategy(
+def get_aa_strat(method_runner, abi_args_mod=None) -> ABIMethodCallStrategy:
+    return ABIMethodCallStrategy(
         method_runner.teal,
         method_runner.contract,
+        method_runner.method,
         RandomABIStrategyHalfSized,
         num_dryruns=NUM_ROUTER_DRYRUNS,
         abi_args_mod=abi_args_mod,
@@ -250,7 +254,7 @@ def get_aa_strat(method_runner, abi_args_mod=None) -> ABIArgsStrategy:
     "approval_runner, approval_call_types, clear_runner, clear_call_types, invariants",
     ALL_CASES,
 )
-def test_pos(
+def test_positive(
     approval_runner, approval_call_types, clear_runner, clear_call_types, invariants
 ):
     """
@@ -275,9 +279,7 @@ def test_pos(
             ExecutionMode.Application,
             method_runner.teal,
             invariants,
-            abi_method_signature=good_abi_args.method_signature(method),
-            omit_method_selector=False,
-            validation=False,
+            abi_method_signature=good_abi_args.method_signature(),
         )
 
         def msg():
@@ -291,7 +293,6 @@ def test_pos(
         for is_app_create, on_complete in call_types:
             sim_result = sim.run_and_assert(
                 good_abi_args,
-                method=method,
                 txn_params=TxParams.for_app(
                     is_app_create=is_app_create,
                     on_complete=on_complete,
@@ -325,7 +326,9 @@ NEGATIVE_INVARIANTS = {
     "approval_runner, approval_call_types, clear_runner, clear_call_types, _",
     ALL_CASES,
 )
-def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_types, _):
+def test_negative(
+    approval_runner, approval_call_types, clear_runner, clear_call_types, _
+):
     """
     Test the _negative_ version of a case. In other words, ensure that for the given:
         * method or bare call
@@ -345,9 +348,8 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
             ExecutionMode.Application,
             method_runner.teal,
             NEGATIVE_INVARIANTS,
-            abi_method_signature=good_abi_args.method_signature(method),
-            omit_method_selector=False,
-            validation=False,
+            abi_method_signature=good_abi_args.method_signature(),
+            validation=False,  # set validation to False to allow intentionally bad input
         )
 
         # iac_n_oc --> (is_app_create, on_complete)
@@ -374,7 +376,6 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
             for is_app_create, on_complete in call_types_negation:
                 sim_result = sim.run_and_assert(
                     good_abi_args,
-                    method=method,
                     txn_params=TxParams.for_app(
                         is_app_create=is_app_create,
                         on_complete=on_complete,
@@ -395,7 +396,6 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
             args_strat = get_aa_strat(method_runner, ABIArgsMod.parameter_append)
             sim_result = sim.run_and_assert(
                 args_strat,
-                method=method,
                 txn_params=TxParams.for_app(
                     is_app_create=is_app_create,
                     on_complete=on_complete,
@@ -411,7 +411,6 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
         args_strat = get_aa_strat(method_runner, ABIArgsMod.selector_byte_insert)
         sim_result = sim.run_and_assert(
             args_strat,
-            method=method,
             txn_params=TxParams.for_app(
                 is_app_create=is_app_create,
                 on_complete=on_complete,
@@ -424,7 +423,6 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
         args_strat = get_aa_strat(method_runner, ABIArgsMod.selector_byte_delete)
         sim_result = sim.run_and_assert(
             args_strat,
-            method=method,
             txn_params=TxParams.for_app(
                 is_app_create=is_app_create,
                 on_complete=on_complete,
@@ -437,7 +435,6 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
         args_strat = get_aa_strat(method_runner, ABIArgsMod.selector_byte_replace)
         sim_result = sim.run_and_assert(
             args_strat,
-            method=method,
             txn_params=TxParams.for_app(
                 is_app_create=is_app_create,
                 on_complete=on_complete,
@@ -457,7 +454,6 @@ def test_neg(approval_runner, approval_call_types, clear_runner, clear_call_type
         scenario = "IV. removing the final argument"
         sim_result = sim.run_and_assert(
             args_strat,
-            method=method,
             txn_params=TxParams.for_app(
                 is_app_create=is_app_create,
                 on_complete=on_complete,

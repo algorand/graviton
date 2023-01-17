@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, TypeVar, Union
 
 from algosdk.v2client.algod import AlgodClient
 
-from graviton.abi_args_strategy import ABIArgsStrategy
+from graviton.abi_strategy import ABIMethodCallStrategy
 from graviton.blackbox import DryRunExecutor, DryRunTransactionParams as TxParams
 from graviton.inspector import DryRunProperty as DRProp, DryRunInspector
 from graviton.invariant import Invariant
@@ -11,7 +11,7 @@ from graviton.models import ExecutionMode, PyTypes
 
 # TODO: this will encompass strategies, composed of
 # hypothesis strategies as well as home grown ABIStrategy sub-types
-InputStrategy = Union[Iterable[Sequence[PyTypes]], ABIArgsStrategy]
+InputStrategy = Union[Iterable[Sequence[PyTypes]], ABIMethodCallStrategy]
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ class Simulation:
         predicates: Dict[DRProp, Any],
         *,
         abi_method_signature: Optional[str] = None,
-        omit_method_selector: bool = True,
+        omit_method_selector: bool = False,
         validation: bool = True,
         identities_teal: Optional[str] = None,
     ):
@@ -64,7 +64,6 @@ class Simulation:
         self,
         inputs: InputStrategy,
         *,
-        method: Optional[str] = None,
         txn_params: Optional[TxParams],
         verbose: bool = False,
         msg: str = "",
@@ -78,17 +77,9 @@ class Simulation:
                 return xs
             return list(xs)
 
-        if method:
-            assert isinstance(
-                inputs, ABIArgsStrategy
-            ), "when providing a method, inputs must be an ABIArgsStrategy"
-
         inputs_iter: Iterable[PyTypes]
-        if isinstance(inputs, ABIArgsStrategy):
-            assert (
-                method != ""
-            ), "when generating ABI Args, must provide a non-empty method name"
-            inputs_iter = inputs.generate(method)
+        if isinstance(inputs, ABIMethodCallStrategy):
+            inputs_iter = inputs.generate()
         else:
             inputs_iter = cast(Iterable[Sequence[PyTypes]], inputs)
 
