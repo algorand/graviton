@@ -259,9 +259,6 @@ def test_executor_prep(
         return
 
     args_out, encoded_args_out = dre._executor_prep(args)
-    # argslen = len(args)
-    # aolen = len(args_out)
-    # arg_range = slice(1 - int(omit_method_selector))
     bidx = 1 - int(omit_method_selector)
     assert args_out[bidx:] == args[bidx:]
     assert encoded_args_out[bidx:] == encoded_args
