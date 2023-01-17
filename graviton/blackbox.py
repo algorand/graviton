@@ -361,10 +361,11 @@ class DryRunExecutor:
         assert mode in ExecutionMode, f"unknown mode {mode} of type {type(mode)}"
         is_app = mode == ExecutionMode.Application
 
+        method: Optional[abi.Method] = None
+        selector: Optional[bytes] = None
         abi_argument_types: Optional[List[EncodingType]] = None
         abi_return_type: Optional[Union[abi.ABIType, str]] = None
 
-        method: Optional[abi.Method]
         if abi_method_signature:
             method = abi.Method.from_signature(abi_method_signature)
             selector = method.get_selector()
@@ -372,8 +373,6 @@ class DryRunExecutor:
 
             if method.returns.type != abi.Returns.VOID:
                 abi_return_type = method.returns.type
-        else:  # logic sigs always land here:
-            method = selector = None
 
         return is_app, abi_argument_types, abi_return_type, method, selector
 
