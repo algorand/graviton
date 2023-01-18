@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, TypeVar, Union
 
 from algosdk.v2client.algod import AlgodClient
 
-from graviton.abi_strategy import ABIMethodCallStrategy
+from graviton.abi_strategy import ABICallStrategy
 from graviton.blackbox import DryRunExecutor, DryRunTransactionParams as TxParams
 from graviton.inspector import DryRunProperty as DRProp, DryRunInspector
 from graviton.invariant import Invariant
@@ -11,7 +11,7 @@ from graviton.models import ExecutionMode, PyTypes
 
 # TODO: this will encompass strategies, composed of
 # hypothesis strategies as well as home grown ABIStrategy sub-types
-InputStrategy = Union[Iterable[Sequence[PyTypes]], ABIMethodCallStrategy]
+InputStrategy = Union[Iterable[Sequence[PyTypes]], ABICallStrategy]
 
 
 @dataclass(frozen=True)
@@ -78,7 +78,7 @@ class Simulation:
             return list(xs)
 
         inputs_iter: Iterable[PyTypes]
-        if isinstance(inputs, ABIMethodCallStrategy):
+        if isinstance(inputs, ABICallStrategy):
             method = m.name if (m := self.simulate_dre.method) else None
             inputs_iter = inputs.generate(method)
         else:

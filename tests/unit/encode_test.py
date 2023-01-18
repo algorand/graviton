@@ -10,7 +10,7 @@ from algosdk.v2client.algod import AlgodClient
 
 from graviton.abi_strategy import (
     ABIArgsMod,
-    ABIMethodCallStrategy,
+    ABICallStrategy,
     RandomABIStrategy,
     RandomABIStrategyHalfSized,
 )
@@ -272,7 +272,7 @@ def test_executor_prep(
     assert encoded_args_out[start_from:] == encoded_args
 
 
-def test_ABIMethodCallStrategy_init():
+def test_ABICallStrategy_init():
     contract = "very bad contract"
     argument_strategy = RandomABIStrategyHalfSized
     num_dryruns = Mock(int)
@@ -281,7 +281,7 @@ def test_ABIMethodCallStrategy_init():
 
     # fail as the contract is garbage
     with pytest.raises(JSONDecodeError):
-        ABIMethodCallStrategy(
+        ABICallStrategy(
             contract,
             argument_strategy,
             num_dryruns=num_dryruns,
@@ -291,7 +291,7 @@ def test_ABIMethodCallStrategy_init():
 
     # ok, let's give a real contract
     contract = '{"name":"ExampleContract","desc":"This is an example contract","networks":{"wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=":{"appID":1234},"SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=":{"appID":5678}},"methods":[{"name":"add","args":[{"type":"uint32"},{"type":"uint32"}],"returns":{"type":"uint32"}}]}'
-    amcs = ABIMethodCallStrategy(
+    amcs = ABICallStrategy(
         contract,
         argument_strategy,
         num_dryruns=num_dryruns,
@@ -309,7 +309,7 @@ def test_ABIMethodCallStrategy_init():
     assert amcs.abi_args_mod is abi_args_mod
 
     # what about defaults?
-    amcs = ABIMethodCallStrategy(
+    amcs = ABICallStrategy(
         contract,
     )
     assert (
@@ -329,7 +329,7 @@ def test_ABIMethoCallStrategy_method_etc():
     handle_selector = Mock(bool)
     abi_args_mod: Optional[ABIArgsMod] = None
 
-    amcs = ABIMethodCallStrategy(
+    amcs = ABICallStrategy(
         contract,
         argument_strategy,
         num_dryruns=num_dryruns,

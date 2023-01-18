@@ -214,7 +214,7 @@ class ABIArgsMod(Enum):
     parameter_append = auto()
 
 
-class ABIMethodCallStrategy:
+class ABICallStrategy:
     """
     TODO: refactor to comport with ABIStrategy + Hypothesis
     TODO: make this generic on the strategy type

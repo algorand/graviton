@@ -11,7 +11,7 @@ from algosdk.transaction import OnComplete
 
 from graviton.abi_strategy import (
     ABIArgsMod,
-    ABIMethodCallStrategy,
+    ABICallStrategy,
     RandomABIStrategyHalfSized,
 )
 from graviton.blackbox import DryRunEncoder, DryRunTransactionParams as TxParams
@@ -239,8 +239,8 @@ YACC_CASES = yaccify(QUESTIONABLE_CASES)
 ALL_CASES = QUESTIONABLE_CASES + YACC_CASES
 
 
-def get_aa_strat(method_runner, abi_args_mod=None) -> ABIMethodCallStrategy:
-    return ABIMethodCallStrategy(
+def get_aa_strat(method_runner, abi_args_mod=None) -> ABICallStrategy:
+    return ABICallStrategy(
         method_runner.contract,
         RandomABIStrategyHalfSized,
         num_dryruns=NUM_ROUTER_DRYRUNS,
