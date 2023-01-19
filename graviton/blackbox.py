@@ -301,6 +301,11 @@ class DryRunTransactionParams:
 
         return {k: v for k, v in d.items() if v is not None}
 
+    def update(self, other: "DryRunTransactionParams") -> None:
+        for k, v in vars(other).items():
+            if v is not None:
+                setattr(self, k, v)
+
 
 class DryRunExecutor:
 
