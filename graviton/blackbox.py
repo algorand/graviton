@@ -194,7 +194,7 @@ class DryRunEncoder:
         return None
 
 
-@dataclass(frozen=True)
+@dataclass
 class DryRunTransactionParams:
 
     # generic:
