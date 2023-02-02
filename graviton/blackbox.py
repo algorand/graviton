@@ -306,7 +306,7 @@ class DryRunTransactionParams:
             other, DryRunTransactionParams
         ), f"can't update {type(self)} using {type(other)}"
 
-        # NOTE: confusingly, we're using `dataclasses.dict` here so as to not drop any any fields
+        # NOTE: confusingly, we're using `dataclasses.dict` here to not drop any fields
         for k, v in asdict(other).items():
             if v is not None:
                 setattr(self, k, v)
