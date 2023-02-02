@@ -301,7 +301,7 @@ class DryRunTransactionParams:
 
         return {k: v for k, v in d.items() if v is not None}
 
-    def update(self, other: "DryRunTransactionParams") -> None:
+    def update_fields(self, other: "DryRunTransactionParams") -> None:
         assert isinstance(
             other, DryRunTransactionParams
         ), f"can't update {type(self)} using {type(other)}"

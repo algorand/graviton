@@ -86,7 +86,7 @@ def test_executor_init(mode, abi_method_signature, omit_method_selector, validat
 @pytest.mark.parametrize("validation", [False, True])
 @pytest.mark.parametrize(
     "args", [tuple(), ("one",), (2,), ("three", 3), tuple([20] * 20)]
-)  # _run
+)
 def test_executor_prep(
     mode, abi_method_signature, omit_method_selector, validation, args
 ):
@@ -191,19 +191,19 @@ def test_executor_prep(
     assert encoded_args_out[start_from:] == encoded_args
 
 
-def test_DryRunTransactionParams_update():
+def test_DryRunTransactionParams_update_fields():
     drtp1 = DryRunTransactionParams(
         sender="sender", lease="123", amt=456, global_schema=StateSchema(1, 2)
     )
 
     with pytest.raises(AssertionError, match=r".*can't update.*str."):
-        drtp1.update("I'm not the wrong type")  # type: ignore
+        drtp1.update_fields("I'm not the wrong type")  # type: ignore
 
     drtp2 = DryRunTransactionParams(
         sender=None, lease="789", amt=None, local_schema=StateSchema(4, 5)
     )
 
-    drtp1.update(drtp2)
+    drtp1.update_fields(drtp2)
 
     # drpt2 is unchanged:
     assert drtp2.sender is None
