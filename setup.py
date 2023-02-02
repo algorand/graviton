@@ -12,7 +12,7 @@ setup(
     author="Algorand",
     author_email="pypiservice@algorand.com",
     python_requires=">=3.9",
-    install_requires=["py-algorand-sdk>=2.0.0", "tabulate==0.9.0"],
+    install_requires=["py-algorand-sdk>=2.0.0,<3.0.0", "tabulate==0.9.0"],
     extras_require={
         "development": [
             "black==22.10.0",
