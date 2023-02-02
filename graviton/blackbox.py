@@ -302,7 +302,12 @@ class DryRunTransactionParams:
         return {k: v for k, v in d.items() if v is not None}
 
     def update(self, other: "DryRunTransactionParams") -> None:
-        for k, v in vars(other).items():
+        assert isinstance(
+            other, DryRunTransactionParams
+        ), f"can't update {type(self)} using {type(other)}"
+
+        # NOTE: confusingly, we're using `dataclasses.dict` here so as to not drop any any fields
+        for k, v in asdict(other).items():
             if v is not None:
                 setattr(self, k, v)
 
