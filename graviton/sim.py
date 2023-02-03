@@ -23,7 +23,10 @@ class SimulationResults:
 
 class Simulation:
     """
+    Simulation ~ (Teal logic for execution) + (predicates that must be satisfied)
+
     TODO: Slated to become the hypothesis plugin receptor.
+    TODO: Add some real comments (cf. Issue #51)
     """
 
     def __init__(
@@ -68,6 +71,11 @@ class Simulation:
         verbose: bool = False,
         msg: str = "",
     ) -> SimulationResults:
+        """
+        run_and_assert: simulation + InputStrategy → SUCCESS or FAILURE
+
+        TODO: Add some real comments (cf. Issue #51)
+        """
         assert inputs, "must provide actual inputs to run against!"
 
         T = TypeVar("T")
@@ -80,7 +88,7 @@ class Simulation:
         inputs_iter: Iterable[PyTypes]
         if isinstance(inputs, ABICallStrategy):
             method = m.name if (m := self.simulate_dre.method) else None
-            inputs_iter = inputs.generate(method)
+            inputs_iter = inputs.generate_inputs(method)
         else:
             inputs_iter = cast(Iterable[Sequence[PyTypes]], inputs)
 

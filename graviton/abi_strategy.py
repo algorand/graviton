@@ -250,7 +250,7 @@ class ABICallStrategy:
         abi_args_mod (optional) - when desiring to mutate the args, provide an ABIArgsMod value
         """
         self.contract: abi.Contract = abi.Contract.from_json(contract)
-        self.argument_strategy: Optional[Type[ABIStrategy]] = argument_strategy
+        self.argument_strategy: Type[ABIStrategy] = argument_strategy
         self.num_dryruns = num_dryruns
         self.handle_selector = handle_selector
         self.abi_args_mod = abi_args_mod
@@ -284,7 +284,7 @@ class ABICallStrategy:
     def num_args(self, method: Optional[str]) -> int:
         return len(self.argument_types(method))
 
-    def generate(self, method: Optional[str]) -> List[Sequence[PyTypes]]:
+    def generate_inputs(self, method: Optional[str]) -> List[Sequence[PyTypes]]:
         """
         Generates inputs appropriate for bare app calls and method calls
         according to available argument_strategy.
@@ -348,17 +348,18 @@ class ABICallStrategy:
                 return args if not args else tuple(args[:-1])
 
             assert action == ABIArgsMod.parameter_append
-            return args + (self.get(self.append_args_type),)
+            return args + (self.generate_value(self.append_args_type),)
 
         def gen_args():
             # TODO: when incorporating hypothesis strategies, we'll need a more holistic
             # approach that looks at relationships amongst various args
             args = tuple(
-                selector_mod(prefix) + [self.get(atype) for atype in arg_types]
+                selector_mod(prefix)
+                + [self.generate_value(atype) for atype in arg_types]
             )
             return args_mod(args)
 
         return [gen_args() for _ in range(self.num_dryruns)]
 
-    def get(self, gen_type: abi.ABIType) -> PyTypes:
+    def generate_value(self, gen_type: abi.ABIType) -> PyTypes:
         return cast(Type[ABIStrategy], self.argument_strategy)(gen_type).get()
