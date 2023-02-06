@@ -207,14 +207,37 @@ class RandomABIStrategyHalfSized(RandomABIStrategy):
 
 
 class ABIArgsMod(Enum):
+    # insert a random byte into selector:
     selector_byte_insert = auto()
+    # delete a byte at a random position from the selector:
     selector_byte_delete = auto()
+    # replace a random byte in the selector:
     selector_byte_replace = auto()
+    # delete a random argument:
     parameter_delete = auto()
+    # insert a random argument:
     parameter_append = auto()
 
 
-class ABICallStrategy:
+class CallStrategy(ABC):
+    def __init__(
+        self,
+        argument_strategy: Type[ABIStrategy] = RandomABIStrategy,
+        *,
+        num_dryruns: int = 1,
+    ):
+        self.argument_strategy: Type[ABIStrategy] = argument_strategy
+        self.num_dryruns: int = num_dryruns
+
+    def generate_value(self, gen_type: abi.ABIType) -> PyTypes:
+        return cast(Type[ABIStrategy], self.argument_strategy)(gen_type).get()
+
+    @abstractmethod
+    def generate_inputs(self, method: Optional[str] = None) -> List[Sequence[PyTypes]]:
+        pass
+
+
+class ABICallStrategy(CallStrategy):
     """
     TODO: refactor to comport with ABIStrategy + Hypothesis
     TODO: make this generic on the strategy type
@@ -249,9 +272,8 @@ class ABICallStrategy:
 
         abi_args_mod (optional) - when desiring to mutate the args, provide an ABIArgsMod value
         """
+        super().__init__(argument_strategy, num_dryruns=num_dryruns)
         self.contract: abi.Contract = abi.Contract.from_json(contract)
-        self.argument_strategy: Type[ABIStrategy] = argument_strategy
-        self.num_dryruns = num_dryruns
         self.handle_selector = handle_selector
         self.abi_args_mod = abi_args_mod
 
@@ -284,7 +306,7 @@ class ABICallStrategy:
     def num_args(self, method: Optional[str]) -> int:
         return len(self.argument_types(method))
 
-    def generate_inputs(self, method: Optional[str]) -> List[Sequence[PyTypes]]:
+    def generate_inputs(self, method: Optional[str] = None) -> List[Sequence[PyTypes]]:
         """
         Generates inputs appropriate for bare app calls and method calls
         according to available argument_strategy.
@@ -361,5 +383,42 @@ class ABICallStrategy:
 
         return [gen_args() for _ in range(self.num_dryruns)]
 
-    def generate_value(self, gen_type: abi.ABIType) -> PyTypes:
-        return cast(Type[ABIStrategy], self.argument_strategy)(gen_type).get()
+
+class RandomArgLengthCallStrategy(CallStrategy):
+    """
+    Generate a random number or arguments using the single
+    argument_strategy provided.
+    """
+
+    def __init__(
+        self,
+        argument_strategy: Type[ABIStrategy],
+        max_args: int,
+        *,
+        num_dryruns: int = 1,
+        min_args: int = 0,
+        type_for_args: abi.ABIType = abi.ABIType.from_string("byte[8]"),
+    ):
+        super().__init__(argument_strategy, num_dryruns=num_dryruns)
+        self.max_args: int = max_args
+        self.min_args: int = min_args
+        self.type_for_args: abi.ABIType = type_for_args
+
+    def generate_inputs(self, method: Optional[str] = None) -> List[Sequence[PyTypes]]:
+        assert (
+            method is None
+        ), f"actual non-None method={method} not supported for RandomArgLengthCallStrategy"
+        assert (
+            self.argument_strategy
+        ), "cannot generate inputs without an argument_strategy"
+
+        def gen_args():
+            num_args = random.randint(self.min_args, self.max_args)
+            abi_args = [
+                self.generate_value(self.type_for_args) for _ in range(num_args)
+            ]
+            # because cannot provide a method signature to include the arg types,
+            # we need to convert back to raw bytes
+            return tuple(bytes(arg) for arg in abi_args)
+
+        return [gen_args() for _ in range(self.num_dryruns)]
