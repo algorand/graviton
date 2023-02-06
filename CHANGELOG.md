@@ -5,7 +5,7 @@
 
 ### Bugs fixed
 
-`go-algorand` PR # ??? has changed the way errors are handled during dry which broke the methods `error()` and `error_message()` of `DryRunInspector`.  This is fixed in [#49](https://github.com/algorand/graviton/pull/49)
+Changes in `go-algorand`'s handling of dry run errors broke the methods `error()` and `error_message()` of `DryRunInspector`.  This is fixed in [#49](https://github.com/algorand/graviton/pull/49)
 
 ### Breaking changes
 
