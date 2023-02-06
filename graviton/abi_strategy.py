@@ -339,6 +339,10 @@ class ABICallStrategy(CallStrategy):
             modify_selector = True
 
         def selector_mod(prefix):
+            """
+            modifies the selector by mutating a random byte (when modify_selector == True)
+            ^^^
+            """
             assert isinstance(prefix, list) and len(prefix) <= 1
             if not (prefix and modify_selector):
                 return prefix
@@ -363,6 +367,10 @@ class ABICallStrategy(CallStrategy):
             return [selector]
 
         def args_mod(args):
+            """
+            modifies the args by appending or deleting a random value (for appropriate `action`)
+            ^^^
+            """
             if action not in (ABIArgsMod.parameter_append, ABIArgsMod.parameter_delete):
                 return args
 
