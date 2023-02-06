@@ -308,9 +308,8 @@ EXPECTED_ERR_PATTERN = r"""
     err\ opcode                                 # pyteal generated err's ok
 |   assert\ failed\ pc=                         # pyteal generated assert's ok
 |   invalid\ ApplicationArgs\ index             # failing because an app arg wasn't provided
-|   extract\ range\ beyond\ length\ of\ string  # failing because couldn't extract when omitted final arg or jammed in tuple
+|   extraction\ end\ 16\ is\ beyond\ length     # failing because couldn't extract when omitted final arg or jammed in tuple
 """
-
 
 NEGATIVE_INVARIANTS = {
     DRProp.rejected: True,
