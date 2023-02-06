@@ -5,11 +5,11 @@
 
 ### Breaking changes
 
-* `class ABIContractExecutor` renamed to `ABICallStrategy` and moved from `graviton/blackbox.py` to `graviton/abi_strategy.py`. Some of the methods have been renamed as well.
+* `class ABIContractExecutor` renamed to `ABICallStrategy` and moved from `graviton/blackbox.py` to `graviton/abi_strategy.py`. Some of the methods have been renamed as well ([#49](https://github.com/algorand/graviton/pull/49))
 
 ### Added
-* `class Simulation` in `graviton/sim.py` unifies the ability to run an argument strategy and check that invariants hold using its `run_and_assert()` method
-* `class DryRunTransactionParameters` has a new method `update_fields()`
+* `class Simulation` in `graviton/sim.py` unifies the ability to run an argument strategy and check that invariants hold using its `run_and_assert()` method ([#49](https://github.com/algorand/graviton/pull/49))
+* `class DryRunTransactionParameters` has a new method `update_fields()` ([#49](https://github.com/algorand/graviton/pull/49))
 
 ## `v0.8.0` (_aka_ 🦛)
 
