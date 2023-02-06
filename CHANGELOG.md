@@ -3,6 +3,10 @@
 
 ## `v0.9.0` (_aka_ 🐐)
 
+### Bugs fixed
+
+`go-algorand` PR # ??? has changed the way errors are handled during dry which broke the methods `error()` and `error_message` of `DryRunInspector`.  This is fixed in [#49](https://github.com/algorand/graviton/pull/49)
+
 ### Breaking changes
 
 * `class ABIContractExecutor` renamed to `ABICallStrategy` and moved from `graviton/blackbox.py` to `graviton/abi_strategy.py`. Some of the methods have been renamed as well ([#49](https://github.com/algorand/graviton/pull/49))
