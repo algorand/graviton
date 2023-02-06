@@ -47,9 +47,13 @@ all-tests: lint unit-test integration-test notebooks-test
 algod-start:
 	docker compose up -d algod --wait
 
+algod-version:
+	docker compose exec algod goal --version
+
+algod-start-report: algod-start algod-version
+
 algod-stop:
 	docker compose stop algod
-
 
 ###### Local Only ######
 

@@ -1,3 +1,4 @@
+from copy import copy
 import string
 from typing import Any, Dict, List
 
@@ -298,15 +299,36 @@ class DryRunHelper:
                     continue
                 try:
                     ptype = "app"
-                    trace = txn_res["app-call-trace"]
+                    trace = copy(txn_res["app-call-trace"])
+                    # TODO: going forward, probly only need to check the below, not the above
+                    if (key := "app-call-messages") in txn_res:
+                        trace += txn_res[key]
                 except KeyError:
                     try:
                         ptype = "logic"
-                        trace = txn_res["logic-sig-trace"]
+                        trace = copy(txn_res["logic-sig-trace"])
+                        # TODO: further vetting reguired:
+                        if (key := "logic-sig-messages") in txn_res:
+                            trace += txn_res[key]
                     except KeyError:
                         continue
 
-                for item in trace:
+                for tr_idx, item in enumerate(trace):
                     if "error" in item:
-                        error = f"{ptype} {idx} failed at line {item['line']}: {item['error']}"
+                        if isinstance(item, dict):
+                            error = f"{ptype} {idx} failed at line {item['line']}: {item['error']}"
+                        else:
+                            assert isinstance(
+                                item, str
+                            ), f"unexpected type {type(item)} - DryRun seems to be a moving target!!!! 06Feb2023"
+                            err_msg: str = item
+                            while isinstance(item, str) and tr_idx > 0:
+                                tr_idx -= 1
+                                item = trace[tr_idx]
+
+                            assert isinstance(
+                                item, dict
+                            ), f"unexpected type {type(item)} at {tr_idx=} when back-tracking- DryRun seems to be a moving target!!!! 06Feb2023"
+
+                            error = f"{ptype} {idx} failed at line {item['line']}: {err_msg}"
                         return error

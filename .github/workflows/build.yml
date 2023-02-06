@@ -46,7 +46,7 @@ jobs:
           echo $installed
           [[ $installed =~ "Python ${expected}" ]] && echo "Configured Python" || (echo "Failed to configure Python" && exit 1)
       - name: Start algod
-        run: make algod-start
+        run: make algod-start-report
       - name: Setup integration test environment
         run: make pip-development unit-test
       - name: Setup Jupyter notebooks environment

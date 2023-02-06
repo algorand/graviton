@@ -51,7 +51,7 @@ def get_kind(predicate: InvariantType) -> PredicateKind:
         raise Exception(f"callable predicate {predicate} must have a signature") from e
 
     N = len(sig.parameters)
-    assert N in (1, 2), f"predicate has the wrong number of paramters {N}"
+    assert N in (1, 2), f"predicate has the wrong number of parameters {N}"
 
     if N == 2:
         # range match invariant of type Callable[[Tuple[PyTypes, ...], PyTypes], bool]

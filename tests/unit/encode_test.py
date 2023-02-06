@@ -1,12 +1,19 @@
 import pytest
+from typing import Optional
 from unittest.mock import Mock
 
-from algosdk.abi import TupleType, BoolType, UintType, ArrayDynamicType
-from algosdk.error import ABIEncodingError
-from algosdk.v2client.algod import AlgodClient
+from json.decoder import JSONDecodeError
 
-from graviton.blackbox import DryRunEncoder, DryRunExecutor
-from graviton.models import ExecutionMode
+from algosdk.abi import ArrayDynamicType, BoolType, Contract, TupleType, UintType
+
+from graviton.blackbox import DryRunEncoder
+
+from graviton.abi_strategy import (
+    ABIArgsMod,
+    ABICallStrategy,
+    RandomABIStrategy,
+    RandomABIStrategyHalfSized,
+)
 
 
 def test_encode_arg():
@@ -83,181 +90,92 @@ def test_encode_abi():
     )
 
 
-NONSENSE = "not a valid signature"
+def test_ABICallStrategy_init():
+    contract = "very bad contract"
+    argument_strategy = RandomABIStrategyHalfSized
+    num_dryruns = Mock(int)
+    handle_selector = Mock(bool)
+    abi_args_mod: Optional[ABIArgsMod] = None
 
-
-@pytest.mark.parametrize("mode", ExecutionMode)
-@pytest.mark.parametrize(
-    "abi_method_signature",
-    [None, "zero()void", "one(uint64)void", "oneOne(uint64)bool", NONSENSE],
-)
-@pytest.mark.parametrize("omit_method_selector", [False, True])
-@pytest.mark.parametrize("validation", [False, True])
-def test_executor_init(mode, abi_method_signature, omit_method_selector, validation):
-    if abi_method_signature == NONSENSE:
-        with pytest.raises(ABIEncodingError) as abiee:
-            DryRunExecutor(
-                algod := Mock(AlgodClient),
-                mode,
-                teal := "fake teal",
-                abi_method_signature=abi_method_signature,
-                omit_method_selector=omit_method_selector,
-                validation=validation,
-            )
-
-        assert (
-            f"ABI method string has mismatched parentheses: {abi_method_signature}"
-            == str(abiee.value)
+    # fail as the contract is garbage
+    with pytest.raises(JSONDecodeError):
+        ABICallStrategy(
+            contract,
+            argument_strategy,
+            num_dryruns=num_dryruns,
+            handle_selector=handle_selector,
+            abi_args_mod=abi_args_mod,
         )
-        return None
 
-    sigless = abi_method_signature is None
-    void = (not sigless) and abi_method_signature.endswith("void")
-    dre = DryRunExecutor(
-        algod := Mock(AlgodClient),
-        mode,
-        teal := "fake teal",
-        abi_method_signature=abi_method_signature,
-        omit_method_selector=omit_method_selector,
-        validation=validation,
+    # ok, let's give a real contract
+    contract = '{"name":"ExampleContract","desc":"This is an example contract","networks":{"wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=":{"appID":1234},"SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=":{"appID":5678}},"methods":[{"name":"add","args":[{"type":"uint32"},{"type":"uint32"}],"returns":{"type":"uint32"}}]}'
+    amcs = ABICallStrategy(
+        contract,
+        argument_strategy,
+        num_dryruns=num_dryruns,
+        handle_selector=handle_selector,
+        abi_args_mod=abi_args_mod,
     )
 
-    # simple WYSIWYG members:
-    assert dre.algod == algod
-    assert dre.mode == mode
-    assert dre.program == teal
-    assert dre.abi_method_signature == abi_method_signature
-    assert dre.omit_method_selector == omit_method_selector
-    assert dre.validation == validation
-
-    assert dre.is_app == (mode == ExecutionMode.Application)
-
-    # assert nullity first:
-    assert (dre.abi_argument_types is None) == sigless
-    assert (dre.abi_return_type is None) == sigless or void
-    assert (dre.method is None) == sigless
-    assert (dre.selector is None) == sigless
-
-    # deeper assertions:
-    if not sigless:
-        assert dre.abi_argument_types == [a.type for a in dre.method.args]  # type: ignore
-        if not void:
-            assert dre.abi_return_type == dre.method.returns.type  # type: ignore
-        assert dre.method.get_signature() == abi_method_signature  # type: ignore
-        assert dre.selector == dre.method.get_selector()  # type: ignore
-
-    return dre
-
-
-@pytest.mark.parametrize("mode", ExecutionMode)
-@pytest.mark.parametrize(
-    "abi_method_signature",
-    [None, "zero()void", "one(uint64)void", "oneOne(uint64)bool"],
-)
-@pytest.mark.parametrize("omit_method_selector", [False, True])
-@pytest.mark.parametrize("validation", [False, True])
-@pytest.mark.parametrize(
-    "args", [tuple(), ("one",), (2,), ("three", 3), tuple([20] * 20)]
-)  # _run
-def test_executor_prep(
-    mode, abi_method_signature, omit_method_selector, validation, args
-):
-    dre = test_executor_init(
-        mode, abi_method_signature, omit_method_selector, validation
+    assert (
+        isinstance(amcs.contract, Contract)
+        and "add" == amcs.contract.dictify()["methods"][0]["name"]
     )
-    assert dre
+    assert amcs.argument_strategy is argument_strategy
+    assert amcs.num_dryruns == num_dryruns
+    assert amcs.handle_selector is handle_selector
+    assert amcs.abi_args_mod is abi_args_mod
 
-    args_below_max_num = len(args) <= 16
-    aats_out_is_none = dre.abi_argument_types is None
+    # what about defaults?
+    amcs = ABICallStrategy(
+        contract,
+    )
+    assert (
+        isinstance(amcs.contract, Contract)
+        and "add" == amcs.contract.dictify()["methods"][0]["name"]
+    )
+    assert amcs.argument_strategy is RandomABIStrategy
+    assert amcs.num_dryruns == 1
+    assert amcs.handle_selector is True
+    assert amcs.abi_args_mod is None
 
-    if aats_out_is_none:
-        assert dre.method is None
-        assert dre.selector is None
-        assert dre.abi_method_signature is None  # so will skip _abi_adapter() call
-        assert dre.abi_argument_types is None  # so will encode args without
 
-        if not args_below_max_num:
-            with pytest.raises(AssertionError) as ae:
-                dre._executor_prep(args)
+def test_ABIMethoCallStrategy_method_etc():
+    contract = '{"name":"ExampleContract","desc":"This is an example contract","networks":{"wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=":{"appID":1234},"SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=":{"appID":5678}},"methods":[{"name":"add","args":[{"type":"uint32"},{"type":"uint32"}],"returns":{"type":"uint32"}}]}'
+    argument_strategy = RandomABIStrategyHalfSized
+    num_dryruns = Mock(int)
+    handle_selector = Mock(bool)
+    abi_args_mod: Optional[ABIArgsMod] = None
 
-            assert (
-                "for non-ABI app calls, there is no specification for encoding more than"
-                in str(ae.value)
-            )
-            return
+    amcs = ABICallStrategy(
+        contract,
+        argument_strategy,
+        num_dryruns=num_dryruns,
+        handle_selector=handle_selector,
+        abi_args_mod=abi_args_mod,
+    )
 
-        encoded_args = DryRunEncoder.encode_args(args)
-        args_out, encoded_args_out = dre._executor_prep(args)
-        assert args_out == args
-        assert encoded_args_out == encoded_args
-        return
+    # but we'll fail because the method is garbage so doesn't exist in the contract
+    method = "doesn't exist"
+    with pytest.raises(KeyError) as ke:
+        amcs.abi_method(method)
+    assert f"found 0 methods for {method}" in str(ke.value)
 
-    assert dre.method
-    assert dre.selector
-    assert dre.abi_method_signature
-    assert isinstance(dre.abi_argument_types, list)
+    # finally pass with an actual contract method:
+    method = "add"
+    abi_method = amcs.abi_method(method)
+    assert abi_method.name == method
 
-    argnum_same = len(args) == len(dre.abi_argument_types)
-    argnum_one_more = len(args) == len(dre.abi_argument_types) + 1
-    arg0_is_selector = args and args[0] == dre.selector
+    # bare app call:
+    with pytest.raises(AssertionError) as ae:
+        amcs.abi_method(None)
+    assert "cannot get abi.Method for bare app call" == str(ae.value)
 
-    if validation:
-        if argnum_one_more:
-            if not arg0_is_selector:
-                with pytest.raises(AssertionError) as ae:
-                    dre._executor_prep(args)
+    with pytest.raises(AssertionError) as ae:
+        amcs.method_selector(None)
+    assert "cannot get method_selector for bare app call" == str(ae.value)
 
-                assert "should have been the selector" in str(ae.value)
-                return
-
-        if not (argnum_same or argnum_one_more):
-            with pytest.raises(AssertionError) as ae:
-                dre._executor_prep(args)
-
-            assert "is incompatible with" in str(ae.value)
-            return
-
-        try:
-            prefix = tuple() if omit_method_selector else ("blah",)
-            type_prefix = [] if omit_method_selector else [None]
-            encoded_args = DryRunEncoder.encode_args(
-                prefix + args,
-                type_prefix + dre.abi_argument_types,
-                validation=validation,
-            )
-        except AssertionError as encode_args_ae:
-            with pytest.raises(AssertionError) as ae:
-                dre._executor_prep(args)
-            assert "problem encoding arg" in str(encode_args_ae)
-            assert str(ae.value) == str(encode_args_ae)
-            return
-
-        args_out, encoded_args_out = dre._executor_prep(args)
-        argslen = len(args)
-        aolen = len(args_out)
-        arg_range = slice(aolen - argslen, aolen)
-        assert args_out[arg_range] == args
-        assert len(encoded_args_out) == len(encoded_args)
-        assert encoded_args_out[arg_range] == encoded_args[arg_range]
-        return
-
-    assert validation is False
-    assert aats_out_is_none is False, "already considered this"
-
-    start_from: int = 1 - int(omit_method_selector)
-    try:
-        encoded_args = DryRunEncoder.encode_args(
-            args[start_from:],
-            dre.abi_argument_types[start_from:],
-            validation=validation,
-        )
-    except AssertionError as encode_args_ae:
-        with pytest.raises(AssertionError) as ae:
-            dre._executor_prep(args)
-        assert "problem encoding arg" in str(encode_args_ae)
-        assert "problem encoding arg" in str(ae)
-        return
-
-    args_out, encoded_args_out = dre._executor_prep(args)
-    assert args_out[start_from:] == args[start_from:]
-    assert encoded_args_out[start_from:] == encoded_args
+    # falsey:
+    assert not amcs.method_signature(None)
+    assert not amcs.argument_types(None)
+    assert not amcs.num_args(None)

@@ -5,14 +5,17 @@ with open("README.md", "r") as fh:
 
 setup(
     name="graviton",
-    version="0.8.0",
+    version="0.9.0",
     url="https://github.com/algorand/graviton",
     description="verify your TEAL program by experiment and observation",
     long_description=long_description,
     author="Algorand",
     author_email="pypiservice@algorand.com",
     python_requires=">=3.9",
-    install_requires=["py-algorand-sdk>=2.0.0", "tabulate==0.9.0"],
+    install_requires=[
+        "py-algorand-sdk>=2.0.0,<3.0.0",
+        "tabulate==0.9.0",
+    ],
     extras_require={
         "development": [
             "black==22.10.0",

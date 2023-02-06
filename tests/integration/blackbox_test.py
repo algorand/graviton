@@ -520,7 +520,8 @@ def test_app_itxn_with_report():
             DRProp.rejected: True,
             DRProp.error: True,
             DRProp.errorMessage: (
-                lambda _, actual: "app 0 failed at line 11: overspend" in actual
+                lambda _, actual: "app 0 failed at line 11: logic eval error: overspend"
+                in actual
             ),
         },
     }
@@ -540,9 +541,7 @@ def test_app_itxn_with_report():
 
     print(f"Saved Dry Run CSV report to {csvpath}")
 
-    for i, type_n_invariant in enumerate(invariants.items()):
-        dr_property, invariant = type_n_invariant
-
+    for i, (dr_property, invariant) in enumerate(invariants.items()):
         assert mode_has_property(
             mode, dr_property
         ), f"assert_type {dr_property} is not applicable for {mode}. Please REMOVE or MODIFY"

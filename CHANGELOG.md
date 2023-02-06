@@ -1,6 +1,19 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## `v0.9.0` (_aka_ 🐐)
+
+### Bugs fixed
+
+Changes in `go-algorand`'s handling of dry run errors broke the methods `error()` and `error_message()` of `DryRunInspector`.  This is fixed in [#49](https://github.com/algorand/graviton/pull/49)
+
+### Breaking changes
+
+* `class ABIContractExecutor` renamed to `ABICallStrategy` and moved from `graviton/blackbox.py` to `graviton/abi_strategy.py`. Some of the methods have been renamed as well ([#49](https://github.com/algorand/graviton/pull/49))
+
+### Added
+* `class Simulation` in `graviton/sim.py` unifies the ability to run an argument strategy and check that invariants hold using its `run_and_assert()` method ([#49](https://github.com/algorand/graviton/pull/49))
+* `class DryRunTransactionParameters` has a new method `update_fields()` ([#49](https://github.com/algorand/graviton/pull/49))
 
 ## `v0.8.0` (_aka_ 🦛)
 

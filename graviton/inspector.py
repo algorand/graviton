@@ -504,7 +504,7 @@ class DryRunInspector:
         """
         return self.dig(DRProp.budgetConsumed) if self.is_app() else None
 
-    def last_log(self) -> Optional[str]:
+    def last_log(self) -> Any:
         """Assertable property for the last log that was printed during dry run execution
         return type: string representing the hex bytes of the final log
         available Mode: Application only
