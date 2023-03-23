@@ -13,7 +13,7 @@ ArgType = Union[bytes, str]
 DryRunAccountType = Union[str, Account]
 Stringy = Union[str, bytes]
 PyTypes = Union[bool, int, Sequence, Stringy]
-
+TealValueish = Union[str, bytes, int]
 
 class ExecutionMode(Enum):
     Signature = auto()
