@@ -33,6 +33,7 @@ from graviton.models import (
     PyTypes,
     Stringy,
     ZERO_ADDRESS,
+    TealValueish,
 )
 
 TealAndMethodType = Union[Tuple[str], Tuple[str, str]]
@@ -222,6 +223,7 @@ class DryRunTransactionParams:
     dryrun_accounts: List[DryRunAccountType] = field(
         default_factory=list
     )  # belongs here???
+    global_state: Dict[str, TealValueish] = field(default_factory=dict)
     # future:
     box_refs: Optional[List[Tuple[int, str]]] = None
 
@@ -269,6 +271,7 @@ class DryRunTransactionParams:
         foreign_assets: Optional[List[str]] = None,
         extra_pages: Optional[int] = None,
         dryrun_accounts: List[DryRunAccountType] = [],
+        global_state: Dict[str, TealValueish] = {},
     ):
         return cls(
             sender=sender or ZERO_ADDRESS,
@@ -290,12 +293,14 @@ class DryRunTransactionParams:
             foreign_assets=foreign_assets,
             extra_pages=extra_pages,
             dryrun_accounts=dryrun_accounts,
+            global_state=global_state,
         )
 
     def asdict(self, drop_nones: bool = True) -> Dict[str, Any]:
         d = asdict(self)
         del d["dryrun_accounts"]
         del d["box_refs"]
+        del d["global_state"]
         if not drop_nones:
             return d
 
@@ -472,12 +477,14 @@ class DryRunExecutor:
             dryrun_req: DryrunRequest
             txn_params_d = txn_params.asdict() if txn_params else {}
             dr_acts = txn_params.dryrun_accounts if txn_params else []
+            global_state = txn_params.global_state if txn_params else {}
             if self.is_app:
                 dryrun_req = DryRunHelper.singleton_app_request(
                     self.program,
                     encoded_args,
                     txn_params_d,
                     dr_acts,
+                    global_state,
                 )
             else:
                 dryrun_req = DryRunHelper.singleton_logicsig_request(

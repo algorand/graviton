@@ -1,3 +1,4 @@
+from base64 import b64encode
 from copy import copy
 import string
 from typing import Any, Dict, List
@@ -11,10 +12,12 @@ from algosdk.v2client.models import (
     ApplicationParams,
     ApplicationStateSchema,
     Account,
+    TealKeyValue,
+    TealValue,
 )
 
 from graviton import models
-from graviton.models import ArgType, DryRunAccountType
+from graviton.models import ArgType, DryRunAccountType, TealValueish
 
 
 PRINTABLE = frozenset(string.printable)
@@ -63,6 +66,21 @@ def assert_no_error(drr, txn_index=None, msg=None, enforce=True):
 
     return ok, result
 
+def as_teal_value(value: TealValueish) -> TealValue:
+    if isinstance(value, int):
+        return TealValue(bytes=None, type=2, uint=value)
+    elif isinstance(value, str):
+        value = bytes(value, 'utf-8')
+        value = b64encode(value)
+        return TealValue(bytes=value, type=1, uint=None)
+    elif isinstance(value, bytes):
+        value = b64encode(value)
+        return TealValue(bytes=value, type=1, uint=None)
+    else:
+        raise TypeError("Expected int, str or bytes object")
+
+def as_teal_key(key: str) -> str:
+    return b64encode(bytes(key, 'utf-8'))
 
 class DryRunHelper:
     """Utility functions for dryrun"""
@@ -80,16 +98,19 @@ class DryRunHelper:
         args: List[ArgType],
         txn_params: Dict[str, Any],
         accounts: List[DryRunAccountType] = [],
+        global_state: Dict[str, TealValueish] = {},
     ):
         creator = txn_params.get("sender")
         app_idx = txn_params.get("index")
         on_complete = txn_params.get("on_complete")
+        global_state_list = [TealKeyValue(as_teal_key(key), as_teal_value(value)) for key, value in global_state.items()]
         app = models.App.factory(
             creator=creator,
             app_idx=app_idx,
             on_complete=on_complete,
             args=args,
             accounts=accounts,
+            global_state=global_state_list,
         )
         return cls.dryrun_request(program, app, txn_params)
 
